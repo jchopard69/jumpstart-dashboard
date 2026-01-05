@@ -54,7 +54,6 @@ export const linkedinConnector: Connector = {
       'LinkedIn-Version': '202401',
     };
 
-    const today = new Date().toISOString().slice(0, 10);
     let followers = 0;
 
     // Try to get follower statistics for organization pages
@@ -72,17 +71,28 @@ export const linkedinConnector: Connector = {
       console.log('[linkedin] Could not fetch follower stats (may be personal profile)');
     }
 
-    // Create daily metrics
-    const dailyMetrics: DailyMetric[] = [{
-      date: today,
-      followers,
-      impressions: 0,
-      reach: 0,
-      engagements: 0,
-      posts_count: 0,
-    }];
+    // Initialize daily metrics map for last 30 days
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 29);
 
-    // Try to fetch recent posts/shares
+    const dailyMap = new Map<string, DailyMetric>();
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const date = d.toISOString().slice(0, 10);
+      dailyMap.set(date, {
+        date,
+        followers,
+        impressions: 0,
+        reach: 0,
+        engagements: 0,
+        posts_count: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+      });
+    }
+
+    // Fetch recent posts and aggregate metrics by date
     const posts: PostMetric[] = [];
 
     try {
@@ -98,12 +108,31 @@ export const linkedinConnector: Connector = {
         for (const post of sharesResponse.elements) {
           const content = post.specificContent?.['com.linkedin.ugc.ShareContent'];
           const stats = post.socialDetail?.totalShareStatistics;
+          const postedAt = post.created?.time
+            ? new Date(post.created.time).toISOString()
+            : new Date().toISOString();
+
+          // Aggregate metrics into daily totals
+          const dateKey = postedAt.slice(0, 10);
+          const dailyMetric = dailyMap.get(dateKey);
+          if (dailyMetric) {
+            const likes = stats?.likeCount ?? 0;
+            const comments = stats?.commentCount ?? 0;
+            const shares = stats?.shareCount ?? 0;
+            const impressions = stats?.impressionCount ?? 0;
+
+            dailyMetric.posts_count = (dailyMetric.posts_count ?? 0) + 1;
+            dailyMetric.impressions = (dailyMetric.impressions ?? 0) + impressions;
+            dailyMetric.reach = (dailyMetric.reach ?? 0) + impressions; // LinkedIn doesn't separate reach, use impressions
+            dailyMetric.engagements = (dailyMetric.engagements ?? 0) + likes + comments + shares;
+            dailyMetric.likes = (dailyMetric.likes ?? 0) + likes;
+            dailyMetric.comments = (dailyMetric.comments ?? 0) + comments;
+            dailyMetric.shares = (dailyMetric.shares ?? 0) + shares;
+          }
 
           posts.push({
             external_post_id: post.id,
-            posted_at: post.created?.time
-              ? new Date(post.created.time).toISOString()
-              : new Date().toISOString(),
+            posted_at: postedAt,
             caption: content?.shareCommentary?.text?.slice(0, 500),
             media_type: content?.media?.[0] ? 'image' : 'text',
             thumbnail_url: content?.media?.[0]?.thumbnails?.[0]?.url,
@@ -121,6 +150,10 @@ export const linkedinConnector: Connector = {
     } catch (error) {
       console.log('[linkedin] Could not fetch posts:', error);
     }
+
+    // Convert map to array and sort by date
+    const dailyMetrics = Array.from(dailyMap.values());
+    dailyMetrics.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
 
     return { dailyMetrics, posts };
   },
