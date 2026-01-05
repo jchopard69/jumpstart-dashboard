@@ -6,7 +6,8 @@ import type { SocialAccount } from "@/lib/social-platforms/core/types";
 
 async function upsertSocialAccount(
   tenantId: string,
-  account: SocialAccount
+  account: SocialAccount,
+  status: "active" | "pending" = "active"
 ): Promise<void> {
   const supabase = createSupabaseServiceClient();
   const secret = process.env.ENCRYPTION_SECRET;
@@ -25,7 +26,7 @@ async function upsertSocialAccount(
     platform: account.platform,
     account_name: account.accountName,
     external_account_id: account.platformUserId,
-    auth_status: "active" as const,
+    auth_status: status,
     token_encrypted: tokenEncrypted,
     refresh_token_encrypted: refreshTokenEncrypted,
     token_expires_at: account.tokenExpiresAt?.toISOString() ?? null,
@@ -97,7 +98,7 @@ export async function GET(request: Request) {
     let orgCount = 0;
 
     for (const account of result.accounts) {
-      await upsertSocialAccount(tenantId, account);
+      await upsertSocialAccount(tenantId, account, "pending");
 
       const metadata = account.metadata as { accountType?: string } | undefined;
       if (metadata?.accountType === 'organization') {
@@ -109,7 +110,7 @@ export async function GET(request: Request) {
       organizations: orgCount,
     });
 
-    const redirectUrl = new URL(`/admin/clients/${tenantId}`, request.url);
+    const redirectUrl = new URL(`/admin/clients/${tenantId}/linkedin/select`, request.url);
     redirectUrl.searchParams.set("linkedin_success", "true");
     redirectUrl.searchParams.set("linkedin_accounts", String(result.accounts.length));
 

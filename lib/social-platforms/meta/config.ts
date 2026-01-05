@@ -59,9 +59,8 @@ export const META_CONFIG = {
   // Fields for Facebook page insights
   facebookInsightMetrics: [
     'page_impressions',
+    'page_impressions_unique',
     'page_engaged_users',
-    'page_fan_adds_unique',
-    'page_fans',
   ],
 };
 

@@ -146,8 +146,13 @@ export const instagramConnector: Connector = {
     }
 
     // Insights range (Meta IG API supports 30-day windows)
-    const since = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
-    const until = Math.floor(Date.now() / 1000);
+    const end = new Date();
+    end.setUTCHours(23, 59, 59, 999);
+    const start = new Date(end);
+    start.setUTCDate(end.getUTCDate() - 29);
+    start.setUTCHours(0, 0, 0, 0);
+    const since = Math.floor(start.getTime() / 1000);
+    const until = Math.floor(end.getTime() / 1000);
 
     // Fetch account info
     const accountInfoUrl = buildUrl(`${GRAPH_URL}/${externalAccountId}`, {
@@ -259,7 +264,8 @@ export const instagramConnector: Connector = {
             "instagram",
             insightsUrl,
             {},
-            "media_views"
+            "media_views",
+            true  // silentErrors - don't log expected 400s when trying different metrics
           );
           const value = response.data?.[0]?.values?.[0]?.value;
           if (typeof value === "number") {

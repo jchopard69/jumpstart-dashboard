@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { decryptToken } from "@/lib/crypto";
 import { fetchInstagramMediaBackfill, fetchInstagramReachSeries, fetchInstagramTotalValueSnapshot, buildInstagramDailyMetrics } from "@/lib/social-platforms/meta/backfill";
+import { fetchLinkedInDailyStats, fetchLinkedInPostsBackfill } from "@/lib/social-platforms/linkedin/backfill";
 import { apiRequest, buildUrl } from "@/lib/social-platforms/core/api-client";
 import { META_CONFIG } from "@/lib/social-platforms/meta/config";
 
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
   const results: Array<{ id: string; platform: string; status: string; message?: string }> = [];
 
   for (const account of filtered) {
-    if (account.platform !== "instagram") {
+    if (account.platform !== "instagram" && account.platform !== "linkedin") {
       results.push({ id: account.id, platform: account.platform, status: "skipped" });
       continue;
     }
@@ -78,6 +79,74 @@ export async function POST(request: Request) {
       const accessToken = account.token_encrypted ? decryptToken(account.token_encrypted, secret) : "";
       if (!accessToken) {
         throw new Error("Access token missing");
+      }
+
+      if (account.platform === "linkedin") {
+        const [dailyMetrics, posts] = await Promise.all([
+          fetchLinkedInDailyStats({
+            externalAccountId: account.external_account_id,
+            accessToken,
+            since: sinceDate,
+            until: new Date()
+          }),
+          fetchLinkedInPostsBackfill({
+            externalAccountId: account.external_account_id,
+            accessToken,
+            since: sinceDate
+          })
+        ]);
+
+        if (posts.length) {
+          await supabase.from("social_posts").upsert(
+            posts.map((post) => ({
+              tenant_id: account.tenant_id,
+              platform: account.platform,
+              social_account_id: account.id,
+              external_post_id: post.external_post_id,
+              posted_at: post.posted_at,
+              url: post.url,
+              caption: post.caption,
+              media_type: post.media_type,
+              thumbnail_url: post.thumbnail_url,
+              media_url: post.media_url,
+              metrics: post.metrics ?? {},
+              raw_json: post.raw_json ?? null
+            })),
+            { onConflict: "tenant_id,platform,social_account_id,external_post_id" }
+          );
+        }
+
+        if (dailyMetrics.length) {
+          await supabase.from("social_daily_metrics").upsert(
+            dailyMetrics.map((metric) => ({
+              tenant_id: account.tenant_id,
+              platform: account.platform,
+              social_account_id: account.id,
+              date: metric.date,
+              followers: metric.followers ?? 0,
+              impressions: metric.impressions ?? 0,
+              reach: metric.reach ?? 0,
+              engagements: metric.engagements ?? 0,
+              likes: metric.likes ?? 0,
+              comments: metric.comments ?? 0,
+              shares: metric.shares ?? 0,
+              saves: metric.saves ?? 0,
+              views: metric.views ?? 0,
+              watch_time: metric.watch_time ?? 0,
+              posts_count: metric.posts_count ?? 0,
+              raw_json: metric.raw_json ?? null
+            })),
+            { onConflict: "tenant_id,platform,social_account_id,date" }
+          );
+        }
+
+        results.push({
+          id: account.id,
+          platform: account.platform,
+          status: "ok",
+          message: `posts:${posts.length}, days:${dailyMetrics.length}`
+        });
+        continue;
       }
 
       const [dailyReach, posts, totalValues] = await Promise.all([

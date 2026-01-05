@@ -4,7 +4,7 @@
 
 import { LINKEDIN_CONFIG } from './config';
 import { apiRequest } from '../core/api-client';
-import type { Connector, ConnectorSyncResult } from '@/lib/connectors/types';
+import type { Connector } from '@/lib/connectors/types';
 import type { DailyMetric, PostMetric } from '../core/types';
 
 const API_URL = LINKEDIN_CONFIG.apiUrl;
@@ -69,7 +69,6 @@ export const linkedinConnector: Connector = {
       followers = (statsResponse.followerCounts?.organicFollowerCount || 0) +
                   (statsResponse.followerCounts?.paidFollowerCount || 0);
     } catch (error) {
-      // This might fail for personal profiles, which is expected
       console.log('[linkedin] Could not fetch follower stats (may be personal profile)');
     }
 
@@ -90,7 +89,7 @@ export const linkedinConnector: Connector = {
       // For organization pages
       const sharesResponse = await apiRequest<{ elements?: LinkedInPost[] }>(
         'linkedin',
-        `${API_URL}/shares?q=owners&owners=urn:li:organization:${externalAccountId}&count=10&sharesPerOwner=10`,
+        `${API_URL}/shares?q=owners&owners=urn:li:organization:${externalAccountId}&count=50&sharesPerOwner=50`,
         { headers },
         'shares'
       );

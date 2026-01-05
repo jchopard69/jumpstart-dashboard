@@ -1,11 +1,11 @@
 {
   "crons": [
     {
-      "path": "/api/cron/sync",
+      "path": "/api/cron/sync?secret=JSSStPriest2021",
       "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/cron/refresh-tokens",
+      "path": "/api/cron/refresh-tokens?secret=JSSStPriest2021",
       "schedule": "0 2 * * *"
     }
   ]

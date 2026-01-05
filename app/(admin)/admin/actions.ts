@@ -89,6 +89,38 @@ export async function deleteSocialAccount(formData: FormData) {
   revalidatePath(`/admin/clients/${tenantId}`);
 }
 
+export async function selectLinkedInAccounts(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const selectedIds = formData.getAll("account_ids").map((id) => String(id));
+  const supabase = createSupabaseServiceClient();
+
+  if (selectedIds.length) {
+    await supabase
+      .from("social_accounts")
+      .update({ auth_status: "active", last_sync_at: null })
+      .eq("tenant_id", tenantId)
+      .eq("platform", "linkedin")
+      .in("id", selectedIds);
+  }
+
+  let deleteQuery = supabase
+    .from("social_accounts")
+    .delete()
+    .eq("tenant_id", tenantId)
+    .eq("platform", "linkedin")
+    .eq("auth_status", "pending");
+
+  if (selectedIds.length) {
+    deleteQuery = deleteQuery.not("id", "in", `(${selectedIds.map((id) => `"${id}"`).join(",")})`);
+  }
+
+  await deleteQuery;
+
+  revalidatePath(`/admin/clients/${tenantId}`);
+}
+
 export async function updateCollaboration(formData: FormData) {
   const profile = await getSessionProfile();
   requireAdmin(profile);
@@ -149,8 +181,11 @@ export async function triggerTenantSync(formData: FormData) {
   if (!baseUrl) {
     throw new Error("NEXT_PUBLIC_SITE_URL is missing");
   }
-  await fetch(`${baseUrl}/api/cron/sync?secret=${process.env.CRON_SECRET}&tenantId=${tenantId}`, {
-    method: "POST"
+  await fetch(`${baseUrl}/api/cron/sync?tenantId=${tenantId}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`
+    }
   });
   revalidatePath(`/admin/clients/${tenantId}`);
 }

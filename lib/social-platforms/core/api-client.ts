@@ -52,7 +52,8 @@ export async function apiRequest<T>(
   platform: PlatformId,
   url: string,
   options: FetchOptions = {},
-  endpoint: string = 'default'
+  endpoint: string = 'default',
+  silentErrors: boolean = false
 ): Promise<T> {
   return withRateLimit(platform, endpoint, async () => {
     const startTime = Date.now();
@@ -62,7 +63,10 @@ export async function apiRequest<T>(
       const responseTime = Date.now() - startTime;
 
       // Log the request (in production, use proper logging service)
-      console.log(`[${platform}] ${options.method || 'GET'} ${endpoint} - ${response.status} (${responseTime}ms)`);
+      // Skip logging errors if silentErrors is true and status is an error
+      if (!silentErrors || response.ok) {
+        console.log(`[${platform}] ${options.method || 'GET'} ${endpoint} - ${response.status} (${responseTime}ms)`);
+      }
 
       if (!response.ok) {
         let errorBody: unknown;
