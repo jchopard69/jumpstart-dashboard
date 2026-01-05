@@ -12,7 +12,8 @@ import {
   addUpcomingShoot,
   uploadDocumentMetadata,
   triggerTenantSync,
-  deleteSocialAccount
+  deleteSocialAccount,
+  resetLinkedInData
 } from "@/app/(admin)/admin/actions";
 import { DocumentManager } from "@/components/admin/document-manager";
 import { SocialAccountsSection } from "@/components/admin/social-accounts-section";
@@ -86,10 +87,16 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
             <h2 className="section-title">Synchronisation immédiate</h2>
             <p className="text-sm text-muted-foreground">Lancer un refresh complet pour ce client.</p>
           </div>
-          <form action={triggerTenantSync}>
-            <input type="hidden" name="tenant_id" value={params.tenantId} />
-            <Button type="submit">Lancer la synchro</Button>
-          </form>
+          <div className="flex flex-wrap items-center gap-3">
+            <form action={triggerTenantSync}>
+              <input type="hidden" name="tenant_id" value={params.tenantId} />
+              <Button type="submit">Lancer la synchro</Button>
+            </form>
+            <form action={resetLinkedInData}>
+              <input type="hidden" name="tenant_id" value={params.tenantId} />
+              <Button variant="outline" type="submit">Reset LinkedIn</Button>
+            </form>
+          </div>
         </div>
       </section>
 

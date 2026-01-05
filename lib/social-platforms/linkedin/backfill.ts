@@ -49,6 +49,8 @@ type LinkedInPost = {
 
 const buildTimeIntervalList = (start: Date, end: Date) =>
   `List((timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY))`;
+const buildTimeIntervalSingle = (start: Date, end: Date) =>
+  `(timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY)`;
 
 const buildTimeIntervalBracketParams = (start: Date, end: Date) => ({
   "timeIntervals[0].timeRange.start": start.getTime(),
@@ -64,26 +66,40 @@ async function requestWithTimeIntervals<T>(
   start: Date,
   end: Date
 ) {
-  const listUrl = buildUrl(baseUrl, {
-    ...baseParams,
-    timeIntervals: buildTimeIntervalList(start, end)
-  });
+  const baseUrlWithParams = buildUrl(baseUrl, baseParams);
+  const bracketParams = buildTimeIntervalBracketParams(start, end);
+  const variants = [
+    `${baseUrlWithParams}&timeIntervals=${buildTimeIntervalList(start, end)}`,
+    `${baseUrlWithParams}&timeIntervals=${buildTimeIntervalSingle(start, end)}`,
+    buildUrl(baseUrl, {
+      ...baseParams,
+      timeIntervals: buildTimeIntervalList(start, end)
+    }),
+    buildUrl(baseUrl, {
+      ...baseParams,
+      timeIntervals: buildTimeIntervalSingle(start, end)
+    }),
+    buildUrl(baseUrl, {
+      ...baseParams,
+      "timeIntervals[0].timeRange.start": String(bracketParams["timeIntervals[0].timeRange.start"]),
+      "timeIntervals[0].timeRange.end": String(bracketParams["timeIntervals[0].timeRange.end"]),
+      "timeIntervals[0].timeGranularityType": String(bracketParams["timeIntervals[0].timeGranularityType"])
+    })
+  ];
 
-  try {
-    return await apiRequest<T>("linkedin", listUrl, { headers }, endpoint);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("timeIntervals")) {
-      const bracketParams = buildTimeIntervalBracketParams(start, end);
-      const bracketUrl = buildUrl(baseUrl, {
-        ...baseParams,
-        "timeIntervals[0].timeRange.start": String(bracketParams["timeIntervals[0].timeRange.start"]),
-        "timeIntervals[0].timeRange.end": String(bracketParams["timeIntervals[0].timeRange.end"]),
-        "timeIntervals[0].timeGranularityType": String(bracketParams["timeIntervals[0].timeGranularityType"])
-      });
-      return await apiRequest<T>("linkedin", bracketUrl, { headers }, endpoint);
+  let lastError: unknown;
+  for (const url of variants) {
+    try {
+      return await apiRequest<T>("linkedin", url, { headers }, endpoint);
+    } catch (error) {
+      lastError = error;
+      if (!(error instanceof Error && error.message.includes("timeIntervals"))) {
+        throw error;
+      }
     }
-    throw error;
   }
+
+  throw lastError;
 }
 
 const toDateKey = (timestampMs?: number) =>

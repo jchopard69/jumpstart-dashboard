@@ -189,3 +189,25 @@ export async function triggerTenantSync(formData: FormData) {
   });
   revalidatePath(`/admin/clients/${tenantId}`);
 }
+
+export async function resetLinkedInData(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const supabase = createSupabaseServiceClient();
+
+  await supabase.from("social_daily_metrics").delete().eq("tenant_id", tenantId).eq("platform", "linkedin");
+  await supabase.from("social_posts").delete().eq("tenant_id", tenantId).eq("platform", "linkedin");
+
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (baseUrl) {
+    await fetch(`${baseUrl}/api/cron/sync?tenantId=${tenantId}&platform=linkedin`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`
+      }
+    });
+  }
+
+  revalidatePath(`/admin/clients/${tenantId}`);
+}
