@@ -47,11 +47,41 @@ type LinkedInPost = {
   };
 };
 
-const buildTimeIntervalParams = (start: Date, end: Date) => ({
+const buildTimeIntervalList = (start: Date, end: Date) =>
+  `List((timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY))`;
+
+const buildTimeIntervalBracketParams = (start: Date, end: Date) => ({
   "timeIntervals[0].timeRange.start": start.getTime(),
   "timeIntervals[0].timeRange.end": end.getTime(),
   "timeIntervals[0].timeGranularityType": "DAY"
 });
+
+async function requestWithTimeIntervals<T>(
+  baseUrl: string,
+  baseParams: Record<string, string>,
+  headers: Record<string, string>,
+  endpoint: string,
+  start: Date,
+  end: Date
+) {
+  const listUrl = buildUrl(baseUrl, {
+    ...baseParams,
+    timeIntervals: buildTimeIntervalList(start, end)
+  });
+
+  try {
+    return await apiRequest<T>("linkedin", listUrl, { headers }, endpoint);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("timeIntervals")) {
+      const bracketUrl = buildUrl(baseUrl, {
+        ...baseParams,
+        ...buildTimeIntervalBracketParams(start, end)
+      });
+      return await apiRequest<T>("linkedin", bracketUrl, { headers }, endpoint);
+    }
+    throw error;
+  }
+}
 
 const toDateKey = (timestampMs?: number) =>
   timestampMs ? new Date(timestampMs).toISOString().slice(0, 10) : null;
@@ -96,20 +126,16 @@ export async function fetchLinkedInDailyStats(params: {
     windowEnd.setUTCHours(23, 59, 59, 999);
 
     try {
-      const followerUrl = buildUrl(
+      const followerStats = await requestWithTimeIntervals<LinkedInFollowerStatsResponse>(
         `${API_URL}/organizationalEntityFollowerStatistics`,
         {
           q: "organizationalEntity",
-          organizationalEntity: `urn:li:organization:${externalAccountId}`,
-          ...buildTimeIntervalParams(windowStart, windowEnd)
-        }
-      );
-
-      const followerStats = await apiRequest<LinkedInFollowerStatsResponse>(
-        "linkedin",
-        followerUrl,
-        { headers },
-        "linkedin_follower_backfill"
+          organizationalEntity: `urn:li:organization:${externalAccountId}`
+        },
+        headers,
+        "linkedin_follower_backfill",
+        windowStart,
+        windowEnd
       );
 
       for (const element of followerStats.elements ?? []) {
@@ -127,20 +153,16 @@ export async function fetchLinkedInDailyStats(params: {
     }
 
     try {
-      const shareUrl = buildUrl(
+      const shareStats = await requestWithTimeIntervals<LinkedInShareStatsResponse>(
         `${API_URL}/organizationalEntityShareStatistics`,
         {
           q: "organizationalEntity",
-          organizationalEntity: `urn:li:organization:${externalAccountId}`,
-          ...buildTimeIntervalParams(windowStart, windowEnd)
-        }
-      );
-
-      const shareStats = await apiRequest<LinkedInShareStatsResponse>(
-        "linkedin",
-        shareUrl,
-        { headers },
-        "linkedin_share_backfill"
+          organizationalEntity: `urn:li:organization:${externalAccountId}`
+        },
+        headers,
+        "linkedin_share_backfill",
+        windowStart,
+        windowEnd
       );
 
       for (const element of shareStats.elements ?? []) {
