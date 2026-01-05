@@ -89,7 +89,12 @@ export const linkedinConnector: Connector = {
         return await apiRequest<T>('linkedin', listUrl, { headers }, endpoint);
       } catch (error) {
         if (error instanceof Error && error.message.includes('timeIntervals')) {
-          const bracketUrl = `${baseUrl}&${new URLSearchParams(buildTimeIntervalBracketParams(since, now)).toString()}`;
+          const bracketParams = buildTimeIntervalBracketParams(since, now);
+          const bracketUrl = `${baseUrl}&${new URLSearchParams({
+            'timeIntervals[0].timeRange.start': String(bracketParams['timeIntervals[0].timeRange.start']),
+            'timeIntervals[0].timeRange.end': String(bracketParams['timeIntervals[0].timeRange.end']),
+            'timeIntervals[0].timeGranularityType': String(bracketParams['timeIntervals[0].timeGranularityType']),
+          }).toString()}`;
           return await apiRequest<T>('linkedin', bracketUrl, { headers }, endpoint);
         }
         throw error;

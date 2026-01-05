@@ -73,9 +73,12 @@ async function requestWithTimeIntervals<T>(
     return await apiRequest<T>("linkedin", listUrl, { headers }, endpoint);
   } catch (error) {
     if (error instanceof Error && error.message.includes("timeIntervals")) {
+      const bracketParams = buildTimeIntervalBracketParams(start, end);
       const bracketUrl = buildUrl(baseUrl, {
         ...baseParams,
-        ...buildTimeIntervalBracketParams(start, end)
+        "timeIntervals[0].timeRange.start": String(bracketParams["timeIntervals[0].timeRange.start"]),
+        "timeIntervals[0].timeRange.end": String(bracketParams["timeIntervals[0].timeRange.end"]),
+        "timeIntervals[0].timeGranularityType": String(bracketParams["timeIntervals[0].timeGranularityType"])
       });
       return await apiRequest<T>("linkedin", bracketUrl, { headers }, endpoint);
     }
