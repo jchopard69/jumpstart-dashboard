@@ -80,6 +80,10 @@ export const linkedinConnector: Connector = {
       `List((timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY))`;
     const buildTimeIntervalsSingle = (start: Date, end: Date) =>
       `(timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY)`;
+    const buildTimeIntervalsListSeconds = (start: Date, end: Date) =>
+      `List((timeRange:(start:${Math.floor(start.getTime() / 1000)},end:${Math.floor(end.getTime() / 1000)}),timeGranularityType:DAY))`;
+    const buildTimeIntervalsSingleSeconds = (start: Date, end: Date) =>
+      `(timeRange:(start:${Math.floor(start.getTime() / 1000)},end:${Math.floor(end.getTime() / 1000)}),timeGranularityType:DAY)`;
     const buildTimeIntervalBracketParams = (start: Date, end: Date) => ({
       'timeIntervals[0].timeRange.start': start.getTime(),
       'timeIntervals[0].timeRange.end': end.getTime(),
@@ -90,12 +94,26 @@ export const linkedinConnector: Connector = {
       const variants = [
         `${baseUrl}&timeIntervals=${buildTimeIntervalsList(since, now)}`,
         `${baseUrl}&timeIntervals=${buildTimeIntervalsSingle(since, now)}`,
+        `${baseUrl}&timeIntervals=${buildTimeIntervalsListSeconds(since, now)}`,
+        `${baseUrl}&timeIntervals=${buildTimeIntervalsSingleSeconds(since, now)}`,
         `${baseUrl}&timeIntervals=${encodeURIComponent(buildTimeIntervalsList(since, now))}`,
         `${baseUrl}&timeIntervals=${encodeURIComponent(buildTimeIntervalsSingle(since, now))}`,
+        `${baseUrl}&timeIntervals=${encodeURIComponent(buildTimeIntervalsListSeconds(since, now))}`,
+        `${baseUrl}&timeIntervals=${encodeURIComponent(buildTimeIntervalsSingleSeconds(since, now))}`,
         `${baseUrl}&${new URLSearchParams({
           'timeIntervals[0].timeRange.start': String(bracketParams['timeIntervals[0].timeRange.start']),
           'timeIntervals[0].timeRange.end': String(bracketParams['timeIntervals[0].timeRange.end']),
           'timeIntervals[0].timeGranularityType': String(bracketParams['timeIntervals[0].timeGranularityType']),
+        }).toString()}`,
+        `${baseUrl}&${new URLSearchParams({
+          'timeRange.start': String(Math.floor(since.getTime() / 1000)),
+          'timeRange.end': String(Math.floor(now.getTime() / 1000)),
+          timeGranularityType: 'DAY',
+        }).toString()}`,
+        `${baseUrl}&${new URLSearchParams({
+          'timeRange.start': String(since.getTime()),
+          'timeRange.end': String(now.getTime()),
+          timeGranularityType: 'DAY',
         }).toString()}`,
       ];
 

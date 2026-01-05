@@ -51,6 +51,10 @@ const buildTimeIntervalList = (start: Date, end: Date) =>
   `List((timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY))`;
 const buildTimeIntervalSingle = (start: Date, end: Date) =>
   `(timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY)`;
+const buildTimeIntervalListSeconds = (start: Date, end: Date) =>
+  `List((timeRange:(start:${Math.floor(start.getTime() / 1000)},end:${Math.floor(end.getTime() / 1000)}),timeGranularityType:DAY))`;
+const buildTimeIntervalSingleSeconds = (start: Date, end: Date) =>
+  `(timeRange:(start:${Math.floor(start.getTime() / 1000)},end:${Math.floor(end.getTime() / 1000)}),timeGranularityType:DAY)`;
 
 const buildTimeIntervalBracketParams = (start: Date, end: Date) => ({
   "timeIntervals[0].timeRange.start": start.getTime(),
@@ -71,6 +75,8 @@ async function requestWithTimeIntervals<T>(
   const variants = [
     `${baseUrlWithParams}&timeIntervals=${buildTimeIntervalList(start, end)}`,
     `${baseUrlWithParams}&timeIntervals=${buildTimeIntervalSingle(start, end)}`,
+    `${baseUrlWithParams}&timeIntervals=${buildTimeIntervalListSeconds(start, end)}`,
+    `${baseUrlWithParams}&timeIntervals=${buildTimeIntervalSingleSeconds(start, end)}`,
     buildUrl(baseUrl, {
       ...baseParams,
       timeIntervals: buildTimeIntervalList(start, end)
@@ -81,9 +87,29 @@ async function requestWithTimeIntervals<T>(
     }),
     buildUrl(baseUrl, {
       ...baseParams,
+      timeIntervals: buildTimeIntervalListSeconds(start, end)
+    }),
+    buildUrl(baseUrl, {
+      ...baseParams,
+      timeIntervals: buildTimeIntervalSingleSeconds(start, end)
+    }),
+    buildUrl(baseUrl, {
+      ...baseParams,
       "timeIntervals[0].timeRange.start": String(bracketParams["timeIntervals[0].timeRange.start"]),
       "timeIntervals[0].timeRange.end": String(bracketParams["timeIntervals[0].timeRange.end"]),
       "timeIntervals[0].timeGranularityType": String(bracketParams["timeIntervals[0].timeGranularityType"])
+    }),
+    buildUrl(baseUrl, {
+      ...baseParams,
+      "timeRange.start": String(Math.floor(start.getTime() / 1000)),
+      "timeRange.end": String(Math.floor(end.getTime() / 1000)),
+      timeGranularityType: "DAY"
+    }),
+    buildUrl(baseUrl, {
+      ...baseParams,
+      "timeRange.start": String(start.getTime()),
+      "timeRange.end": String(end.getTime()),
+      timeGranularityType: "DAY"
     })
   ];
 
