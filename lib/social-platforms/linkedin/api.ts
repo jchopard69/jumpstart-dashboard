@@ -60,8 +60,8 @@ function parseCount(value?: DmaAnalyticsValue): number {
 }
 
 function buildTimeIntervalRange(start: Date, end: Date) {
-  // DMA content analytics expects TimeIntervals; use List wrapper per rest.li conventions.
-  return `List((timeRange:(start:${start.getTime()},end:${end.getTime()})))`;
+  // DMA content analytics expects TimeIntervals (singular) for trend.
+  return `(timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY)`;
 }
 
 async function resolveOrganizationalPageId(
