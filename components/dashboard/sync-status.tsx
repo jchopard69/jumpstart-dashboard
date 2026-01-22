@@ -14,7 +14,7 @@ export function SyncStatus({ lastSync, range, metrics = [] }: SyncStatusProps) {
       case "success":
         return <Badge variant="success">Synchronisé</Badge>;
       case "failed":
-        return <Badge variant="destructive">Échec</Badge>;
+        return <Badge variant="danger">Échec</Badge>;
       case "running":
         return <Badge variant="warning">En cours</Badge>;
       default:
