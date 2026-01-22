@@ -354,10 +354,15 @@ async function fetchPostsByUrn(
       const postsUrl = `${API_URL}/dmaPosts?ids=${format.ids}&viewContext=READER`;
       console.log('[linkedin] dma_posts_batch trying format:', format.label, 'url:', postsUrl.slice(0, 200));
       try {
+        const batchHeaders = {
+          ...headers,
+          "X-RestLi-Method": "BATCH_GET",
+          "X-Restli-Protocol-Version": "2.0.0",
+        };
         const response = await apiRequest<DmaPostsResponse>(
           "linkedin",
           postsUrl,
-          { headers },
+          { headers: batchHeaders },
           "dma_posts_batch"
         );
         Object.assign(results, response.results ?? {});
