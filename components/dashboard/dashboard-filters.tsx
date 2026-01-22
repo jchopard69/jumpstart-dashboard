@@ -20,6 +20,7 @@ export function DashboardFilters({
   from,
   to,
   platform,
+  view,
   accountId,
   accounts
 }: {
@@ -27,6 +28,7 @@ export function DashboardFilters({
   from?: string;
   to?: string;
   platform?: string;
+  view?: string;
   accountId?: string;
   accounts: Array<{ id: string; platform: Platform; account_name: string }>;
 }) {
@@ -47,6 +49,29 @@ export function DashboardFilters({
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-white/70 p-3">
+      <div className="flex items-center gap-2">
+        <Button
+          variant={!view || view === "all" ? "default" : "outline"}
+          size="sm"
+          onClick={() => updateParams({ view: undefined })}
+        >
+          Tout
+        </Button>
+        <Button
+          variant={view === "organic" ? "default" : "outline"}
+          size="sm"
+          onClick={() => updateParams({ view: "organic" })}
+        >
+          Organique
+        </Button>
+        <Button
+          variant={view === "ads" ? "default" : "outline"}
+          size="sm"
+          onClick={() => updateParams({ view: "ads" })}
+        >
+          Ads
+        </Button>
+      </div>
       <div className="flex flex-wrap gap-2">
         {presets.map((item) => (
           <Button

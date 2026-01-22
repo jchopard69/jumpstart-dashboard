@@ -13,7 +13,10 @@ import {
   uploadDocumentMetadata,
   triggerTenantSync,
   deleteSocialAccount,
-  resetLinkedInData
+  resetLinkedInData,
+  createAdAccount,
+  deleteAdAccount,
+  triggerTenantAdsSync
 } from "@/app/(admin)/admin/actions";
 import { DocumentManager } from "@/components/admin/document-manager";
 import { SocialAccountsSection } from "@/components/admin/social-accounts-section";
@@ -56,6 +59,11 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
     .eq("tenant_id", params.tenantId)
     .order("started_at", { ascending: false })
     .limit(10);
+  const { data: adAccounts } = await supabase
+    .from("ad_accounts")
+    .select("id,platform,account_name,external_account_id,status,created_at")
+    .eq("tenant_id", params.tenantId)
+    .order("created_at", { ascending: false });
 
   return (
     <div className="space-y-8 fade-in">
@@ -91,6 +99,10 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
             <form action={triggerTenantSync}>
               <input type="hidden" name="tenant_id" value={params.tenantId} />
               <Button type="submit">Lancer la synchro</Button>
+            </form>
+            <form action={triggerTenantAdsSync}>
+              <input type="hidden" name="tenant_id" value={params.tenantId} />
+              <Button variant="outline" type="submit">Sync Ads</Button>
             </form>
             <form action={resetLinkedInData}>
               <input type="hidden" name="tenant_id" value={params.tenantId} />
@@ -148,6 +160,58 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
         }))}
         deleteAction={deleteSocialAccount}
       />
+
+      <Card className="card-surface p-6 fade-in-up">
+        <h2 className="section-title">Comptes Ads</h2>
+        <p className="text-sm text-muted-foreground">Ajouter un compte Ads Meta ou LinkedIn.</p>
+        <form action={createAdAccount} className="mt-4 grid gap-4 md:grid-cols-4">
+          <Input name="account_name" placeholder="Nom du compte" />
+          <Input name="external_account_id" placeholder="ID compte Ads" required />
+          <select
+            name="platform"
+            defaultValue="meta"
+            className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
+          >
+            <option value="meta">Meta Ads</option>
+            <option value="linkedin">LinkedIn Ads</option>
+          </select>
+          <Input name="token" placeholder="Access token Ads" required />
+          <Input name="refresh_token" placeholder="Refresh token (optionnel)" />
+          <input type="hidden" name="tenant_id" value={params.tenantId} />
+          <Button type="submit">Ajouter</Button>
+        </form>
+
+        <div className="mt-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Plateforme</TableHead>
+                <TableHead>Compte</TableHead>
+                <TableHead>ID</TableHead>
+                <TableHead>Statut</TableHead>
+                <TableHead>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(adAccounts ?? []).map((account) => (
+                <TableRow key={account.id}>
+                  <TableCell>{account.platform}</TableCell>
+                  <TableCell>{account.account_name ?? "-"}</TableCell>
+                  <TableCell>{account.external_account_id}</TableCell>
+                  <TableCell>{account.status ?? "-"}</TableCell>
+                  <TableCell>
+                    <form action={deleteAdAccount}>
+                      <input type="hidden" name="tenant_id" value={params.tenantId} />
+                      <input type="hidden" name="account_id" value={account.id} />
+                      <Button variant="outline" size="sm" type="submit">Supprimer</Button>
+                    </form>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
 
       <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Collaboration</h2>

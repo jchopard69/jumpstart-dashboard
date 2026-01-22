@@ -1,20 +1,24 @@
 import Image from "next/image";
-import Link from "next/link";
 import { getSessionProfile, requireClientAccess } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
+import { MobileNav } from "@/components/layout/mobile-nav";
+import { NavLink } from "@/components/layout/nav-link";
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   const profile = await getSessionProfile();
   if (profile.role !== "agency_admin") {
     requireClientAccess(profile);
   }
+
   async function signOut() {
     "use server";
     const client = createSupabaseServerClient();
     await client.auth.signOut();
   }
+
+  const isAdmin = profile.role === "agency_admin";
 
   return (
     <Toaster>
@@ -27,6 +31,7 @@ export default async function ClientLayout({ children }: { children: React.React
           </div>
 
           <div className="relative flex min-h-screen">
+            {/* Desktop Sidebar */}
             <aside className="sticky top-0 hidden h-screen w-72 flex-col gap-6 px-6 py-8 xl:flex">
               <div className="surface-panel flex h-full flex-col justify-between p-6">
                 <div>
@@ -38,17 +43,11 @@ export default async function ClientLayout({ children }: { children: React.React
                   </div>
                   <p className="mt-3 text-xs uppercase tracking-[0.3em] text-muted-foreground">Social Pulse</p>
                   <nav className="mt-6 flex flex-col gap-2 text-sm">
-                    <Link className="nav-pill" href="/client/dashboard">
-                      Tableau de bord
-                    </Link>
-                    <Link className="nav-pill" href="/client/documents">
-                      Documents
-                    </Link>
-                    {profile.role === "agency_admin" ? (
-                      <Link className="nav-pill" href="/admin">
-                        Admin
-                      </Link>
-                    ) : null}
+                    <NavLink href="/client/dashboard">Tableau de bord</NavLink>
+                    <NavLink href="/client/os">JumpStart OS</NavLink>
+                    <NavLink href="/client/ads">Ads</NavLink>
+                    <NavLink href="/client/documents">Documents</NavLink>
+                    {isAdmin && <NavLink href="/admin">Admin</NavLink>}
                   </nav>
                 </div>
                 <form action={signOut}>
@@ -60,32 +59,16 @@ export default async function ClientLayout({ children }: { children: React.React
             </aside>
 
             <div className="flex-1">
+              {/* Mobile Header */}
               <header className="sticky top-0 z-30 border-b border-border/70 bg-white/80 backdrop-blur xl:hidden">
-                <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+                <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <Image src="/jumpstart-logo.png" alt="JumpStart Studio" width={120} height={28} priority />
-                    <span className="hidden sm:inline-flex rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
-                      Client
-                    </span>
+                    <MobileNav isAdmin={isAdmin} signOutAction={signOut} />
+                    <Image src="/jumpstart-logo.png" alt="JumpStart Studio" width={100} height={24} priority />
                   </div>
-                  <nav className="flex items-center gap-2">
-                    <Link className="nav-pill" href="/client/dashboard">
-                      Tableau de bord
-                    </Link>
-                    <Link className="nav-pill" href="/client/documents">
-                      Documents
-                    </Link>
-                    {profile.role === "agency_admin" ? (
-                      <Link className="nav-pill" href="/admin">
-                        Admin
-                      </Link>
-                    ) : null}
-                  </nav>
-                  <form action={signOut} className="hidden sm:block">
-                    <Button variant="outline" size="sm" type="submit">
-                      Déconnexion
-                    </Button>
-                  </form>
+                  <span className="rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
+                    Client
+                  </span>
                 </div>
               </header>
 

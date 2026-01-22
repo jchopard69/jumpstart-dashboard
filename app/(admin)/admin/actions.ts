@@ -183,6 +183,62 @@ export async function uploadDocumentMetadata(formData: FormData) {
   revalidatePath(`/admin/clients/${tenantId}`);
 }
 
+export async function createAdAccount(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const platform = String(formData.get("platform") ?? "meta");
+  const accountName = String(formData.get("account_name") ?? "");
+  const externalId = String(formData.get("external_account_id") ?? "");
+  const token = String(formData.get("token") ?? "");
+  const refreshToken = String(formData.get("refresh_token") ?? "");
+  const secret = process.env.ENCRYPTION_SECRET ?? "";
+
+  if (!secret) {
+    throw new Error("ENCRYPTION_SECRET is missing");
+  }
+
+  const supabase = createSupabaseServiceClient();
+  await supabase.from("ad_accounts").upsert({
+    tenant_id: tenantId,
+    platform,
+    account_name: accountName,
+    external_account_id: externalId,
+    token_encrypted: token ? encryptToken(token, secret) : null,
+    refresh_token_encrypted: refreshToken ? encryptToken(refreshToken, secret) : null,
+    status: "active"
+  });
+
+  revalidatePath(`/admin/clients/${tenantId}`);
+}
+
+export async function deleteAdAccount(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const accountId = String(formData.get("account_id") ?? "");
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const supabase = createSupabaseServiceClient();
+  await supabase.from("ad_accounts").delete().eq("id", accountId);
+  revalidatePath(`/admin/clients/${tenantId}`);
+}
+
+export async function triggerTenantAdsSync(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!baseUrl) {
+    throw new Error("NEXT_PUBLIC_SITE_URL is missing");
+  }
+  await fetch(`${baseUrl}/api/cron/ads-sync?tenantId=${tenantId}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`
+    }
+  });
+  revalidatePath(`/admin/clients/${tenantId}`);
+}
+
 export async function triggerTenantSync(formData: FormData) {
   const profile = await getSessionProfile();
   requireAdmin(profile);
