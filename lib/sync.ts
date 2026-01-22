@@ -1,6 +1,7 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { decryptToken } from "@/lib/crypto";
 import { getConnector } from "@/lib/connectors";
+import { getValidAccessToken } from "@/lib/social-platforms/core/token-manager";
 import type { Platform } from "@/lib/types";
 
 const CONCURRENCY_LIMIT = 2;
@@ -54,7 +55,9 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
       if ((account.token_encrypted || account.refresh_token_encrypted) && !secret) {
         throw new Error("ENCRYPTION_SECRET is missing");
       }
-      const accessToken = account.token_encrypted ? decryptToken(account.token_encrypted, secret) : null;
+      const accessToken = account.token_encrypted
+        ? await getValidAccessToken(account.id)
+        : null;
       const refreshToken = account.refresh_token_encrypted
         ? decryptToken(account.refresh_token_encrypted, secret)
         : null;

@@ -2,7 +2,7 @@ import { addDays, subDays } from "date-fns";
 import type { Connector, ConnectorSyncResult } from "./types";
 import type { Platform } from "@/lib/types";
 
-const platforms: Platform[] = ["instagram", "facebook", "linkedin", "tiktok", "youtube"];
+const platforms: Platform[] = ["instagram", "facebook", "linkedin", "tiktok", "youtube", "twitter"];
 
 function randomBetween(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;

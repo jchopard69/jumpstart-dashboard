@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import { generateTikTokAuthUrl } from "@/lib/social-platforms/tiktok/auth";
+import { generateTikTokAuthRequest } from "@/lib/social-platforms/tiktok/auth";
+import { setOAuthCookies } from "@/lib/social-platforms/core/oauth-cookies";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -43,9 +44,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    const authUrl = await generateTikTokAuthUrl(tenantId);
+    const { authUrl, state, codeVerifier } = await generateTikTokAuthRequest(tenantId);
     console.log(`[tiktok-oauth] Initiating OAuth for tenant: ${tenant.name} (${tenantId})`);
-    return NextResponse.redirect(authUrl);
+    const response = NextResponse.redirect(authUrl);
+    setOAuthCookies(response, "tiktok", state, codeVerifier);
+    return response;
   } catch (error) {
     console.error("[tiktok-oauth] Failed to generate auth URL:", error);
     return NextResponse.json(

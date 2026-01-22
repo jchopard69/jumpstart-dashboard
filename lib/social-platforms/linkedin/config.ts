@@ -5,13 +5,12 @@
 export const LINKEDIN_CONFIG = {
   authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
   tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-  apiUrl: 'https://api.linkedin.com/v2',
+  apiUrl: 'https://api.linkedin.com/rest',
 
   // OAuth scopes
-  // See: https://learn.microsoft.com/en-us/linkedin/shared/authentication/permissions
+  // See: https://learn.microsoft.com/en-us/linkedin/dma/pages-data-portability-overview
   scopes: [
-    'r_organization_social',     // Read organization posts
-    'rw_organization_admin',     // Manage organization pages
+    'r_dma_admin_pages_content', // DMA: Pages content + reporting data
   ],
 };
 

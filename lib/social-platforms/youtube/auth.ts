@@ -43,14 +43,14 @@ export function parseOAuthState(state: string): { tenantId: string } {
 /**
  * Generate YouTube OAuth authorization URL
  */
-export function generateYouTubeAuthUrl(tenantId: string): string {
+export function generateYouTubeAuthUrl(tenantId: string, stateOverride?: string): string {
   const config = getYouTubeConfig();
 
   if (config.mode === 'api_key') {
     throw new Error('YouTube OAuth is not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.');
   }
 
-  const state = generateOAuthState(tenantId);
+  const state = stateOverride ?? generateOAuthState(tenantId);
 
   const params = new URLSearchParams({
     client_id: config.clientId,

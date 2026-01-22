@@ -5,6 +5,7 @@
 import { getMetaConfig, META_CONFIG } from './config';
 import { SocialAccount } from '../core/types';
 import { apiRequest, buildUrl } from '../core/api-client';
+import crypto from 'crypto';
 
 interface MetaTokenResponse {
   access_token: string;
@@ -94,9 +95,9 @@ export function parseOAuthState(state: string): { tenantId: string; ts: number; 
 /**
  * Generate Meta OAuth authorization URL
  */
-export function generateMetaAuthUrl(tenantId: string): string {
+export function generateMetaAuthUrl(tenantId: string, stateOverride?: string): string {
   const config = getMetaConfig();
-  const state = generateOAuthState(tenantId);
+  const state = stateOverride ?? generateOAuthState(tenantId);
 
   const params = new URLSearchParams({
     client_id: config.clientId,

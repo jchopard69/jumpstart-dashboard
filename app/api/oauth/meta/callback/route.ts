@@ -1,103 +1,38 @@
-import { NextResponse } from "next/server";
-import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import { encryptToken } from "@/lib/crypto";
+import { NextRequest, NextResponse } from "next/server";
 import { handleMetaOAuthCallback } from "@/lib/social-platforms/meta/auth";
-import type { SocialAccount } from "@/lib/social-platforms/core/types";
+import { clearOAuthCookies, readOAuthCookies } from "@/lib/social-platforms/core/oauth-cookies";
+import { upsertSocialAccount } from "@/lib/social-platforms/core/db-utils";
 
-/**
- * Upsert a social account in the database
- */
-async function upsertSocialAccount(
-  tenantId: string,
-  account: SocialAccount
-): Promise<void> {
-  const supabase = createSupabaseServiceClient();
-  const secret = process.env.ENCRYPTION_SECRET;
-
-  if (!secret) {
-    throw new Error("ENCRYPTION_SECRET is not configured");
-  }
-
-  const tokenEncrypted = encryptToken(account.accessToken, secret);
-  const refreshTokenEncrypted = account.refreshToken
-    ? encryptToken(account.refreshToken, secret)
-    : null;
-
-  const accountData = {
-    tenant_id: tenantId,
-    platform: account.platform,
-    account_name: account.accountName,
-    external_account_id: account.platformUserId,
-    auth_status: "active" as const,
-    token_encrypted: tokenEncrypted,
-    refresh_token_encrypted: refreshTokenEncrypted,
-    token_expires_at: account.tokenExpiresAt?.toISOString() ?? null,
-  };
-
-  // Check if account already exists
-  const { data: existing, error: existingError } = await supabase
-    .from("social_accounts")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("platform", account.platform)
-    .eq("external_account_id", account.platformUserId)
-    .maybeSingle();
-
-  if (existingError) {
-    throw new Error(`Database error: ${existingError.message}`);
-  }
-
-  if (existing?.id) {
-    // Update existing account
-    const { error: updateError } = await supabase
-      .from("social_accounts")
-      .update({
-        account_name: accountData.account_name,
-        auth_status: accountData.auth_status,
-        token_encrypted: accountData.token_encrypted,
-        refresh_token_encrypted: accountData.refresh_token_encrypted,
-        token_expires_at: accountData.token_expires_at,
-        last_sync_at: null, // Reset to trigger fresh sync
-      })
-      .eq("id", existing.id);
-
-    if (updateError) {
-      throw new Error(`Failed to update account: ${updateError.message}`);
-    }
-
-    console.log(`[meta-callback] Updated existing account: ${account.platform}/${account.accountName}`);
-  } else {
-    // Insert new account
-    const { error: insertError } = await supabase
-      .from("social_accounts")
-      .insert(accountData);
-
-    if (insertError) {
-      throw new Error(`Failed to insert account: ${insertError.message}`);
-    }
-
-    console.log(`[meta-callback] Created new account: ${account.platform}/${account.accountName}`);
-  }
-}
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const errorParam = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
+  const stored = readOAuthCookies(request, "meta");
 
   // Handle OAuth errors from Meta
   if (errorParam) {
     console.error("[meta-callback] OAuth error from Meta:", { error: errorParam, description: errorDescription });
-    return NextResponse.redirect(
+    const response = NextResponse.redirect(
       new URL(`/admin?meta_error=${encodeURIComponent(errorDescription || errorParam)}`, request.url)
     );
+    clearOAuthCookies(response, "meta");
+    return response;
   }
 
   if (!code || !state) {
     console.error("[meta-callback] Missing code or state parameter");
     return NextResponse.json({ error: "Missing code or state" }, { status: 400 });
+  }
+
+  if (!stored.state || stored.state !== state) {
+    console.error("[meta-callback] OAuth state mismatch or missing cookie");
+    const response = NextResponse.redirect(
+      new URL(`/admin?meta_error=${encodeURIComponent("OAuth state mismatch. Please retry.")}`, request.url)
+    );
+    clearOAuthCookies(response, "meta");
+    return response;
   }
 
   let tenantId = "";
@@ -130,7 +65,9 @@ export async function GET(request: Request) {
     redirectUrl.searchParams.set("meta_pages", String(facebookCount));
     redirectUrl.searchParams.set("meta_ig", String(instagramCount));
 
-    return NextResponse.redirect(redirectUrl);
+    const response = NextResponse.redirect(redirectUrl);
+    clearOAuthCookies(response, "meta");
+    return response;
 
   } catch (error) {
     console.error("[meta-callback] OAuth callback failed:", {
@@ -158,7 +95,9 @@ export async function GET(request: Request) {
       redirectUrl.searchParams.set("meta_error_code", "token_expired");
     }
 
-    return NextResponse.redirect(redirectUrl);
+    const response = NextResponse.redirect(redirectUrl);
+    clearOAuthCookies(response, "meta");
+    return response;
   }
 }
 

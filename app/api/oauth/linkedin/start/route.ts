@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import { generateLinkedInAuthUrl } from "@/lib/social-platforms/linkedin/auth";
+import { generateLinkedInAuthUrl, generateOAuthState } from "@/lib/social-platforms/linkedin/auth";
+import { setOAuthCookies } from "@/lib/social-platforms/core/oauth-cookies";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -41,9 +42,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const authUrl = generateLinkedInAuthUrl(tenantId);
+    const state = generateOAuthState(tenantId);
+    const authUrl = generateLinkedInAuthUrl(tenantId, state);
     console.log(`[linkedin-oauth] Initiating OAuth for tenant: ${tenant.name} (${tenantId})`);
-    return NextResponse.redirect(authUrl);
+    const response = NextResponse.redirect(authUrl);
+    setOAuthCookies(response, "linkedin", state);
+    return response;
   } catch (error) {
     console.error("[linkedin-oauth] Failed to generate auth URL:", error);
     return NextResponse.json(

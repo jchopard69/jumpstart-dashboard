@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import { generateTwitterAuthUrl } from "@/lib/social-platforms/twitter/auth";
+import { generateTwitterAuthRequest } from "@/lib/social-platforms/twitter/auth";
+import { setOAuthCookies } from "@/lib/social-platforms/core/oauth-cookies";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -41,9 +42,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    const authUrl = generateTwitterAuthUrl(tenantId);
+    const { authUrl, state, codeVerifier } = generateTwitterAuthRequest(tenantId);
     console.log(`[twitter-oauth] Initiating OAuth for tenant: ${tenant.name} (${tenantId})`);
-    return NextResponse.redirect(authUrl);
+    const response = NextResponse.redirect(authUrl);
+    setOAuthCookies(response, "twitter", state, codeVerifier);
+    return response;
   } catch (error) {
     console.error("[twitter-oauth] Failed to generate auth URL:", error);
     return NextResponse.json(

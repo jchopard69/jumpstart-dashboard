@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import { generateMetaAuthUrl, diagnoseMetaSetup } from "@/lib/social-platforms/meta/auth";
+import { generateMetaAuthUrl, diagnoseMetaSetup, generateOAuthState } from "@/lib/social-platforms/meta/auth";
+import { setOAuthCookies } from "@/lib/social-platforms/core/oauth-cookies";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -50,9 +51,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const authUrl = generateMetaAuthUrl(tenantId);
+    const state = generateOAuthState(tenantId);
+    const authUrl = generateMetaAuthUrl(tenantId, state);
     console.log(`[meta-oauth] Initiating OAuth for tenant: ${tenant.name} (${tenantId})`);
-    return NextResponse.redirect(authUrl);
+    const response = NextResponse.redirect(authUrl);
+    setOAuthCookies(response, "meta", state);
+    return response;
   } catch (error) {
     console.error("[meta-oauth] Failed to generate auth URL:", error);
     return NextResponse.json(

@@ -65,6 +65,10 @@ export async function createSocialAccount(formData: FormData) {
   const secret = process.env.ENCRYPTION_SECRET ?? "";
   const demoMode = process.env.DEMO_MODE === "true";
 
+  if ((token || refreshToken) && !secret) {
+    throw new Error("ENCRYPTION_SECRET is missing");
+  }
+
   const supabase = createSupabaseServiceClient();
   await supabase.from("social_accounts").insert({
     tenant_id: tenantId,

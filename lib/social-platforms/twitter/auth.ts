@@ -6,9 +6,6 @@ import { getTwitterConfig } from './config';
 import { SocialAccount } from '../core/types';
 import crypto from 'crypto';
 
-// Store code verifiers temporarily
-const codeVerifiers = new Map<string, { verifier: string; expires: number }>();
-
 /**
  * Generate cryptographically secure random string
  */
@@ -66,52 +63,17 @@ export function parseOAuthState(state: string): { tenantId: string } {
 }
 
 /**
- * Store code verifier for PKCE
+ * Generate Twitter OAuth authorization URL and PKCE verifier
  */
-export function storeCodeVerifier(state: string, verifier: string): void {
-  // Clean up expired verifiers
-  const now = Date.now();
-  for (const [key, value] of codeVerifiers.entries()) {
-    if (value.expires < now) {
-      codeVerifiers.delete(key);
-    }
-  }
-
-  codeVerifiers.set(state, {
-    verifier,
-    expires: now + 10 * 60 * 1000,
-  });
-}
-
-/**
- * Retrieve and remove code verifier
- */
-export function retrieveCodeVerifier(state: string): string {
-  const entry = codeVerifiers.get(state);
-  if (!entry) {
-    throw new Error('Code verifier not found or expired');
-  }
-
-  codeVerifiers.delete(state);
-
-  if (entry.expires < Date.now()) {
-    throw new Error('Code verifier expired');
-  }
-
-  return entry.verifier;
-}
-
-/**
- * Generate Twitter OAuth authorization URL
- */
-export function generateTwitterAuthUrl(tenantId: string): string {
+export function generateTwitterAuthRequest(tenantId: string, stateOverride?: string): {
+  authUrl: string;
+  state: string;
+  codeVerifier: string;
+} {
   const config = getTwitterConfig();
-  const state = generateOAuthState(tenantId);
+  const state = stateOverride ?? generateOAuthState(tenantId);
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(codeVerifier);
-
-  // Store verifier for callback
-  storeCodeVerifier(state, codeVerifier);
 
   const params = new URLSearchParams({
     response_type: 'code',
@@ -123,7 +85,11 @@ export function generateTwitterAuthUrl(tenantId: string): string {
     code_challenge_method: 'S256',
   });
 
-  return `${config.authUrl}?${params.toString()}`;
+  return {
+    authUrl: `${config.authUrl}?${params.toString()}`,
+    state,
+    codeVerifier,
+  };
 }
 
 /**
@@ -216,13 +182,11 @@ export async function fetchTwitterUser(accessToken: string): Promise<{
  */
 export async function handleTwitterOAuthCallback(
   code: string,
-  state: string
+  state: string,
+  codeVerifier: string
 ): Promise<{ tenantId: string; account: SocialAccount }> {
   const { tenantId } = parseOAuthState(state);
   console.log(`[twitter-auth] Processing OAuth callback for tenant: ${tenantId}`);
-
-  // Retrieve code verifier
-  const codeVerifier = retrieveCodeVerifier(state);
 
   // Exchange code for tokens
   const tokenData = await exchangeTwitterCode(code, codeVerifier);
