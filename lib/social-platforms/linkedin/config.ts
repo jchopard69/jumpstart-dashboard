@@ -17,6 +17,11 @@ export const LINKEDIN_CONFIG = {
 export function getLinkedInVersion(): string | undefined {
   const raw = (process.env.LINKEDIN_VERSION || '').trim();
   if (!raw || raw.toLowerCase() === 'auto') return undefined;
+  // Normalize to YYYYMM to avoid accidental YYYYMMDD values from envs.
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length >= 6) {
+    return digits.slice(0, 6);
+  }
   return raw;
 }
 
