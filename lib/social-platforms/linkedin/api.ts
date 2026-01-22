@@ -331,6 +331,10 @@ async function fetchPostsByUrn(
     .map(normalizePostUrn)
     .filter((urn): urn is string => !!urn)
     .filter((urn) => urn.startsWith("urn:li:share:") || urn.startsWith("urn:li:ugcPost:"));
+
+  console.log('[linkedin] fetchPostsByUrn input urns:', urns.slice(0, 3));
+  console.log('[linkedin] fetchPostsByUrn normalized:', normalizedUrns.slice(0, 3));
+
   if (!normalizedUrns.length) return results;
   const chunkSize = 20;
 
@@ -348,6 +352,7 @@ async function fetchPostsByUrn(
 
     for (const format of idFormats) {
       const postsUrl = `${API_URL}/dmaPosts?ids=${format.ids}&viewContext=READER`;
+      console.log('[linkedin] dma_posts_batch trying format:', format.label, 'url:', postsUrl.slice(0, 200));
       try {
         const response = await apiRequest<DmaPostsResponse>(
           "linkedin",
