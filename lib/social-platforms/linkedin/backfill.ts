@@ -151,7 +151,7 @@ async function fetchPostTrendMetrics(
   const trendUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics` +
     `?q=trend&sourceEntity=${encodeURIComponent(postUrn)}` +
     `&metricTypes=${metricsParam}` +
-    `&timeIntervals=${encodeURIComponent(timeIntervals)}`;
+    `&timeIntervals=${timeIntervals}`;
 
   const response = await apiRequest<DmaAnalyticsResponse>(
     "linkedin",
@@ -238,7 +238,7 @@ export async function fetchLinkedInDailyStats(params: {
   const analyticsUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics` +
     `?q=trend&sourceEntity=${encodeURIComponent(sourceEntity)}` +
     `&metricTypes=${metricsParam}` +
-    `&timeIntervals=${encodeURIComponent(timeIntervals)}`;
+    `&timeIntervals=${timeIntervals}`;
 
   const response = await apiRequest<DmaAnalyticsResponse>(
     "linkedin",
