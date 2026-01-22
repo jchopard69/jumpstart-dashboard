@@ -128,7 +128,9 @@ export async function fetchLinkedInProfile(accessToken: string): Promise<{
 }
 
 /**
- * Fetch LinkedIn organization pages the user manages via DMA API
+ * Fetch LinkedIn organization pages the user manages
+ * Uses the organizationAuthorizations API with batch finder
+ * See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations/organization-authorizations
  */
 export async function fetchLinkedInOrganizations(accessToken: string): Promise<Array<{
   organizationId: string;
@@ -136,24 +138,26 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
   logoUrl?: string;
 }>> {
   const config = getLinkedInConfig();
-  const headers = {
+  const headers: Record<string, string> = {
     'Authorization': `Bearer ${accessToken}`,
-    'LinkedIn-Version': '202501',
+    'LinkedIn-Version': '202411',
+    'X-Restli-Protocol-Version': '2.0.0',
   };
 
   try {
-    // Step 1: Fetch DMA organization authorizations
-    const authUrl = `${config.apiUrl}/dmaOrganizationAuthorizations?q=authorizingMember`;
-    console.log('[linkedin] Fetching DMA authorizations from:', authUrl);
+    // Step 1: Get organizations where user is admin using batch finder
+    // See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations/organization-authorizations
+    const authUrl = `${config.apiUrl}/organizationAuthorizations?bq=authorizationActionsAndImpersonator&authorizationActions=List((authorizationAction:(organizationRoleAuthorizationAction:(actionType:ADMINISTRATOR_READ))))`;
+    console.log('[linkedin] Fetching organization authorizations from:', authUrl);
 
     const authResponse = await fetch(authUrl, { headers });
-    console.log('[linkedin] DMA auth response status:', authResponse.status);
+    console.log('[linkedin] Auth response status:', authResponse.status);
 
     const authData = await authResponse.json();
-    console.log('[linkedin] DMA auth response:', JSON.stringify(authData, null, 2));
+    console.log('[linkedin] Auth response:', JSON.stringify(authData, null, 2));
 
     if (authData.status && authData.status >= 400) {
-      console.warn('[linkedin] DMA auth API error:', authData);
+      console.warn('[linkedin] Auth API error:', authData);
       return [];
     }
 
@@ -163,11 +167,20 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
 
     const orgIds = new Set<string>();
     for (const element of elements) {
-      const orgUrn = element.organization || element.authorizedOrganization;
-      if (orgUrn) {
-        const orgId = String(orgUrn).replace('urn:li:organization:', '');
-        if (orgId && orgId !== 'undefined') {
-          orgIds.add(orgId);
+      // Check if status is approved
+      const status = element.status;
+      const isApproved = status && (
+        status['com.linkedin.organization.Approved'] !== undefined ||
+        status.approved !== undefined
+      );
+
+      if (isApproved || !status) {
+        const orgUrn = element.organization;
+        if (orgUrn) {
+          const orgId = String(orgUrn).replace('urn:li:organization:', '');
+          if (orgId && orgId !== 'undefined') {
+            orgIds.add(orgId);
+          }
         }
       }
     }
@@ -175,41 +188,43 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
     console.log('[linkedin] Extracted organization IDs:', Array.from(orgIds));
 
     if (orgIds.size === 0) {
-      console.warn('[linkedin] No organization IDs found in DMA authorizations');
+      console.warn('[linkedin] No organization IDs found in authorizations');
       return [];
     }
 
-    // Step 2: Fetch organization details via DMA API
-    const orgIdsList = Array.from(orgIds).join(',');
-    const orgsUrl = `${config.apiUrl}/dmaOrganizations?ids=List(${orgIdsList})`;
-    console.log('[linkedin] Fetching DMA organizations from:', orgsUrl);
+    // Step 2: Fetch organization details
+    const organizations: Array<{ organizationId: string; name: string; logoUrl?: string }> = [];
 
-    const orgsResponse = await fetch(orgsUrl, { headers });
-    console.log('[linkedin] DMA orgs response status:', orgsResponse.status);
+    for (const orgId of orgIds) {
+      try {
+        const orgUrl = `${config.apiUrl}/organizations/${orgId}`;
+        console.log('[linkedin] Fetching org details from:', orgUrl);
 
-    const orgsData = await orgsResponse.json();
-    console.log('[linkedin] DMA orgs response:', JSON.stringify(orgsData, null, 2));
+        const orgResponse = await fetch(orgUrl, { headers });
+        console.log('[linkedin] Org response status:', orgResponse.status);
 
-    if (orgsData.status && orgsData.status >= 400) {
-      console.warn('[linkedin] DMA orgs API error:', orgsData);
-      return [];
+        if (orgResponse.ok) {
+          const orgData = await orgResponse.json();
+          console.log('[linkedin] Org data:', JSON.stringify(orgData, null, 2));
+
+          const logoV2 = orgData.logoV2 as Record<string, unknown> | undefined;
+          const original = logoV2?.original as Record<string, unknown> | undefined;
+          const logoUrl = original?.url as string | undefined;
+
+          organizations.push({
+            organizationId: orgId,
+            name: orgData.localizedName || orgData.name?.localized?.en_US || 'Unknown Organization',
+            logoUrl,
+          });
+        } else {
+          console.warn(`[linkedin] Failed to fetch org ${orgId}:`, orgResponse.status);
+        }
+      } catch (error) {
+        console.warn(`[linkedin] Error fetching org ${orgId}:`, error);
+      }
     }
 
-    // Parse organizations from results
-    const results = orgsData.results || {};
-    const organizations = Object.entries(results).map(([orgId, org]) => {
-      const orgData = org as Record<string, unknown>;
-      const logoV2 = orgData.logoV2 as Record<string, unknown> | undefined;
-      const logoUrl = logoV2?.original as string | undefined;
-
-      return {
-        organizationId: orgId,
-        name: (orgData.localizedName as string) || 'Unknown Organization',
-        logoUrl,
-      };
-    });
-
-    console.log(`[linkedin] Returning ${organizations.length} organizations via DMA API`);
+    console.log(`[linkedin] Returning ${organizations.length} organizations`);
     return organizations;
   } catch (error) {
     console.warn('[linkedin] Error fetching organizations:', error);

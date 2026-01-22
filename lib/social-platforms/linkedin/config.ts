@@ -8,9 +8,10 @@ export const LINKEDIN_CONFIG = {
   apiUrl: 'https://api.linkedin.com/rest',
 
   // OAuth scopes
-  // See: https://learn.microsoft.com/en-us/linkedin/dma/pages-data-portability-overview
+  // See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations/organization-authorizations
   scopes: [
-    'r_dma_admin_pages_content', // DMA: Pages content + reporting data
+    'r_organization_admin',       // Read organization admin data (required for organizationAuthorizations)
+    'r_dma_admin_pages_content',  // DMA: Pages content + reporting data
   ],
 };
 
