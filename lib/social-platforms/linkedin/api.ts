@@ -2,13 +2,13 @@
  * LinkedIn DMA Pages API client for fetching analytics
  */
 
-import { LINKEDIN_CONFIG } from './config';
+import { LINKEDIN_CONFIG, getLinkedInVersion } from './config';
 import { apiRequest } from '../core/api-client';
 import type { Connector } from '@/lib/connectors/types';
 import type { DailyMetric, PostMetric } from '../core/types';
 
 const API_URL = LINKEDIN_CONFIG.apiUrl;
-const API_VERSION = LINKEDIN_CONFIG.version;
+const API_VERSION = getLinkedInVersion();
 
 type DmaAnalyticsValue = {
   totalCount?: { long?: number; bigDecimal?: string };
@@ -210,10 +210,12 @@ export const linkedinConnector: Connector = {
       throw new Error('Missing LinkedIn access token');
     }
 
-    const headers = {
+    const headers: Record<string, string> = {
       'Authorization': `Bearer ${accessToken}`,
-      'LinkedIn-Version': API_VERSION,
     };
+    if (API_VERSION) {
+      headers['LinkedIn-Version'] = API_VERSION;
+    }
 
     const now = new Date();
     const since = new Date(now);

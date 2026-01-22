@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { decryptToken } from "@/lib/crypto";
 import { apiRequest } from "@/lib/social-platforms/core/api-client";
-import { LINKEDIN_CONFIG } from "@/lib/social-platforms/linkedin/config";
+import { LINKEDIN_CONFIG, getLinkedInVersion } from "@/lib/social-platforms/linkedin/config";
 
 type DebugResponse = {
   account?: {
@@ -25,7 +25,7 @@ type DebugAttempt = {
 };
 
 const API_URL = LINKEDIN_CONFIG.apiUrl;
-const API_VERSION = LINKEDIN_CONFIG.version;
+const API_VERSION = getLinkedInVersion();
 
 function buildTimeIntervalsList(start: Date, end: Date) {
   return `List((timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY))`;
@@ -110,10 +110,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Access token missing" }, { status: 400 });
   }
 
-  const headers = {
-    Authorization: `Bearer ${accessToken}`,
-    "LinkedIn-Version": API_VERSION
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`
   };
+  if (API_VERSION) {
+    headers["LinkedIn-Version"] = API_VERSION;
+  }
 
   const response: DebugResponse = {
     account: {

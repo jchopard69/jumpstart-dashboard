@@ -6,7 +6,6 @@ export const LINKEDIN_CONFIG = {
   authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
   tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
   apiUrl: 'https://api.linkedin.com/rest',
-  version: process.env.LINKEDIN_VERSION || '202402',
 
   // OAuth scopes (DMA-only)
   // See: https://learn.microsoft.com/en-us/linkedin/dma/pages-data-portability-overview
@@ -14,6 +13,12 @@ export const LINKEDIN_CONFIG = {
     'r_dma_admin_pages_content',  // DMA: Pages content + reporting data
   ],
 };
+
+export function getLinkedInVersion(): string | undefined {
+  const raw = (process.env.LINKEDIN_VERSION || '').trim();
+  if (!raw || raw.toLowerCase() === 'auto') return undefined;
+  return raw;
+}
 
 export function getLinkedInConfig() {
   const clientId = process.env.LINKEDIN_CLIENT_ID;
@@ -30,5 +35,6 @@ export function getLinkedInConfig() {
     clientId,
     clientSecret,
     redirectUri,
+    version: getLinkedInVersion(),
   };
 }

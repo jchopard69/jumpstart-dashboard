@@ -1,9 +1,9 @@
 import { apiRequest } from "@/lib/social-platforms/core/api-client";
-import { LINKEDIN_CONFIG } from "@/lib/social-platforms/linkedin/config";
+import { LINKEDIN_CONFIG, getLinkedInVersion } from "@/lib/social-platforms/linkedin/config";
 import type { DailyMetric, PostMetric } from "@/lib/social-platforms/core/types";
 
 const API_URL = LINKEDIN_CONFIG.apiUrl;
-const API_VERSION = LINKEDIN_CONFIG.version;
+const API_VERSION = getLinkedInVersion();
 const METRIC_TYPES = ["IMPRESSIONS", "COMMENTS", "REACTIONS", "REPOSTS", "CLICKS"];
 const MAX_POSTS = 50;
 
@@ -200,10 +200,12 @@ export async function fetchLinkedInDailyStats(params: {
   until: Date;
 }) {
   const { externalAccountId, accessToken } = params;
-  const headers = {
-    Authorization: `Bearer ${accessToken}`,
-      "LinkedIn-Version": API_VERSION
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`
   };
+  if (API_VERSION) {
+    headers["LinkedIn-Version"] = API_VERSION;
+  }
 
   const since = new Date(params.since);
   const until = new Date(params.until);
@@ -289,10 +291,12 @@ export async function fetchLinkedInPostsBackfill(params: {
   since: Date;
 }): Promise<PostMetric[]> {
   const { externalAccountId, accessToken, since } = params;
-  const headers = {
-    Authorization: `Bearer ${accessToken}`,
-    "LinkedIn-Version": API_VERSION
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`
   };
+  if (API_VERSION) {
+    headers["LinkedIn-Version"] = API_VERSION;
+  }
 
   const postUrns = await fetchPostUrns(headers, externalAccountId, MAX_POSTS);
   if (!postUrns.length) {
