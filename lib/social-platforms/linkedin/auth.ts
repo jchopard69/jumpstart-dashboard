@@ -158,6 +158,9 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
 
     const aclsData = await aclsResponse.json();
     console.log('[linkedin] ACL response:', JSON.stringify(aclsData, null, 2));
+    if (aclsData?.errorDetails) {
+      console.warn('[linkedin] ACL errorDetails:', JSON.stringify(aclsData.errorDetails, null, 2));
+    }
 
     if (aclsData.status && aclsData.status >= 400) {
       console.warn('[linkedin] ACL API error:', aclsData);
