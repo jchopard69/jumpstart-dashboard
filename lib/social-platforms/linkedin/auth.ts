@@ -152,22 +152,30 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
     });
 
     const authData = await authResponse.json();
+    console.log('[linkedin] Auth response status:', authResponse.status);
+    console.log('[linkedin] Auth data structure:', JSON.stringify(authData, null, 2));
+
     if (authData.error) {
       console.warn('[linkedin] Failed to fetch organization authorizations:', authData.error);
       return [];
     }
 
     const authElementsRaw = Array.isArray(authData.elements) ? authData.elements : [];
+    console.log('[linkedin] Raw auth elements count:', authElementsRaw.length);
+
     const authElementsNested = authElementsRaw.flatMap((entry: Record<string, unknown>) => {
       const inner = entry.elements as Array<Record<string, unknown>> | undefined;
       return inner ?? [];
     });
     const authElements = authElementsNested.length ? authElementsNested : authElementsRaw;
+    console.log('[linkedin] Final auth elements count:', authElements.length);
 
     const orgIds = Array.from(new Set(authElements
       .filter((element: Record<string, unknown>) => {
         const status = element.status as Record<string, unknown> | undefined;
-        return !!status?.approved;
+        const isApproved = !!status?.approved;
+        console.log('[linkedin] Element approval status:', { element, status, isApproved });
+        return isApproved;
       })
       .map((element: Record<string, unknown>) => String(element.organization || ''))
       .filter(Boolean)
@@ -175,7 +183,10 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
       .filter((value: string) => value && value !== 'undefined')
     ));
 
+    console.log('[linkedin] Extracted org IDs:', orgIds);
+
     if (!orgIds.length) {
+      console.warn('[linkedin] No approved organizations found. Full response:', JSON.stringify(authData, null, 2));
       return [];
     }
 
@@ -246,8 +257,14 @@ export async function handleLinkedInOAuthCallback(
   // Fetch and add organization pages
   const organizations = await fetchLinkedInOrganizations(tokenData.accessToken);
   console.log(`[linkedin-auth] Found ${organizations.length} organization pages`);
+  console.log(`[linkedin-auth] Organizations details:`, JSON.stringify(organizations, null, 2));
 
   if (!organizations.length) {
+    console.error('[linkedin-auth] No organizations found. This could mean:');
+    console.error('  1. The user does not have admin access to any LinkedIn Organization Pages');
+    console.error('  2. The OAuth scope r_dma_admin_pages_content is missing or not approved');
+    console.error('  3. The LinkedIn app is not approved for DMA access');
+    console.error('  4. The authorization was not approved in the API response');
     throw new Error("Aucune page LinkedIn administrée n'a été trouvée pour ce compte.");
   }
 
