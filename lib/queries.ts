@@ -106,6 +106,24 @@ export async function fetchDashboardData(params: {
       posts_count: 0
     }
   );
+  const totalsSafe = totals ?? {
+    followers: 0,
+    impressions: 0,
+    reach: 0,
+    engagements: 0,
+    views: 0,
+    watch_time: 0,
+    posts_count: 0
+  };
+  const prevTotalsSafe = prevTotals ?? {
+    followers: 0,
+    impressions: 0,
+    reach: 0,
+    engagements: 0,
+    views: 0,
+    watch_time: 0,
+    posts_count: 0
+  };
 
   let postsCountQuery = supabase
     .from("social_posts")
@@ -138,21 +156,21 @@ export async function fetchDashboardData(params: {
 
   const deltaRaw = {
     followers: followersCurrent - followersPrev,
-    impressions: (totals?.impressions ?? 0) - (prevTotals?.impressions ?? 0),
-    reach: (totals?.reach ?? 0) - (prevTotals?.reach ?? 0),
-    engagements: (totals?.engagements ?? 0) - (prevTotals?.engagements ?? 0),
-    views: (totals?.views ?? 0) - (prevTotals?.views ?? 0),
-    watch_time: (totals?.watch_time ?? 0) - (prevTotals?.watch_time ?? 0),
+    impressions: totalsSafe.impressions - prevTotalsSafe.impressions,
+    reach: totalsSafe.reach - prevTotalsSafe.reach,
+    engagements: totalsSafe.engagements - prevTotalsSafe.engagements,
+    views: totalsSafe.views - prevTotalsSafe.views,
+    watch_time: totalsSafe.watch_time - prevTotalsSafe.watch_time,
     posts_count: (postsCount ?? 0) - (prevPostsCount ?? 0)
   };
 
   const deltaPercent = {
     followers: followersPrev ? (deltaRaw.followers / followersPrev) * 100 : 0,
-    impressions: prevTotals?.impressions ? (deltaRaw.impressions / prevTotals.impressions) * 100 : 0,
-    reach: prevTotals?.reach ? (deltaRaw.reach / prevTotals.reach) * 100 : 0,
-    engagements: prevTotals?.engagements ? (deltaRaw.engagements / prevTotals.engagements) * 100 : 0,
-    views: prevTotals?.views ? (deltaRaw.views / prevTotals.views) * 100 : 0,
-    watch_time: prevTotals?.watch_time ? (deltaRaw.watch_time / prevTotals.watch_time) * 100 : 0,
+    impressions: prevTotalsSafe.impressions ? (deltaRaw.impressions / prevTotalsSafe.impressions) * 100 : 0,
+    reach: prevTotalsSafe.reach ? (deltaRaw.reach / prevTotalsSafe.reach) * 100 : 0,
+    engagements: prevTotalsSafe.engagements ? (deltaRaw.engagements / prevTotalsSafe.engagements) * 100 : 0,
+    views: prevTotalsSafe.views ? (deltaRaw.views / prevTotalsSafe.views) * 100 : 0,
+    watch_time: prevTotalsSafe.watch_time ? (deltaRaw.watch_time / prevTotalsSafe.watch_time) * 100 : 0,
     posts_count: prevPostsCount ? (deltaRaw.posts_count / prevPostsCount) * 100 : 0
   };
 
@@ -406,7 +424,7 @@ export async function fetchDashboardData(params: {
   return {
     range,
     prevRange,
-    totals: { ...totals, posts_count: postsCount ?? 0 },
+    totals: { ...totalsSafe, posts_count: postsCount ?? 0 },
     delta: deltaPercent,
     metrics: metrics ?? [],
     prevMetrics: prevMetrics ?? [],
