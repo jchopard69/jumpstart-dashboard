@@ -139,36 +139,48 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
 
   try {
     // Fetch organizations where user is admin
-    const response = await fetch(
-      `${config.apiUrl}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(localizedName,logoV2(original~:playableStreams))))`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'LinkedIn-Version': '202401',
-        },
-      }
-    );
+    const url = `${config.apiUrl}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(localizedName,logoV2(original~:playableStreams))))`;
+    console.log('[linkedin] Fetching organizations from URL:', url);
 
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'LinkedIn-Version': '202401',
+      },
+    });
+
+    console.log('[linkedin] Response status:', response.status);
     const data = await response.json();
+    console.log('[linkedin] Response data:', JSON.stringify(data, null, 2));
 
     if (data.error) {
-      console.warn('[linkedin] Failed to fetch organizations:', data.error);
+      console.warn('[linkedin] API Error:', data.error);
       return [];
     }
+
+    if (!data.elements || !Array.isArray(data.elements)) {
+      console.warn('[linkedin] No elements array in response. Data keys:', Object.keys(data));
+      return [];
+    }
+
+    console.log('[linkedin] Found', data.elements.length, 'elements in response');
 
     const organizations = (data.elements || []).map((element: Record<string, unknown>) => {
       const org = element['organization~'] as Record<string, unknown> | undefined;
       const logo = org?.logoV2 as Record<string, unknown> | undefined;
       const originalLogo = logo?.['original~'] as Record<string, unknown> | undefined;
 
-      return {
+      const orgData = {
         organizationId: String(element.organization || '').replace('urn:li:organization:', ''),
         name: org?.localizedName as string || 'Unknown Organization',
         logoUrl: originalLogo?.url as string | undefined,
       };
+
+      console.log('[linkedin] Mapped organization:', orgData);
+      return orgData;
     });
 
-    console.log(`[linkedin] Found ${organizations.length} organizations via organizationAcls API`);
+    console.log(`[linkedin] Returning ${organizations.length} organizations via organizationAcls API`);
     return organizations;
   } catch (error) {
     console.warn('[linkedin] Error fetching organizations:', error);
