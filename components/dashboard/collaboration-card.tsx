@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { EmptyShoots } from "@/components/ui/empty-state";
 import type { CollaborationData, UpcomingShoot, DocumentData } from "@/lib/types/dashboard";
 
@@ -16,9 +17,12 @@ export function CollaborationCard({ collaboration, shoots, documents }: Collabor
     <Card className="card-surface p-6 fade-in-up">
       <div className="flex items-center justify-between">
         <h2 className="section-title">Collaboration</h2>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/client/os">Voir tout</Link>
-        </Button>
+        <Link
+          href="/client/os"
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+        >
+          Voir tout
+        </Link>
       </div>
       <p className="text-sm text-muted-foreground">Suivi de production & prochains shootings.</p>
       <div className="mt-4 space-y-4">
