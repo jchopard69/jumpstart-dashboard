@@ -26,6 +26,10 @@ type DmaAnalyticsElement = {
     };
     value?: DmaAnalyticsValue;
   };
+  timeIntervals?: {
+    timeRange?: { start?: number; end?: number };
+  };
+  value?: DmaAnalyticsValue;
   sourceEntity?: string;
 };
 
@@ -147,7 +151,10 @@ async function fetchTrendAnalytics(
   endpointName: string
 ): Promise<DmaAnalyticsResponse> {
   const metricsParam = `List(${METRIC_TYPES.join(",")})`;
-  const timeIntervalsVariants = buildTimeIntervalQueries(start, end, "DAY");
+  const timeIntervalsVariants = [
+    ...buildTimeIntervalQueries(start, end, "DAY"),
+    ...buildTimeIntervalQueries(start, end)
+  ];
   let lastError: unknown = null;
 
   for (const variant of timeIntervalsVariants) {
@@ -207,10 +214,11 @@ async function fetchFollowerTrend(
       );
       const daily: Record<string, number> = {};
       for (const element of response.elements ?? []) {
-        const startMs = element.timeIntervals?.timeRange?.start;
+        const startMs = element.timeIntervals?.timeRange?.start
+          ?? element.metric?.timeIntervals?.timeRange?.start;
         if (!startMs) continue;
         const dateKey = new Date(startMs).toISOString().slice(0, 10);
-        const count = parseCount(element.value);
+        const count = parseCount(element.value ?? element.metric?.value);
         daily[dateKey] = (daily[dateKey] ?? 0) + count;
       }
       return daily;
