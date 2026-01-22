@@ -143,7 +143,8 @@ function parseErrorMessage(platform: PlatformId, statusCode: number, errorBody: 
       const message = error.message as string | undefined;
       const code = error.code as number | undefined;
       const subcode = error.error_subcode as number | undefined;
-      return `Meta API Error ${code}${subcode ? `.${subcode}` : ''}: ${message || 'Unknown error'}`;
+      const isTransient = error.is_transient === true;
+      return `Meta API Error ${code}${subcode ? `.${subcode}` : ''}: ${message || 'Unknown error'}${isTransient ? ' (transient)' : ''}`;
     }
   }
 

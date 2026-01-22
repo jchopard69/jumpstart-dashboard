@@ -104,7 +104,7 @@ export async function withRateLimit<T>(
 
       // Check if it's a rate limit error from the API
       const errorMessage = lastError.message.toLowerCase();
-      if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
+      if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests') || errorMessage.includes('transient')) {
         console.warn(`[rate-limit] API rate limit hit for ${platform}:${endpoint}, attempt ${attempt + 1}/${maxRetries}`);
 
         // Exponential backoff: 1s, 2s, 4s

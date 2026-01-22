@@ -4,7 +4,8 @@ import type { DailyMetric, PostMetric } from "@/lib/social-platforms/core/types"
 
 const API_URL = LINKEDIN_CONFIG.apiUrl;
 const API_VERSION = getLinkedInVersion();
-const METRIC_TYPES = ["IMPRESSIONS", "COMMENTS", "REACTIONS", "REPOSTS", "CLICKS"];
+// Supported metrics per DMA doc: IMPRESSIONS, COMMENTS, REACTIONS, REPOSTS
+const METRIC_TYPES = ["IMPRESSIONS", "COMMENTS", "REACTIONS", "REPOSTS"];
 const MAX_POSTS = 50;
 
 type DmaAnalyticsValue = {

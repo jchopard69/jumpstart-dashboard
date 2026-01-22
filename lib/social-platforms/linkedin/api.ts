@@ -45,7 +45,8 @@ type DmaPostsResponse = {
   statuses?: Record<string, number>;
 };
 
-const METRIC_TYPES = ["IMPRESSIONS", "COMMENTS", "REACTIONS", "REPOSTS", "CLICKS"];
+// Supported metrics per DMA doc: IMPRESSIONS, COMMENTS, REACTIONS, REPOSTS
+const METRIC_TYPES = ["IMPRESSIONS", "COMMENTS", "REACTIONS", "REPOSTS"];
 const MAX_POSTS = 10;
 
 function parseCount(value?: DmaAnalyticsValue): number {
