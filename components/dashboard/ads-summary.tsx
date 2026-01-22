@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { AdsData } from "@/lib/types/dashboard";
 
@@ -22,9 +23,12 @@ export function AdsSummary({ ads }: AdsSummaryProps) {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary">Ads</Badge>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/client/ads">Voir tout</Link>
-          </Button>
+          <Link
+            href="/client/ads"
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+          >
+            Voir tout
+          </Link>
         </div>
       </div>
       <div className="mt-4 space-y-4">
