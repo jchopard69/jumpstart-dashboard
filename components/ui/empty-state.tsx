@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Button } from "./button";
+import { Button, buttonVariants } from "./button";
 
 type EmptyStateProps = {
   icon?: React.ReactNode;
@@ -65,9 +65,12 @@ export function EmptyState({ icon, title, description, action, className }: Empt
       {action && (
         <div className="mt-4">
           {action.href ? (
-            <Button asChild variant="outline" size="sm">
-              <a href={action.href}>{action.label}</a>
-            </Button>
+            <a
+              href={action.href}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              {action.label}
+            </a>
           ) : (
             <Button onClick={action.onClick} variant="outline" size="sm">
               {action.label}
