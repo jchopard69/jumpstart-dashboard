@@ -123,6 +123,9 @@ export async function selectLinkedInAccounts(formData: FormData) {
   await deleteQuery;
 
   revalidatePath(`/admin/clients/${tenantId}`);
+
+  const { redirect } = await import("next/navigation");
+  redirect(`/admin/clients/${tenantId}?linkedin_success=true&linkedin_accounts=${selectedIds.length}`);
 }
 
 export async function updateCollaboration(formData: FormData) {
