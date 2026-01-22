@@ -55,7 +55,7 @@ function parseCount(value?: DmaAnalyticsValue): number {
 
 function buildTimeIntervalRange(start: Date, end: Date) {
   // DMA content analytics expects TimeIntervals (singular) for trend.
-  return `(timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY)`;
+  return `(timeRange:(start:${start.getTime()},end:${end.getTime()}))`;
 }
 
 async function resolveOrganizationalPageId(
@@ -151,7 +151,7 @@ async function fetchPostTrendMetrics(
   const trendUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics` +
     `?q=trend&sourceEntity=${encodeURIComponent(postUrn)}` +
     `&metricTypes=${metricsParam}` +
-    `&timeIntervals=${timeIntervals}`;
+    `&timeIntervals=${encodeURIComponent(timeIntervals)}`;
 
   const response = await apiRequest<DmaAnalyticsResponse>(
     "linkedin",
@@ -238,7 +238,7 @@ export async function fetchLinkedInDailyStats(params: {
   const analyticsUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics` +
     `?q=trend&sourceEntity=${encodeURIComponent(sourceEntity)}` +
     `&metricTypes=${metricsParam}` +
-    `&timeIntervals=${timeIntervals}`;
+    `&timeIntervals=${encodeURIComponent(timeIntervals)}`;
 
   const response = await apiRequest<DmaAnalyticsResponse>(
     "linkedin",
