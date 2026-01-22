@@ -331,56 +331,26 @@ async function fetchPostsByUrn(
     .map(normalizePostUrn)
     .filter((urn): urn is string => !!urn)
     .filter((urn) => urn.startsWith("urn:li:share:") || urn.startsWith("urn:li:ugcPost:"));
-
-  console.log('[linkedin] fetchPostsByUrn input urns:', urns.slice(0, 3));
-  console.log('[linkedin] fetchPostsByUrn normalized:', normalizedUrns.slice(0, 3));
-
   if (!normalizedUrns.length) return results;
   const chunkSize = 20;
 
   for (let i = 0; i < normalizedUrns.length; i += chunkSize) {
     const chunk = normalizedUrns.slice(i, i + chunkSize);
+    const idsParam = `List(${chunk.map((urn) => encodeRFC3986(urn)).join(",")})`;
+    const postsUrl = `${API_URL}/dmaPosts?ids=${idsParam}&viewContext=READER`;
+    const batchHeaders = {
+      ...headers,
+      "X-RestLi-Method": "BATCH_GET",
+      "X-Restli-Protocol-Version": "2.0.0",
+    };
 
-    // Try different ID formats: raw URNs first, then encoded
-    const idFormats = [
-      { label: "raw", ids: `List(${chunk.join(",")})` },
-      { label: "encoded", ids: `List(${chunk.map((urn) => encodeRFC3986(urn)).join(",")})` },
-    ];
-
-    let lastError: unknown = null;
-    let success = false;
-
-    for (const format of idFormats) {
-      const postsUrl = `${API_URL}/dmaPosts?ids=${format.ids}&viewContext=READER`;
-      console.log('[linkedin] dma_posts_batch trying format:', format.label, 'url:', postsUrl.slice(0, 200));
-      try {
-        const batchHeaders = {
-          ...headers,
-          "X-RestLi-Method": "BATCH_GET",
-          "X-Restli-Protocol-Version": "2.0.0",
-        };
-        const response = await apiRequest<DmaPostsResponse>(
-          "linkedin",
-          postsUrl,
-          { headers: batchHeaders },
-          "dma_posts_batch"
-        );
-        Object.assign(results, response.results ?? {});
-        success = true;
-        break;
-      } catch (error) {
-        lastError = error;
-        // Continue to next format on 400 errors
-        if (error instanceof SocialApiError && error.statusCode === 400) {
-          continue;
-        }
-        throw error;
-      }
-    }
-
-    if (!success && lastError) {
-      throw lastError;
-    }
+    const response = await apiRequest<DmaPostsResponse>(
+      "linkedin",
+      postsUrl,
+      { headers: batchHeaders },
+      "dma_posts_batch"
+    );
+    Object.assign(results, response.results ?? {});
   }
 
   return results;
