@@ -329,17 +329,41 @@ async function fetchPostsByUrn(
 
   for (let i = 0; i < normalizedUrns.length; i += chunkSize) {
     const chunk = normalizedUrns.slice(i, i + chunkSize);
-    const idsParam = `List(${chunk.map((urn) => encodeRFC3986(urn)).join(",")})`;
-    const postsUrl = `${API_URL}/dmaPosts?ids=${idsParam}&viewContext=READER`;
 
-    const response = await apiRequest<DmaPostsResponse>(
-      "linkedin",
-      postsUrl,
-      { headers },
-      "dma_posts_batch_backfill"
-    );
+    // Try different ID formats: raw URNs first, then encoded
+    const idFormats = [
+      { label: "raw", ids: `List(${chunk.join(",")})` },
+      { label: "encoded", ids: `List(${chunk.map((urn) => encodeRFC3986(urn)).join(",")})` },
+    ];
 
-    Object.assign(results, response.results ?? {});
+    let lastError: unknown = null;
+    let success = false;
+
+    for (const format of idFormats) {
+      const postsUrl = `${API_URL}/dmaPosts?ids=${format.ids}&viewContext=READER`;
+      try {
+        const response = await apiRequest<DmaPostsResponse>(
+          "linkedin",
+          postsUrl,
+          { headers },
+          "dma_posts_batch_backfill"
+        );
+        Object.assign(results, response.results ?? {});
+        success = true;
+        break;
+      } catch (error) {
+        lastError = error;
+        // Continue to next format on 400 errors
+        if (error instanceof SocialApiError && error.statusCode === 400) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (!success && lastError) {
+      throw lastError;
+    }
   }
 
   return results;
