@@ -140,7 +140,7 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
   const config = getLinkedInConfig();
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${accessToken}`,
-    'LinkedIn-Version': '202411',
+    'LinkedIn-Version': config.version,
     'X-Restli-Protocol-Version': '2.0.0',
   };
 

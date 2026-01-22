@@ -3,6 +3,7 @@ import { LINKEDIN_CONFIG } from "@/lib/social-platforms/linkedin/config";
 import type { DailyMetric, PostMetric } from "@/lib/social-platforms/core/types";
 
 const API_URL = LINKEDIN_CONFIG.apiUrl;
+const API_VERSION = LINKEDIN_CONFIG.version;
 const METRIC_TYPES = ["IMPRESSIONS", "COMMENTS", "REACTIONS", "REPOSTS", "CLICKS"];
 const MAX_POSTS = 50;
 
@@ -201,7 +202,7 @@ export async function fetchLinkedInDailyStats(params: {
   const { externalAccountId, accessToken } = params;
   const headers = {
     Authorization: `Bearer ${accessToken}`,
-    "LinkedIn-Version": "202402"
+      "LinkedIn-Version": API_VERSION
   };
 
   const since = new Date(params.since);
@@ -290,7 +291,7 @@ export async function fetchLinkedInPostsBackfill(params: {
   const { externalAccountId, accessToken, since } = params;
   const headers = {
     Authorization: `Bearer ${accessToken}`,
-    "LinkedIn-Version": "202402"
+    "LinkedIn-Version": API_VERSION
   };
 
   const postUrns = await fetchPostUrns(headers, externalAccountId, MAX_POSTS);

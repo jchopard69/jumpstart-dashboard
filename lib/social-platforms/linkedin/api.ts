@@ -8,6 +8,7 @@ import type { Connector } from '@/lib/connectors/types';
 import type { DailyMetric, PostMetric } from '../core/types';
 
 const API_URL = LINKEDIN_CONFIG.apiUrl;
+const API_VERSION = LINKEDIN_CONFIG.version;
 
 type DmaAnalyticsValue = {
   totalCount?: { long?: number; bigDecimal?: string };
@@ -211,7 +212,7 @@ export const linkedinConnector: Connector = {
 
     const headers = {
       'Authorization': `Bearer ${accessToken}`,
-      'LinkedIn-Version': '202402',
+      'LinkedIn-Version': API_VERSION,
     };
 
     const now = new Date();

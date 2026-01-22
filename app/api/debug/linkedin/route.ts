@@ -25,6 +25,7 @@ type DebugAttempt = {
 };
 
 const API_URL = LINKEDIN_CONFIG.apiUrl;
+const API_VERSION = LINKEDIN_CONFIG.version;
 
 function buildTimeIntervalsList(start: Date, end: Date) {
   return `List((timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY))`;
@@ -111,7 +112,7 @@ export async function GET(request: Request) {
 
   const headers = {
     Authorization: `Bearer ${accessToken}`,
-    "LinkedIn-Version": "202401"
+    "LinkedIn-Version": API_VERSION
   };
 
   const response: DebugResponse = {
