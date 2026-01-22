@@ -61,11 +61,29 @@ function parseCount(value?: DmaAnalyticsValue): number {
 
 function buildTimeIntervalVariants(start: Date, end: Date) {
   const base = `timeRange:(start:${start.getTime()},end:${end.getTime()})`;
+  const variants = [
+    { label: "timeIntervals_single", value: `(${base})` },
+    { label: "timeIntervals_single_granularity", value: `(${base},timeGranularityType:DAY)` },
+    { label: "timeIntervals_list", value: `List((${base}))` },
+    { label: "timeIntervals_list_granularity", value: `List((${base},timeGranularityType:DAY))` },
+  ];
+
+  const params = new URLSearchParams({
+    "timeIntervals[0].timeRange.start": String(start.getTime()),
+    "timeIntervals[0].timeRange.end": String(end.getTime()),
+  });
+  const paramsWithGranularity = new URLSearchParams({
+    "timeIntervals[0].timeRange.start": String(start.getTime()),
+    "timeIntervals[0].timeRange.end": String(end.getTime()),
+    "timeIntervals[0].timeGranularityType": "DAY",
+  });
+
   return [
-    `(${base})`,
-    `(${base},timeGranularityType:DAY)`,
-    `List((${base}))`,
-    `List((${base},timeGranularityType:DAY))`,
+    ...variants,
+    { label: "timeIntervals_bracket", value: params.toString(), rawQuery: true },
+    { label: "timeIntervals_bracket_granularity", value: paramsWithGranularity.toString(), rawQuery: true },
+    { label: "timeRange_param", value: `timeRange=(${base})`, rawQuery: true },
+    { label: "timeRange_param_granularity", value: `timeRange=(${base},timeGranularityType:DAY)`, rawQuery: true },
   ];
 }
 
@@ -93,12 +111,13 @@ async function fetchTrendAnalytics(
   const timeIntervalsVariants = buildTimeIntervalVariants(start, end);
   let lastError: unknown = null;
 
-  for (const timeIntervals of timeIntervalsVariants) {
-    const analyticsUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics` +
-      `?q=trend&sourceEntity=${encodeURIComponent(sourceEntity)}` +
-      `&metricTypes=${metricsParam}` +
-      `&timeIntervals=${timeIntervals}`;
-    console.log('[linkedin] dma_page_trend url:', analyticsUrl);
+  for (const variant of timeIntervalsVariants) {
+    const baseQuery = `q=trend&sourceEntity=${encodeURIComponent(sourceEntity)}&metricTypes=${metricsParam}`;
+    const timeQuery = (variant as { value: string; rawQuery?: boolean }).rawQuery
+      ? (variant as { value: string }).value
+      : `timeIntervals=${(variant as { value: string }).value}`;
+    const analyticsUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics?${baseQuery}&${timeQuery}`;
+    console.log('[linkedin] dma_page_trend url:', analyticsUrl, 'variant:', (variant as { label: string }).label);
     try {
       return await apiRequest<DmaAnalyticsResponse>(
         'linkedin',
