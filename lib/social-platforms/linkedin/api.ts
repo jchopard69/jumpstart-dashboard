@@ -156,8 +156,8 @@ async function fetchPostTrendMetrics(
   const metricsParam = `List(${METRIC_TYPES.join(",")})`;
   const trendUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics` +
     `?q=trend&sourceEntity=${encodeURIComponent(postUrn)}` +
-    `&metricTypes=${encodeURIComponent(metricsParam)}` +
-    `&timeIntervals=${encodeURIComponent(timeIntervals)}`;
+    `&metricTypes=${metricsParam}` +
+    `&timeIntervals=${timeIntervals}`;
 
   const response = await apiRequest<DmaAnalyticsResponse>(
     "linkedin",
@@ -231,8 +231,8 @@ export const linkedinConnector: Connector = {
     const metricsParam = `List(${METRIC_TYPES.join(',')})`;
     const analyticsUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics` +
       `?q=trend&sourceEntity=${encodeURIComponent(sourceEntity)}` +
-      `&metricTypes=${encodeURIComponent(metricsParam)}` +
-      `&timeIntervals=${encodeURIComponent(timeIntervals)}`;
+      `&metricTypes=${metricsParam}` +
+      `&timeIntervals=${timeIntervals}`;
 
     const response = await apiRequest<DmaAnalyticsResponse>(
       'linkedin',
