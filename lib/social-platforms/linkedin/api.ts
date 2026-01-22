@@ -233,6 +233,7 @@ export const linkedinConnector: Connector = {
       `?q=trend&sourceEntity=${encodeURIComponent(sourceEntity)}` +
       `&metricTypes=${metricsParam}` +
       `&timeIntervals=${timeIntervals}`;
+    console.log('[linkedin] dma_page_trend url:', analyticsUrl);
 
     const response = await apiRequest<DmaAnalyticsResponse>(
       'linkedin',
