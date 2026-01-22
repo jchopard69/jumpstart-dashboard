@@ -116,10 +116,19 @@ function encodeRFC3986(value: string) {
 function buildTimeIntervalQueries(start: Date, end: Date, granularity?: "DAY") {
   const startMs = start.getTime();
   const endMs = end.getTime();
-  const base = `(timeRange:(start:${startMs},end:${endMs})${granularity ? `,timeGranularityType:${granularity}` : ""})`;
+
+  // Dot notation format (preferred by LinkedIn APIs)
+  const dotNotation = granularity
+    ? `timeIntervals.timeGranularityType=${granularity}&timeIntervals.timeRange.start=${startMs}&timeIntervals.timeRange.end=${endMs}`
+    : `timeIntervals.timeRange.start=${startMs}&timeIntervals.timeRange.end=${endMs}`;
+
+  // Rest.li tuple format (parentheses notation)
+  const tupleFormat = `(timeRange:(start:${startMs},end:${endMs})${granularity ? `,timeGranularityType:${granularity}` : ""})`;
+
   return [
-    { label: "timeIntervals_encoded", query: `timeIntervals=${encodeRFC3986(base)}` },
-    { label: "timeIntervals_raw", query: `timeIntervals=${base}` },
+    { label: "timeIntervals_dot", query: dotNotation },
+    { label: "timeIntervals_encoded", query: `timeIntervals=${encodeRFC3986(tupleFormat)}` },
+    { label: "timeIntervals_raw", query: `timeIntervals=${tupleFormat}` },
   ];
 }
 
