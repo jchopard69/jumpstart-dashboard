@@ -184,6 +184,12 @@ type EdgeAnalyticsElement = {
   timeIntervals?: {
     timeRange?: { start?: number; end?: number };
   };
+  metric?: {
+    timeIntervals?: {
+      timeRange?: { start?: number; end?: number };
+    };
+    value?: DmaAnalyticsValue;
+  };
   organizationalPage?: string;
 };
 
