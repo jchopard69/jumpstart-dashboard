@@ -4,8 +4,8 @@ import type { DailyMetric, PostMetric } from "@/lib/social-platforms/core/types"
 
 const API_URL = LINKEDIN_CONFIG.apiUrl;
 const API_VERSION = getLinkedInVersion();
-// Supported metrics per DMA doc: IMPRESSIONS, COMMENTS, REACTIONS, REPOSTS
-const METRIC_TYPES = ["IMPRESSIONS", "COMMENTS", "REACTIONS", "REPOSTS"];
+// Supported metrics per DMA doc: IMPRESSIONS, COMMENTS, REACTIONS, REPOSTS, CLICKS
+const METRIC_TYPES = ["IMPRESSIONS", "COMMENTS", "REACTIONS", "REPOSTS", "CLICKS"];
 const MAX_POSTS = 50;
 
 type DmaAnalyticsValue = {
@@ -33,6 +33,14 @@ type DmaAnalyticsResponse = {
   elements?: DmaAnalyticsElement[];
 };
 
+type TrendCounts = {
+  impressions: number;
+  comments: number;
+  reactions: number;
+  reposts: number;
+  clicks: number;
+};
+
 type DmaFeedContentsResponse = {
   elements?: Array<string | Record<string, unknown>>;
   paging?: Record<string, unknown>;
@@ -51,6 +59,39 @@ function parseCount(value?: DmaAnalyticsValue): number {
       ? Number(value.typeSpecificValue?.contentAnalyticsValue?.organicValue?.bigDecimal)
       : 0);
   return total || organic || 0;
+}
+
+function createEmptyTrendCounts(): TrendCounts {
+  return {
+    impressions: 0,
+    comments: 0,
+    reactions: 0,
+    reposts: 0,
+    clicks: 0,
+  };
+}
+
+function addTrendCount(target: TrendCounts, type: string | undefined, count: number) {
+  switch (type) {
+    case "IMPRESSIONS":
+    case "UNIQUE_IMPRESSIONS":
+      target.impressions += count;
+      break;
+    case "COMMENTS":
+      target.comments += count;
+      break;
+    case "REACTIONS":
+      target.reactions += count;
+      break;
+    case "REPOSTS":
+      target.reposts += count;
+      break;
+    case "CLICKS":
+      target.clicks += count;
+      break;
+    default:
+      break;
+  }
 }
 
 function encodeRFC3986(value: string) {
@@ -277,12 +318,12 @@ async function fetchPostsByUrn(
   return results;
 }
 
-async function fetchPostTrendMetrics(
+async function fetchPostTrendSeries(
   headers: Record<string, string>,
   postUrn: string,
   start: Date,
   end: Date
-): Promise<Record<string, number>> {
+): Promise<{ totals: TrendCounts; perDate: Record<string, TrendCounts> }> {
   const response = await fetchTrendAnalytics(
     headers,
     postUrn,
@@ -291,39 +332,22 @@ async function fetchPostTrendMetrics(
     "dma_post_trend_backfill"
   );
 
-  const totals = {
-    impressions: 0,
-    comments: 0,
-    reactions: 0,
-    reposts: 0,
-    clicks: 0,
-  };
+  const totals = createEmptyTrendCounts();
+  const perDate: Record<string, TrendCounts> = {};
 
   for (const element of response.elements ?? []) {
     const count = parseCount(element.metric?.value);
-    switch (element.type) {
-      case "IMPRESSIONS":
-      case "UNIQUE_IMPRESSIONS":
-        totals.impressions += count;
-        break;
-      case "COMMENTS":
-        totals.comments += count;
-        break;
-      case "REACTIONS":
-        totals.reactions += count;
-        break;
-      case "REPOSTS":
-        totals.reposts += count;
-        break;
-      case "CLICKS":
-        totals.clicks += count;
-        break;
-      default:
-        break;
-    }
+    addTrendCount(totals, element.type, count);
+
+    const startMs = element.metric?.timeIntervals?.timeRange?.start;
+    if (!startMs) continue;
+    const dateKey = new Date(startMs).toISOString().slice(0, 10);
+    const bucket = perDate[dateKey] ?? createEmptyTrendCounts();
+    addTrendCount(bucket, element.type, count);
+    perDate[dateKey] = bucket;
   }
 
-  return totals;
+  return { totals, perDate };
 }
 
 export async function fetchLinkedInDailyStats(params: {
@@ -362,49 +386,47 @@ export async function fetchLinkedInDailyStats(params: {
     });
   }
 
-  const pageId = await resolveOrganizationalPageId(headers, externalAccountId);
-  const sourceEntity = `urn:li:organizationalPage:${pageId}`;
-  const response = await fetchTrendAnalytics(
-    headers,
-    sourceEntity,
-    since,
-    until,
-    "dma_page_trend_backfill"
-  );
+  const postUrns = await fetchPostUrns(headers, externalAccountId, MAX_POSTS);
+  const postData = postUrns.length ? await fetchPostsByUrn(headers, postUrns) : {};
 
-  for (const element of response.elements ?? []) {
-    const startMs = element.metric?.timeIntervals?.timeRange?.start;
-    const dateKey = startMs ? new Date(startMs).toISOString().slice(0, 10) : null;
-    if (!dateKey) continue;
-    const entry = dailyMap.get(dateKey) ?? { date: dateKey };
-    const count = parseCount(element.metric?.value);
+  for (const postUrn of postUrns) {
+    const post = postData[postUrn];
+    if (!post) continue;
 
-    switch (element.type) {
-      case "IMPRESSIONS":
-      case "UNIQUE_IMPRESSIONS":
-        entry.impressions = (entry.impressions ?? 0) + count;
-        entry.reach = (entry.reach ?? 0) + count;
-        entry.views = (entry.views ?? 0) + count;
-        break;
-      case "COMMENTS":
-        entry.comments = (entry.comments ?? 0) + count;
-        break;
-      case "REACTIONS":
-        entry.likes = (entry.likes ?? 0) + count;
-        break;
-      case "REPOSTS":
-        entry.shares = (entry.shares ?? 0) + count;
-        break;
-      case "CLICKS":
-        clicksMap.set(dateKey, (clicksMap.get(dateKey) ?? 0) + count);
-        break;
-      default:
-        break;
+    const created = post.created as Record<string, unknown> | undefined;
+    const publishedAt = post.publishedAt as number | undefined;
+    const createdAt = (created?.time as number | undefined) ?? Date.now();
+    const postedAt = new Date(publishedAt ?? createdAt);
+
+    if (postedAt < since || postedAt > until) {
+      continue;
     }
 
+    const trend = await fetchPostTrendSeries(headers, postUrn, since, until);
+    for (const [dateKey, counts] of Object.entries(trend.perDate)) {
+      const entry = dailyMap.get(dateKey);
+      if (!entry) continue;
+      entry.impressions = (entry.impressions ?? 0) + counts.impressions;
+      entry.reach = (entry.reach ?? 0) + counts.impressions;
+      entry.views = (entry.views ?? 0) + counts.impressions;
+      entry.likes = (entry.likes ?? 0) + counts.reactions;
+      entry.comments = (entry.comments ?? 0) + counts.comments;
+      entry.shares = (entry.shares ?? 0) + counts.reposts;
+      if (counts.clicks) {
+        clicksMap.set(dateKey, (clicksMap.get(dateKey) ?? 0) + counts.clicks);
+      }
+    }
+
+    const dateKey = postedAt.toISOString().slice(0, 10);
+    const entry = dailyMap.get(dateKey);
+    if (entry) {
+      entry.posts_count = (entry.posts_count ?? 0) + 1;
+    }
+  }
+
+  for (const [dateKey, entry] of dailyMap.entries()) {
     const clicks = clicksMap.get(dateKey) ?? 0;
     entry.engagements = (entry.likes ?? 0) + (entry.comments ?? 0) + (entry.shares ?? 0) + clicks;
-    dailyMap.set(dateKey, entry);
   }
 
   const dailyMetrics = Array.from(dailyMap.values());
@@ -452,7 +474,7 @@ export async function fetchLinkedInPostsBackfill(params: {
       ? commentary
       : (commentary?.text as string | undefined);
 
-    const metrics = await fetchPostTrendMetrics(headers, postUrn, since, now);
+    const trend = await fetchPostTrendSeries(headers, postUrn, since, now);
 
     posts.push({
       external_post_id: postUrn,
@@ -461,11 +483,11 @@ export async function fetchLinkedInPostsBackfill(params: {
       caption: caption?.slice(0, 280) || "LinkedIn post",
       media_type: "ugc",
       metrics: {
-        impressions: metrics.impressions,
-        likes: metrics.reactions,
-        comments: metrics.comments,
-        shares: metrics.reposts,
-        clicks: metrics.clicks,
+        impressions: trend.totals.impressions,
+        likes: trend.totals.reactions,
+        comments: trend.totals.comments,
+        shares: trend.totals.reposts,
+        clicks: trend.totals.clicks,
       },
       raw_json: post
     });
