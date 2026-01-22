@@ -78,6 +78,10 @@ export async function apiRequest<T>(
           errorBody = await response.text();
         }
 
+        if (platform === 'linkedin') {
+          console.warn(`[linkedin] API error details for ${endpoint}:`, JSON.stringify(errorBody, null, 2));
+        }
+
         // Parse platform-specific error messages
         const errorMessage = parseErrorMessage(platform, response.status, errorBody);
 
