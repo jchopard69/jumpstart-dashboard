@@ -138,50 +138,83 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
   const config = getLinkedInConfig();
 
   try {
-    // Fetch organizations where user is admin
-    const url = `${config.apiUrl}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&projection=(elements*(organization~(localizedName,logoV2(original~:playableStreams))))`;
-    console.log('[linkedin] Fetching organizations from URL:', url);
+    // Step 1: Fetch organization ACLs to get org IDs where user is admin
+    const aclsUrl = `${config.apiUrl}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR`;
+    console.log('[linkedin] Fetching organization ACLs from:', aclsUrl);
 
-    const response = await fetch(url, {
+    const aclsResponse = await fetch(aclsUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'LinkedIn-Version': '202401',
       },
     });
 
-    console.log('[linkedin] Response status:', response.status);
-    const data = await response.json();
-    console.log('[linkedin] Response data:', JSON.stringify(data, null, 2));
+    console.log('[linkedin] ACLs response status:', aclsResponse.status);
+    const aclsData = await aclsResponse.json();
 
-    if (data.error) {
-      console.warn('[linkedin] API Error:', data.error);
+    if (aclsData.error || aclsData.status === 400) {
+      console.warn('[linkedin] ACLs API Error:', aclsData);
       return [];
     }
 
-    if (!data.elements || !Array.isArray(data.elements)) {
-      console.warn('[linkedin] No elements array in response. Data keys:', Object.keys(data));
+    if (!aclsData.elements || !Array.isArray(aclsData.elements)) {
+      console.warn('[linkedin] No elements in ACLs response');
       return [];
     }
 
-    console.log('[linkedin] Found', data.elements.length, 'elements in response');
+    console.log('[linkedin] Found', aclsData.elements.length, 'organization ACLs');
 
-    const organizations = (data.elements || []).map((element: Record<string, unknown>) => {
-      const org = element['organization~'] as Record<string, unknown> | undefined;
-      const logo = org?.logoV2 as Record<string, unknown> | undefined;
-      const originalLogo = logo?.['original~'] as Record<string, unknown> | undefined;
+    // Extract organization IDs
+    const orgIds = aclsData.elements
+      .map((element: Record<string, unknown>) => {
+        const orgUrn = String(element.organization || '');
+        return orgUrn.replace('urn:li:organization:', '');
+      })
+      .filter(Boolean);
 
-      const orgData = {
-        organizationId: String(element.organization || '').replace('urn:li:organization:', ''),
-        name: org?.localizedName as string || 'Unknown Organization',
-        logoUrl: originalLogo?.url as string | undefined,
-      };
+    console.log('[linkedin] Extracted organization IDs:', orgIds);
 
-      console.log('[linkedin] Mapped organization:', orgData);
-      return orgData;
-    });
+    if (!orgIds.length) {
+      console.warn('[linkedin] No organization IDs found');
+      return [];
+    }
 
-    console.log(`[linkedin] Returning ${organizations.length} organizations via organizationAcls API`);
-    return organizations;
+    // Step 2: Fetch details for each organization
+    const organizations = await Promise.all(
+      orgIds.map(async (orgId: string) => {
+        try {
+          const orgUrl = `${config.apiUrl}/organizations/${orgId}`;
+          console.log('[linkedin] Fetching org details for:', orgId);
+
+          const orgResponse = await fetch(orgUrl, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'LinkedIn-Version': '202401',
+            },
+          });
+
+          if (!orgResponse.ok) {
+            console.warn(`[linkedin] Failed to fetch org ${orgId}:`, orgResponse.status);
+            return null;
+          }
+
+          const orgData = await orgResponse.json();
+
+          return {
+            organizationId: orgId,
+            name: orgData.localizedName || orgData.name || 'Unknown Organization',
+            logoUrl: orgData.logoV2?.original || undefined,
+          };
+        } catch (error) {
+          console.warn(`[linkedin] Error fetching org ${orgId}:`, error);
+          return null;
+        }
+      })
+    );
+
+    const validOrgs = organizations.filter((org): org is NonNullable<typeof org> => org !== null);
+    console.log(`[linkedin] Returning ${validOrgs.length} organizations`);
+    return validOrgs;
   } catch (error) {
     console.warn('[linkedin] Error fetching organizations:', error);
     return [];
