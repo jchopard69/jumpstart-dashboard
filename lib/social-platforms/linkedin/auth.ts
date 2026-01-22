@@ -129,8 +129,8 @@ export async function fetchLinkedInProfile(accessToken: string): Promise<{
 
 /**
  * Fetch LinkedIn organization pages the user manages
- * Uses the organizationAuthorizations API with batch finder
- * See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations/organization-authorizations
+ * Uses the DMA Organization Access Control API (DMA-only)
+ * See: https://learn.microsoft.com/en-us/linkedin/dma/pages-data-portability-overview
  */
 export async function fetchLinkedInOrganizations(accessToken: string): Promise<Array<{
   organizationId: string;
@@ -145,42 +145,32 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
   };
 
   try {
-    // Step 1: Get organizations where user is admin using batch finder
-    // See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations/organization-authorizations
-    const authUrl = `${config.apiUrl}/organizationAuthorizations?bq=authorizationActionsAndImpersonator&authorizationActions=List((authorizationAction:(organizationRoleAuthorizationAction:(actionType:ADMINISTRATOR_READ))))`;
-    console.log('[linkedin] Fetching organization authorizations from:', authUrl);
+    // Step 1: Get organizations where user is admin using DMA access control
+    const aclsUrl = `${config.apiUrl}/dmaOrganizationAcls?q=roleAssignee&role=(value:ADMINISTRATOR)&state=(value:APPROVED)&start=0&count=100`;
+    console.log('[linkedin] Fetching DMA organization ACLs from:', aclsUrl);
 
-    const authResponse = await fetch(authUrl, { headers });
-    console.log('[linkedin] Auth response status:', authResponse.status);
+    const aclsResponse = await fetch(aclsUrl, { headers });
+    console.log('[linkedin] ACL response status:', aclsResponse.status);
 
-    const authData = await authResponse.json();
-    console.log('[linkedin] Auth response:', JSON.stringify(authData, null, 2));
+    const aclsData = await aclsResponse.json();
+    console.log('[linkedin] ACL response:', JSON.stringify(aclsData, null, 2));
 
-    if (authData.status && authData.status >= 400) {
-      console.warn('[linkedin] Auth API error:', authData);
+    if (aclsData.status && aclsData.status >= 400) {
+      console.warn('[linkedin] ACL API error:', aclsData);
       return [];
     }
 
-    // Extract organization IDs from authorizations
-    const elements = authData.elements || [];
-    console.log('[linkedin] Found', elements.length, 'authorization elements');
+    // Extract organization IDs from ACLs
+    const elements = aclsData.elements || [];
+    console.log('[linkedin] Found', elements.length, 'ACL elements');
 
     const orgIds = new Set<string>();
     for (const element of elements) {
-      // Check if status is approved
-      const status = element.status;
-      const isApproved = status && (
-        status['com.linkedin.organization.Approved'] !== undefined ||
-        status.approved !== undefined
-      );
-
-      if (isApproved || !status) {
-        const orgUrn = element.organization;
-        if (orgUrn) {
-          const orgId = String(orgUrn).replace('urn:li:organization:', '');
-          if (orgId && orgId !== 'undefined') {
-            orgIds.add(orgId);
-          }
+      const orgUrn = element?.key?.organization;
+      if (orgUrn) {
+        const orgId = String(orgUrn).replace('urn:li:organization:', '');
+        if (orgId && orgId !== 'undefined') {
+          orgIds.add(orgId);
         }
       }
     }
@@ -188,7 +178,7 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
     console.log('[linkedin] Extracted organization IDs:', Array.from(orgIds));
 
     if (orgIds.size === 0) {
-      console.warn('[linkedin] No organization IDs found in authorizations');
+      console.warn('[linkedin] No organization IDs found in ACLs');
       return [];
     }
 
@@ -197,7 +187,7 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
 
     for (const orgId of orgIds) {
       try {
-        const orgUrl = `${config.apiUrl}/organizations/${orgId}`;
+        const orgUrl = `${config.apiUrl}/dmaOrganizations/${orgId}`;
         console.log('[linkedin] Fetching org details from:', orgUrl);
 
         const orgResponse = await fetch(orgUrl, { headers });
@@ -259,7 +249,7 @@ export async function handleLinkedInOAuthCallback(
     console.error('  1. The user does not have admin access to any LinkedIn Organization Pages');
     console.error('  2. The OAuth scope r_dma_admin_pages_content is missing or not approved');
     console.error('  3. The LinkedIn app is not approved for DMA access');
-    console.error('  4. The authorization was not approved in the API response');
+    console.error('  4. The DMA Organization Access Control API returned no approved ACLs');
     throw new Error("Aucune page LinkedIn administrée n'a été trouvée pour ce compte.");
   }
 
