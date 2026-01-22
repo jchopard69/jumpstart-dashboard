@@ -53,7 +53,8 @@ function parseCount(value?: DmaAnalyticsValue): number {
 }
 
 function buildTimeIntervalRange(start: Date, end: Date) {
-  return `(timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY)`;
+  // DMA content analytics expects a single timeRange without timeGranularityType.
+  return `(timeRange:(start:${start.getTime()},end:${end.getTime()}))`;
 }
 
 async function resolveOrganizationalPageId(

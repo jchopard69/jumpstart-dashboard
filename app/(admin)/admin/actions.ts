@@ -169,6 +169,9 @@ export async function uploadDocumentMetadata(formData: FormData) {
   const fileName = String(formData.get("file_name") ?? "");
   const tag = String(formData.get("tag") ?? "other");
   const pinned = String(formData.get("pinned") ?? "false") === "true";
+  if (!filePath.startsWith(`${tenantId}/`)) {
+    throw new Error("Chemin de fichier invalide.");
+  }
   const supabase = createSupabaseServiceClient();
   await supabase.from("documents").insert({
     tenant_id: tenantId,

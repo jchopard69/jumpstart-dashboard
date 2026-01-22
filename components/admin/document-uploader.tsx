@@ -14,6 +14,22 @@ export function DocumentUploader({
   tenantId: string;
   onUploaded: (payload: { filePath: string; fileName: string; tag: string; pinned: boolean }) => void;
 }) {
+  const MAX_FILE_SIZE_MB = 10;
+  const allowedTypes = new Set([
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "image/png",
+    "image/jpeg",
+    "image/gif"
+  ]);
+  const allowedExtensions = new Set([
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "png", "jpg", "jpeg", "gif"
+  ]);
   const [filePath, setFilePath] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [tag, setTag] = useState("other");
@@ -23,6 +39,15 @@ export function DocumentUploader({
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!allowedTypes.has(file.type) && !allowedExtensions.has(ext)) {
+      alert("Type de fichier non autorisé.");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      alert(`Fichier trop volumineux (max ${MAX_FILE_SIZE_MB}MB).`);
+      return;
+    }
     setLoading(true);
     const supabase = createSupabaseBrowserClient();
     const path = `${tenantId}/${Date.now()}-${file.name}`;

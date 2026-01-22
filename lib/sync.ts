@@ -37,7 +37,7 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
   }
 
   await runWithLimit(filtered, async (account) => {
-    const log = await supabase
+    const { data: log, error: logError } = await supabase
       .from("sync_logs")
       .insert({
         tenant_id: tenantId,
@@ -48,6 +48,9 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
       })
       .select()
       .single();
+    if (logError || !log?.id) {
+      throw new Error(`Failed to create sync log: ${logError?.message ?? "missing log id"}`);
+    }
 
     try {
       const connector = getConnector(account.platform);
@@ -89,9 +92,12 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           posts_count: metric.posts_count ?? 0,
           raw_json: metric.raw_json ?? null
         }));
-        await supabase.from("social_daily_metrics").upsert(metricsPayload, {
+        const { error: metricsError } = await supabase.from("social_daily_metrics").upsert(metricsPayload, {
           onConflict: "tenant_id,platform,social_account_id,date"
         });
+        if (metricsError) {
+          throw new Error(`Failed to upsert metrics: ${metricsError.message}`);
+        }
       }
 
       if (result.posts.length) {
@@ -109,33 +115,45 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           metrics: post.metrics ?? {},
           raw_json: post.raw_json ?? null
         }));
-        await supabase.from("social_posts").upsert(postsPayload, {
+        const { error: postsError } = await supabase.from("social_posts").upsert(postsPayload, {
           onConflict: "tenant_id,platform,social_account_id,external_post_id"
         });
+        if (postsError) {
+          throw new Error(`Failed to upsert posts: ${postsError.message}`);
+        }
       }
 
-      await supabase
+      const { error: accountUpdateError } = await supabase
         .from("social_accounts")
         .update({ last_sync_at: new Date().toISOString() })
         .eq("id", account.id);
+      if (accountUpdateError) {
+        throw new Error(`Failed to update social account: ${accountUpdateError.message}`);
+      }
 
-      await supabase
+      const { error: logUpdateError } = await supabase
         .from("sync_logs")
         .update({
           status: "success",
           finished_at: new Date().toISOString(),
           rows_upserted: result.dailyMetrics.length + result.posts.length
         })
-        .eq("id", log.data?.id ?? "");
+        .eq("id", log.id);
+      if (logUpdateError) {
+        throw new Error(`Failed to update sync log: ${logUpdateError.message}`);
+      }
     } catch (syncError: any) {
-      await supabase
+      const { error: logFailError } = await supabase
         .from("sync_logs")
         .update({
           status: "failed",
           finished_at: new Date().toISOString(),
           error_message: syncError?.message ?? "Unknown error"
         })
-        .eq("id", log.data?.id ?? "");
+        .eq("id", log.id);
+      if (logFailError) {
+        console.error("[sync] Failed to update sync log:", logFailError.message);
+      }
     }
   });
 }

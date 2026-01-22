@@ -22,12 +22,14 @@ function validateAuth(request: Request): boolean {
     }
   }
 
-  // Fall back to query parameter (legacy, for backwards compatibility)
-  const { searchParams } = new URL(request.url);
-  const secretParam = searchParams.get("secret");
-  if (secretParam === cronSecret) {
-    console.warn("[cron] Using query param auth is deprecated. Please use Authorization: Bearer header.");
-    return true;
+  // Optional legacy fallback (disabled by default)
+  if (process.env.CRON_ALLOW_QUERY_SECRET === "true") {
+    const { searchParams } = new URL(request.url);
+    const secretParam = searchParams.get("secret");
+    if (secretParam === cronSecret) {
+      console.warn("[cron] Using query param auth is deprecated. Please use Authorization: Bearer header.");
+      return true;
+    }
   }
 
   return false;
@@ -83,6 +85,9 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+  }
   return POST(request);
 }
 

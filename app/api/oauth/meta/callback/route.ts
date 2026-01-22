@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleMetaOAuthCallback } from "@/lib/social-platforms/meta/auth";
 import { clearOAuthCookies, readOAuthCookies } from "@/lib/social-platforms/core/oauth-cookies";
 import { upsertSocialAccount } from "@/lib/social-platforms/core/db-utils";
+import { requireAdminOAuthSession } from "@/lib/social-platforms/core/oauth-guard";
 
 export async function GET(request: NextRequest) {
+  const guard = await requireAdminOAuthSession(request, "meta");
+  if (guard) {
+    clearOAuthCookies(guard, "meta");
+    return guard;
+  }
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const state = searchParams.get("state");

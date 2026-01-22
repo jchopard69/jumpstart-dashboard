@@ -23,8 +23,8 @@ export async function POST(request: Request) {
     }
   }
 
-  // Fall back to query param (legacy)
-  if (!authorized) {
+  // Optional legacy fallback (disabled by default)
+  if (!authorized && process.env.CRON_ALLOW_QUERY_SECRET === "true") {
     const { searchParams } = new URL(request.url);
     if (searchParams.get("secret") === cronSecret) {
       authorized = true;
@@ -71,6 +71,9 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+  }
   return POST(request);
 }
 
