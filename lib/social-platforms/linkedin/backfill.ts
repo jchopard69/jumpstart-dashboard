@@ -60,17 +60,29 @@ function encodeRFC3986(value: string) {
 function buildTimeIntervalVariants(start: Date, end: Date) {
   const startMs = start.getTime();
   const endMs = end.getTime();
+  const startSec = Math.floor(startMs / 1000);
+  const endSec = Math.floor(endMs / 1000);
   const base = `timeRange:(start:${startMs},end:${endMs})`;
   const baseReversed = `timeRange:(end:${endMs},start:${startMs})`;
+  const baseSeconds = `timeRange:(start:${startSec},end:${endSec})`;
+  const baseSecondsReversed = `timeRange:(end:${endSec},start:${startSec})`;
   const variants = [
     { label: "timeIntervals_single", value: `(${base})` },
     { label: "timeIntervals_single_granularity", value: `(${base},timeGranularityType:DAY)` },
     { label: "timeIntervals_single_reversed", value: `(${baseReversed})` },
     { label: "timeIntervals_single_reversed_granularity", value: `(${baseReversed},timeGranularityType:DAY)` },
+    { label: "timeIntervals_seconds", value: `(${baseSeconds})` },
+    { label: "timeIntervals_seconds_granularity", value: `(${baseSeconds},timeGranularityType:DAY)` },
+    { label: "timeIntervals_seconds_reversed", value: `(${baseSecondsReversed})` },
+    { label: "timeIntervals_seconds_reversed_granularity", value: `(${baseSecondsReversed},timeGranularityType:DAY)` },
     { label: "timeIntervals_list", value: `List((${base}))` },
     { label: "timeIntervals_list_granularity", value: `List((${base},timeGranularityType:DAY))` },
     { label: "timeIntervals_list_reversed", value: `List((${baseReversed}))` },
     { label: "timeIntervals_list_reversed_granularity", value: `List((${baseReversed},timeGranularityType:DAY))` },
+    { label: "timeIntervals_list_seconds", value: `List((${baseSeconds}))` },
+    { label: "timeIntervals_list_seconds_granularity", value: `List((${baseSeconds},timeGranularityType:DAY))` },
+    { label: "timeIntervals_list_seconds_reversed", value: `List((${baseSecondsReversed}))` },
+    { label: "timeIntervals_list_seconds_reversed_granularity", value: `List((${baseSecondsReversed},timeGranularityType:DAY))` },
   ];
 
   const params = new URLSearchParams({
@@ -91,6 +103,24 @@ function buildTimeIntervalVariants(start: Date, end: Date) {
     "timeIntervals[0].timeRange.start": String(startMs),
     "timeIntervals[0].timeGranularityType": "DAY",
   });
+  const paramsSeconds = new URLSearchParams({
+    "timeIntervals[0].timeRange.start": String(startSec),
+    "timeIntervals[0].timeRange.end": String(endSec),
+  });
+  const paramsSecondsGranularity = new URLSearchParams({
+    "timeIntervals[0].timeRange.start": String(startSec),
+    "timeIntervals[0].timeRange.end": String(endSec),
+    "timeIntervals[0].timeGranularityType": "DAY",
+  });
+  const paramsSecondsReversed = new URLSearchParams({
+    "timeIntervals[0].timeRange.end": String(endSec),
+    "timeIntervals[0].timeRange.start": String(startSec),
+  });
+  const paramsSecondsReversedGranularity = new URLSearchParams({
+    "timeIntervals[0].timeRange.end": String(endSec),
+    "timeIntervals[0].timeRange.start": String(startSec),
+    "timeIntervals[0].timeGranularityType": "DAY",
+  });
 
   return [
     ...variants,
@@ -98,12 +128,22 @@ function buildTimeIntervalVariants(start: Date, end: Date) {
     { label: "timeIntervals_bracket_granularity", value: paramsWithGranularity.toString(), rawQuery: true },
     { label: "timeIntervals_bracket_reversed", value: paramsReversed.toString(), rawQuery: true },
     { label: "timeIntervals_bracket_reversed_granularity", value: paramsReversedGranularity.toString(), rawQuery: true },
+    { label: "timeIntervals_bracket_seconds", value: paramsSeconds.toString(), rawQuery: true },
+    { label: "timeIntervals_bracket_seconds_granularity", value: paramsSecondsGranularity.toString(), rawQuery: true },
+    { label: "timeIntervals_bracket_seconds_reversed", value: paramsSecondsReversed.toString(), rawQuery: true },
+    { label: "timeIntervals_bracket_seconds_reversed_granularity", value: paramsSecondsReversedGranularity.toString(), rawQuery: true },
     { label: "timeRange_param", value: `timeRange=(${base})`, rawQuery: true },
     { label: "timeRange_param_granularity", value: `timeRange=(${base},timeGranularityType:DAY)`, rawQuery: true },
+    { label: "timeRange_param_seconds", value: `timeRange=(${baseSeconds})`, rawQuery: true },
+    { label: "timeRange_param_seconds_granularity", value: `timeRange=(${baseSeconds},timeGranularityType:DAY)`, rawQuery: true },
     { label: "timeIntervals_encoded", value: `timeIntervals=${encodeRFC3986(`(${base})`)}`, rawQuery: true },
     { label: "timeIntervals_encoded_granularity", value: `timeIntervals=${encodeRFC3986(`(${base},timeGranularityType:DAY)`)}`, rawQuery: true },
     { label: "timeIntervals_encoded_reversed", value: `timeIntervals=${encodeRFC3986(`(${baseReversed})`)}`, rawQuery: true },
     { label: "timeIntervals_encoded_reversed_granularity", value: `timeIntervals=${encodeRFC3986(`(${baseReversed},timeGranularityType:DAY)`)}`, rawQuery: true },
+    { label: "timeIntervals_encoded_seconds", value: `timeIntervals=${encodeRFC3986(`(${baseSeconds})`)}`, rawQuery: true },
+    { label: "timeIntervals_encoded_seconds_granularity", value: `timeIntervals=${encodeRFC3986(`(${baseSeconds},timeGranularityType:DAY)`)}`, rawQuery: true },
+    { label: "timeIntervals_encoded_seconds_reversed", value: `timeIntervals=${encodeRFC3986(`(${baseSecondsReversed})`)}`, rawQuery: true },
+    { label: "timeIntervals_encoded_seconds_reversed_granularity", value: `timeIntervals=${encodeRFC3986(`(${baseSecondsReversed},timeGranularityType:DAY)`)}`, rawQuery: true },
   ];
 }
 
