@@ -22,7 +22,7 @@ export function getLinkedInVersion(): string | undefined {
   if (digits.length >= 6) {
     return digits.slice(0, 6);
   }
-  return raw;
+  return digits.length ? digits : raw;
 }
 
 export function getLinkedInConfig() {

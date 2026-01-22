@@ -138,8 +138,8 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
   logoUrl?: string;
 }>> {
   const config = getLinkedInConfig();
-  if (!config.version) {
-    throw new Error("LinkedIn DMA requires LINKEDIN_VERSION to be set to an active version.");
+  if (!config.version || !/^\d{6}$/.test(config.version)) {
+    throw new Error("LinkedIn DMA requires LINKEDIN_VERSION to be set to an active YYYYMM version.");
   }
   console.log('[linkedin] Using LinkedIn-Version:', config.version);
   const headers: Record<string, string> = {
@@ -230,7 +230,7 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
     return organizations;
   } catch (error) {
     console.warn('[linkedin] Error fetching organizations:', error);
-    return [];
+    throw error instanceof Error ? error : new Error('LinkedIn DMA organization lookup failed');
   }
 }
 
