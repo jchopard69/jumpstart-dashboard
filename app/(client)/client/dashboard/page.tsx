@@ -180,8 +180,8 @@ export default async function ClientDashboardPage({
                   </p>
                 </div>
                 <div className="text-right text-xs text-muted-foreground">
+                  <p>Impressions: {post.metrics?.impressions ?? post.metrics?.views ?? 0}</p>
                   <p>Engagements: {post.metrics?.engagements ?? post.metrics?.likes ?? 0}</p>
-                  {showViews ? <p>Vues: {post.metrics?.views ?? 0}</p> : null}
                 </div>
               </div>
             ))}

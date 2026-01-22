@@ -136,16 +136,16 @@ export async function GET(request: Request) {
     ],
     posts: (posts ?? [])
       .sort((a, b) => {
+        const aImp = a.metrics?.impressions ?? a.metrics?.views ?? 0;
+        const bImp = b.metrics?.impressions ?? b.metrics?.views ?? 0;
         const aEng = a.metrics?.engagements ?? a.metrics?.likes ?? 0;
         const bEng = b.metrics?.engagements ?? b.metrics?.likes ?? 0;
-        const aViews = a.metrics?.views ?? 0;
-        const bViews = b.metrics?.views ?? 0;
-        return bEng - aEng || bViews - aViews;
+        return bImp - aImp || bEng - aEng;
       })
       .map((post) => ({
         caption: post.caption ?? "Sans titre",
         date: post.posted_at ? new Date(post.posted_at).toLocaleDateString("fr-FR") : "-",
-        views: post.metrics?.views ?? 0,
+        impressions: post.metrics?.impressions ?? post.metrics?.views ?? 0,
         engagements: post.metrics?.engagements ?? post.metrics?.likes ?? 0
       })),
     collaboration: {

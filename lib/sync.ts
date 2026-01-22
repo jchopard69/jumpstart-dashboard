@@ -73,6 +73,33 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
         refreshToken
       });
 
+      if (account.platform === "linkedin" && result.dailyMetrics.length) {
+        const sorted = [...result.dailyMetrics].sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
+        const earliest = sorted[0]?.date;
+        let baseline = 0;
+        if (earliest) {
+          const { data: baselineRow } = await supabase
+            .from("social_daily_metrics")
+            .select("followers,date")
+            .eq("tenant_id", tenantId)
+            .eq("platform", account.platform)
+            .eq("social_account_id", account.id)
+            .lt("date", earliest)
+            .order("date", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          baseline = baselineRow?.followers ?? 0;
+        }
+
+        let cumulative = baseline;
+        for (const metric of sorted) {
+          const delta = metric.followers ?? 0;
+          cumulative += delta;
+          metric.followers = cumulative;
+        }
+        result.dailyMetrics = sorted;
+      }
+
       if (result.dailyMetrics.length) {
         const metricsPayload = result.dailyMetrics.map((metric) => ({
           tenant_id: tenantId,

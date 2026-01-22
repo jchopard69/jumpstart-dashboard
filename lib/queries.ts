@@ -197,11 +197,11 @@ export async function fetchDashboardData(params: {
     .single();
 
   const sortedPosts = (posts ?? []).sort((a, b) => {
+    const aImp = a.metrics?.impressions ?? a.metrics?.views ?? 0;
+    const bImp = b.metrics?.impressions ?? b.metrics?.views ?? 0;
     const aEng = a.metrics?.engagements ?? a.metrics?.likes ?? 0;
     const bEng = b.metrics?.engagements ?? b.metrics?.likes ?? 0;
-    const aViews = a.metrics?.views ?? 0;
-    const bViews = b.metrics?.views ?? 0;
-    return bEng - aEng || bViews - aViews;
+    return bImp - aImp || bEng - aEng;
   });
 
   const availablePlatforms = params.platform && params.platform !== "all"

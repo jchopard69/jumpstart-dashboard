@@ -37,6 +37,7 @@ type DmaAnalyticsResponse = {
 
 type TrendCounts = {
   impressions: number;
+  uniqueImpressions: number;
   comments: number;
   reactions: number;
   reposts: number;
@@ -45,6 +46,11 @@ type TrendCounts = {
 
 type DmaFeedContentsResponse = {
   elements?: Array<string | Record<string, unknown>>;
+  metadata?: {
+    paginationCursorMetdata?: {
+      nextPaginationCursor?: string;
+    };
+  };
   paging?: Record<string, unknown>;
 };
 
@@ -53,9 +59,9 @@ type DmaPostsResponse = {
   statuses?: Record<string, number>;
 };
 
-// Supported metrics per DMA doc: IMPRESSIONS, COMMENTS, REACTIONS, REPOSTS, CLICKS
-const METRIC_TYPES = ["IMPRESSIONS", "COMMENTS", "REACTIONS", "REPOSTS", "CLICKS"];
-const MAX_POSTS = 10;
+// Supported metrics per DMA doc: IMPRESSIONS, UNIQUE_IMPRESSIONS, COMMENTS, REACTIONS, REPOSTS, CLICKS
+const METRIC_TYPES = ["IMPRESSIONS", "UNIQUE_IMPRESSIONS", "COMMENTS", "REACTIONS", "REPOSTS", "CLICKS"];
+const MAX_POSTS_SYNC = 50;
 
 function parseCount(value?: DmaAnalyticsValue): number {
   if (!value) return 0;
@@ -70,6 +76,7 @@ function parseCount(value?: DmaAnalyticsValue): number {
 function createEmptyTrendCounts(): TrendCounts {
   return {
     impressions: 0,
+    uniqueImpressions: 0,
     comments: 0,
     reactions: 0,
     reposts: 0,
@@ -80,8 +87,10 @@ function createEmptyTrendCounts(): TrendCounts {
 function addTrendCount(target: TrendCounts, type: string | undefined, count: number) {
   switch (type) {
     case "IMPRESSIONS":
-    case "UNIQUE_IMPRESSIONS":
       target.impressions += count;
+      break;
+    case "UNIQUE_IMPRESSIONS":
+      target.uniqueImpressions += count;
       break;
     case "COMMENTS":
       target.comments += count;
@@ -104,93 +113,13 @@ function encodeRFC3986(value: string) {
   return encodeURIComponent(value).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
-function buildTimeIntervalVariants(start: Date, end: Date) {
+function buildTimeIntervalQueries(start: Date, end: Date, granularity?: "DAY") {
   const startMs = start.getTime();
   const endMs = end.getTime();
-  const startSec = Math.floor(startMs / 1000);
-  const endSec = Math.floor(endMs / 1000);
-  const base = `timeRange:(start:${startMs},end:${endMs})`;
-  const baseReversed = `timeRange:(end:${endMs},start:${startMs})`;
-  const baseSeconds = `timeRange:(start:${startSec},end:${endSec})`;
-  const baseSecondsReversed = `timeRange:(end:${endSec},start:${startSec})`;
-  const variants = [
-    { label: "timeIntervals_single", value: `(${base})` },
-    { label: "timeIntervals_single_granularity", value: `(${base},timeGranularityType:DAY)` },
-    { label: "timeIntervals_single_reversed", value: `(${baseReversed})` },
-    { label: "timeIntervals_single_reversed_granularity", value: `(${baseReversed},timeGranularityType:DAY)` },
-    { label: "timeIntervals_seconds", value: `(${baseSeconds})` },
-    { label: "timeIntervals_seconds_granularity", value: `(${baseSeconds},timeGranularityType:DAY)` },
-    { label: "timeIntervals_seconds_reversed", value: `(${baseSecondsReversed})` },
-    { label: "timeIntervals_seconds_reversed_granularity", value: `(${baseSecondsReversed},timeGranularityType:DAY)` },
-    { label: "timeIntervals_list", value: `List((${base}))` },
-    { label: "timeIntervals_list_granularity", value: `List((${base},timeGranularityType:DAY))` },
-    { label: "timeIntervals_list_reversed", value: `List((${baseReversed}))` },
-    { label: "timeIntervals_list_reversed_granularity", value: `List((${baseReversed},timeGranularityType:DAY))` },
-    { label: "timeIntervals_list_seconds", value: `List((${baseSeconds}))` },
-    { label: "timeIntervals_list_seconds_granularity", value: `List((${baseSeconds},timeGranularityType:DAY))` },
-    { label: "timeIntervals_list_seconds_reversed", value: `List((${baseSecondsReversed}))` },
-    { label: "timeIntervals_list_seconds_reversed_granularity", value: `List((${baseSecondsReversed},timeGranularityType:DAY))` },
-  ];
-
-  const params = new URLSearchParams({
-    "timeIntervals[0].timeRange.start": String(startMs),
-    "timeIntervals[0].timeRange.end": String(endMs),
-  });
-  const paramsWithGranularity = new URLSearchParams({
-    "timeIntervals[0].timeRange.start": String(startMs),
-    "timeIntervals[0].timeRange.end": String(endMs),
-    "timeIntervals[0].timeGranularityType": "DAY",
-  });
-  const paramsReversed = new URLSearchParams({
-    "timeIntervals[0].timeRange.end": String(endMs),
-    "timeIntervals[0].timeRange.start": String(startMs),
-  });
-  const paramsReversedGranularity = new URLSearchParams({
-    "timeIntervals[0].timeRange.end": String(endMs),
-    "timeIntervals[0].timeRange.start": String(startMs),
-    "timeIntervals[0].timeGranularityType": "DAY",
-  });
-  const paramsSeconds = new URLSearchParams({
-    "timeIntervals[0].timeRange.start": String(startSec),
-    "timeIntervals[0].timeRange.end": String(endSec),
-  });
-  const paramsSecondsGranularity = new URLSearchParams({
-    "timeIntervals[0].timeRange.start": String(startSec),
-    "timeIntervals[0].timeRange.end": String(endSec),
-    "timeIntervals[0].timeGranularityType": "DAY",
-  });
-  const paramsSecondsReversed = new URLSearchParams({
-    "timeIntervals[0].timeRange.end": String(endSec),
-    "timeIntervals[0].timeRange.start": String(startSec),
-  });
-  const paramsSecondsReversedGranularity = new URLSearchParams({
-    "timeIntervals[0].timeRange.end": String(endSec),
-    "timeIntervals[0].timeRange.start": String(startSec),
-    "timeIntervals[0].timeGranularityType": "DAY",
-  });
-
+  const base = `(timeRange:(start:${startMs},end:${endMs})${granularity ? `,timeGranularityType:${granularity}` : ""})`;
   return [
-    ...variants,
-    { label: "timeIntervals_bracket", value: params.toString(), rawQuery: true },
-    { label: "timeIntervals_bracket_granularity", value: paramsWithGranularity.toString(), rawQuery: true },
-    { label: "timeIntervals_bracket_reversed", value: paramsReversed.toString(), rawQuery: true },
-    { label: "timeIntervals_bracket_reversed_granularity", value: paramsReversedGranularity.toString(), rawQuery: true },
-    { label: "timeIntervals_bracket_seconds", value: paramsSeconds.toString(), rawQuery: true },
-    { label: "timeIntervals_bracket_seconds_granularity", value: paramsSecondsGranularity.toString(), rawQuery: true },
-    { label: "timeIntervals_bracket_seconds_reversed", value: paramsSecondsReversed.toString(), rawQuery: true },
-    { label: "timeIntervals_bracket_seconds_reversed_granularity", value: paramsSecondsReversedGranularity.toString(), rawQuery: true },
-    { label: "timeRange_param", value: `timeRange=(${base})`, rawQuery: true },
-    { label: "timeRange_param_granularity", value: `timeRange=(${base},timeGranularityType:DAY)`, rawQuery: true },
-    { label: "timeRange_param_seconds", value: `timeRange=(${baseSeconds})`, rawQuery: true },
-    { label: "timeRange_param_seconds_granularity", value: `timeRange=(${baseSeconds},timeGranularityType:DAY)`, rawQuery: true },
-    { label: "timeIntervals_encoded", value: `timeIntervals=${encodeRFC3986(`(${base})`)}`, rawQuery: true },
-    { label: "timeIntervals_encoded_granularity", value: `timeIntervals=${encodeRFC3986(`(${base},timeGranularityType:DAY)`)}`, rawQuery: true },
-    { label: "timeIntervals_encoded_reversed", value: `timeIntervals=${encodeRFC3986(`(${baseReversed})`)}`, rawQuery: true },
-    { label: "timeIntervals_encoded_reversed_granularity", value: `timeIntervals=${encodeRFC3986(`(${baseReversed},timeGranularityType:DAY)`)}`, rawQuery: true },
-    { label: "timeIntervals_encoded_seconds", value: `timeIntervals=${encodeRFC3986(`(${baseSeconds})`)}`, rawQuery: true },
-    { label: "timeIntervals_encoded_seconds_granularity", value: `timeIntervals=${encodeRFC3986(`(${baseSeconds},timeGranularityType:DAY)`)}`, rawQuery: true },
-    { label: "timeIntervals_encoded_seconds_reversed", value: `timeIntervals=${encodeRFC3986(`(${baseSecondsReversed})`)}`, rawQuery: true },
-    { label: "timeIntervals_encoded_seconds_reversed_granularity", value: `timeIntervals=${encodeRFC3986(`(${baseSecondsReversed},timeGranularityType:DAY)`)}`, rawQuery: true },
+    { label: "timeIntervals_encoded", query: `timeIntervals=${encodeRFC3986(base)}` },
+    { label: "timeIntervals_raw", query: `timeIntervals=${base}` },
   ];
 }
 
@@ -215,15 +144,12 @@ async function fetchTrendAnalytics(
   endpointName: string
 ): Promise<DmaAnalyticsResponse> {
   const metricsParam = `List(${METRIC_TYPES.join(',')})`;
-  const timeIntervalsVariants = buildTimeIntervalVariants(start, end);
+  const timeIntervalsVariants = buildTimeIntervalQueries(start, end, "DAY");
   let lastError: unknown = null;
 
   for (const variant of timeIntervalsVariants) {
     const baseQuery = `q=trend&sourceEntity=${encodeURIComponent(sourceEntity)}&metricTypes=${metricsParam}`;
-    const timeQuery = (variant as { value: string; rawQuery?: boolean }).rawQuery
-      ? (variant as { value: string }).value
-      : `timeIntervals=${(variant as { value: string }).value}`;
-    const analyticsUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics?${baseQuery}&${timeQuery}`;
+    const analyticsUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics?${baseQuery}&${(variant as { query: string }).query}`;
     console.log('[linkedin] dma_content_trend url:', analyticsUrl, 'variant:', (variant as { label: string }).label);
     try {
       return await apiRequest<DmaAnalyticsResponse>(
@@ -241,6 +167,60 @@ async function fetchTrendAnalytics(
   }
 
   throw lastError ?? new Error('LinkedIn DMA trend failed');
+}
+
+type EdgeAnalyticsElement = {
+  type?: string;
+  value?: DmaAnalyticsValue;
+  timeIntervals?: {
+    timeRange?: { start?: number; end?: number };
+  };
+  organizationalPage?: string;
+};
+
+type EdgeAnalyticsResponse = {
+  elements?: EdgeAnalyticsElement[];
+};
+
+async function fetchFollowerTrend(
+  headers: Record<string, string>,
+  organizationalPageUrn: string,
+  start: Date,
+  end: Date
+): Promise<Record<string, number>> {
+  const timeQueries = buildTimeIntervalQueries(start, end, "DAY");
+  let lastError: unknown = null;
+
+  for (const variant of timeQueries) {
+    const url = `${API_URL}/dmaOrganizationalPageEdgeAnalytics` +
+      `?q=trend&organizationalPage=${encodeURIComponent(organizationalPageUrn)}` +
+      `&analyticsType=FOLLOWER&${(variant as { query: string }).query}`;
+
+    try {
+      const response = await apiRequest<EdgeAnalyticsResponse>(
+        "linkedin",
+        url,
+        { headers },
+        "dma_page_followers_trend"
+      );
+      const daily: Record<string, number> = {};
+      for (const element of response.elements ?? []) {
+        const startMs = element.timeIntervals?.timeRange?.start;
+        if (!startMs) continue;
+        const dateKey = new Date(startMs).toISOString().slice(0, 10);
+        const count = parseCount(element.value);
+        daily[dateKey] = (daily[dateKey] ?? 0) + count;
+      }
+      return daily;
+    } catch (error) {
+      lastError = error;
+      if (!isTimeIntervalsError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError ?? new Error("LinkedIn DMA follower trend failed");
 }
 
 async function resolveOrganizationalPageId(
@@ -300,19 +280,37 @@ async function fetchPostUrns(
   maxCount: number
 ): Promise<string[]> {
   const authorUrn = `urn:li:organization:${organizationId}`;
-  const feedUrl = `${API_URL}/dmaFeedContentsExternal` +
-    `?author=${encodeURIComponent(authorUrn)}` +
-    `&maxPaginationCount=${maxCount}` +
-    `&q=postsByAuthor`;
+  const urns: string[] = [];
+  let cursor: string | undefined;
 
-  const response = await apiRequest<DmaFeedContentsResponse>(
-    "linkedin",
-    feedUrl,
-    { headers },
-    "dma_feed_contents"
-  );
+  while (urns.length < maxCount) {
+    const remaining = maxCount - urns.length;
+    const pageSize = Math.min(100, remaining);
+    const feedUrl = `${API_URL}/dmaFeedContentsExternal` +
+      `?author=${encodeURIComponent(authorUrn)}` +
+      `&maxPaginationCount=${pageSize}` +
+      `&q=postsByAuthor` +
+      (cursor ? `&paginationCursor=${encodeURIComponent(cursor)}` : "");
 
-  return extractPostUrns(response);
+    const response = await apiRequest<DmaFeedContentsResponse>(
+      "linkedin",
+      feedUrl,
+      { headers },
+      "dma_feed_contents"
+    );
+
+    const batch = extractPostUrns(response);
+    if (batch.length) {
+      urns.push(...batch);
+    }
+
+    cursor = response.metadata?.paginationCursorMetdata?.nextPaginationCursor;
+    if (!cursor || batch.length === 0) {
+      break;
+    }
+  }
+
+  return Array.from(new Set(urns)).slice(0, maxCount);
 }
 
 async function fetchPostsByUrn(
@@ -411,7 +409,17 @@ export const linkedinConnector: Connector = {
       });
     }
 
-    const postUrns = await fetchPostUrns(headers, externalAccountId, MAX_POSTS);
+    const pageId = await resolveOrganizationalPageId(headers, externalAccountId);
+    const orgPageUrn = `urn:li:organizationalPage:${pageId}`;
+    const followerDaily = await fetchFollowerTrend(headers, orgPageUrn, since, now);
+    for (const [dateKey, count] of Object.entries(followerDaily)) {
+      const entry = dailyMap.get(dateKey);
+      if (entry) {
+        entry.followers = (entry.followers ?? 0) + count;
+      }
+    }
+
+    const postUrns = await fetchPostUrns(headers, externalAccountId, MAX_POSTS_SYNC);
     const postData = postUrns.length ? await fetchPostsByUrn(headers, postUrns) : {};
     const posts: PostMetric[] = [];
 
@@ -430,6 +438,8 @@ export const linkedinConnector: Connector = {
         : (commentary?.text as string | undefined);
 
       const trend = await fetchPostTrendSeries(headers, postUrn, since, now);
+      const reach = trend.totals.uniqueImpressions || trend.totals.impressions;
+      const engagements = trend.totals.reactions + trend.totals.comments + trend.totals.reposts + trend.totals.clicks;
 
       posts.push({
         external_post_id: postUrn,
@@ -439,6 +449,8 @@ export const linkedinConnector: Connector = {
         media_type: "ugc",
         metrics: {
           impressions: trend.totals.impressions,
+          reach,
+          engagements,
           likes: trend.totals.reactions,
           comments: trend.totals.comments,
           shares: trend.totals.reposts,
@@ -450,8 +462,9 @@ export const linkedinConnector: Connector = {
       for (const [dateKey, counts] of Object.entries(trend.perDate)) {
         const entry = dailyMap.get(dateKey);
         if (!entry) continue;
+        const dailyReach = counts.uniqueImpressions || counts.impressions;
         entry.impressions = (entry.impressions ?? 0) + counts.impressions;
-        entry.reach = (entry.reach ?? 0) + counts.impressions;
+        entry.reach = (entry.reach ?? 0) + dailyReach;
         entry.views = (entry.views ?? 0) + counts.impressions;
         entry.likes = (entry.likes ?? 0) + counts.reactions;
         entry.comments = (entry.comments ?? 0) + counts.comments;

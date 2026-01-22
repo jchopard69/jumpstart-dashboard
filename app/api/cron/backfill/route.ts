@@ -96,6 +96,33 @@ export async function POST(request: Request) {
           })
         ]);
 
+        if (dailyMetrics.length) {
+          const sorted = [...dailyMetrics].sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
+          const earliest = sorted[0]?.date;
+          let baseline = 0;
+          if (earliest) {
+            const { data: baselineRow } = await supabase
+              .from("social_daily_metrics")
+              .select("followers,date")
+              .eq("tenant_id", account.tenant_id)
+              .eq("platform", account.platform)
+              .eq("social_account_id", account.id)
+              .lt("date", earliest)
+              .order("date", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            baseline = baselineRow?.followers ?? 0;
+          }
+
+          let cumulative = baseline;
+          for (const metric of sorted) {
+            const delta = metric.followers ?? 0;
+            cumulative += delta;
+            metric.followers = cumulative;
+          }
+          dailyMetrics.splice(0, dailyMetrics.length, ...sorted);
+        }
+
         if (posts.length) {
           await supabase.from("social_posts").upsert(
             posts.map((post) => ({

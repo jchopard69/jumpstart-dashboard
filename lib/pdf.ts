@@ -25,7 +25,7 @@ export function buildDashboardPdfHtml(params: {
   generatedAt: string;
   kpis: Array<{ label: string; value: string }>;
   charts: Array<{ title: string; svg: string }>;
-  posts: Array<{ caption: string; date: string; views: number; engagements: number }>;
+  posts: Array<{ caption: string; date: string; impressions: number; engagements: number }>;
   collaboration: { shootDays: number; shoots: Array<{ date: string; location: string }> };
   documents: Array<{ name: string; tag: string }>
 }) {
@@ -57,7 +57,7 @@ export function buildDashboardPdfHtml(params: {
     <tr>
       <td>${post.caption}</td>
       <td>${post.date}</td>
-      <td>${post.views}</td>
+      <td>${post.impressions}</td>
       <td>${post.engagements}</td>
     </tr>`
     )
@@ -132,7 +132,7 @@ export function buildDashboardPdfHtml(params: {
         <tr>
           <th>Publication</th>
           <th>Date</th>
-          <th>Vues</th>
+          <th>Impressions</th>
           <th>Engagements</th>
         </tr>
       </thead>
