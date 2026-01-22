@@ -128,7 +128,7 @@ export async function fetchLinkedInProfile(accessToken: string): Promise<{
 }
 
 /**
- * Fetch LinkedIn organization pages the user manages
+ * Fetch LinkedIn organization pages the user manages via DMA API
  */
 export async function fetchLinkedInOrganizations(accessToken: string): Promise<Array<{
   organizationId: string;
@@ -136,85 +136,81 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
   logoUrl?: string;
 }>> {
   const config = getLinkedInConfig();
+  const headers = {
+    'Authorization': `Bearer ${accessToken}`,
+    'LinkedIn-Version': '202501',
+  };
 
   try {
-    // Step 1: Fetch organization ACLs to get org IDs where user is admin
-    const aclsUrl = `${config.apiUrl}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR`;
-    console.log('[linkedin] Fetching organization ACLs from:', aclsUrl);
+    // Step 1: Fetch DMA organization authorizations
+    const authUrl = `${config.apiUrl}/dmaOrganizationAuthorizations?q=authorizingMember`;
+    console.log('[linkedin] Fetching DMA authorizations from:', authUrl);
 
-    const aclsResponse = await fetch(aclsUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'LinkedIn-Version': '202401',
-      },
+    const authResponse = await fetch(authUrl, { headers });
+    console.log('[linkedin] DMA auth response status:', authResponse.status);
+
+    const authData = await authResponse.json();
+    console.log('[linkedin] DMA auth response:', JSON.stringify(authData, null, 2));
+
+    if (authData.status && authData.status >= 400) {
+      console.warn('[linkedin] DMA auth API error:', authData);
+      return [];
+    }
+
+    // Extract organization IDs from authorizations
+    const elements = authData.elements || [];
+    console.log('[linkedin] Found', elements.length, 'authorization elements');
+
+    const orgIds = new Set<string>();
+    for (const element of elements) {
+      const orgUrn = element.organization || element.authorizedOrganization;
+      if (orgUrn) {
+        const orgId = String(orgUrn).replace('urn:li:organization:', '');
+        if (orgId && orgId !== 'undefined') {
+          orgIds.add(orgId);
+        }
+      }
+    }
+
+    console.log('[linkedin] Extracted organization IDs:', Array.from(orgIds));
+
+    if (orgIds.size === 0) {
+      console.warn('[linkedin] No organization IDs found in DMA authorizations');
+      return [];
+    }
+
+    // Step 2: Fetch organization details via DMA API
+    const orgIdsList = Array.from(orgIds).join(',');
+    const orgsUrl = `${config.apiUrl}/dmaOrganizations?ids=List(${orgIdsList})`;
+    console.log('[linkedin] Fetching DMA organizations from:', orgsUrl);
+
+    const orgsResponse = await fetch(orgsUrl, { headers });
+    console.log('[linkedin] DMA orgs response status:', orgsResponse.status);
+
+    const orgsData = await orgsResponse.json();
+    console.log('[linkedin] DMA orgs response:', JSON.stringify(orgsData, null, 2));
+
+    if (orgsData.status && orgsData.status >= 400) {
+      console.warn('[linkedin] DMA orgs API error:', orgsData);
+      return [];
+    }
+
+    // Parse organizations from results
+    const results = orgsData.results || {};
+    const organizations = Object.entries(results).map(([orgId, org]) => {
+      const orgData = org as Record<string, unknown>;
+      const logoV2 = orgData.logoV2 as Record<string, unknown> | undefined;
+      const logoUrl = logoV2?.original as string | undefined;
+
+      return {
+        organizationId: orgId,
+        name: (orgData.localizedName as string) || 'Unknown Organization',
+        logoUrl,
+      };
     });
 
-    console.log('[linkedin] ACLs response status:', aclsResponse.status);
-    const aclsData = await aclsResponse.json();
-
-    if (aclsData.error || aclsData.status === 400) {
-      console.warn('[linkedin] ACLs API Error:', aclsData);
-      return [];
-    }
-
-    if (!aclsData.elements || !Array.isArray(aclsData.elements)) {
-      console.warn('[linkedin] No elements in ACLs response');
-      return [];
-    }
-
-    console.log('[linkedin] Found', aclsData.elements.length, 'organization ACLs');
-
-    // Extract organization IDs
-    const orgIds = aclsData.elements
-      .map((element: Record<string, unknown>) => {
-        const orgUrn = String(element.organization || '');
-        return orgUrn.replace('urn:li:organization:', '');
-      })
-      .filter(Boolean);
-
-    console.log('[linkedin] Extracted organization IDs:', orgIds);
-
-    if (!orgIds.length) {
-      console.warn('[linkedin] No organization IDs found');
-      return [];
-    }
-
-    // Step 2: Fetch details for each organization
-    const organizations = await Promise.all(
-      orgIds.map(async (orgId: string) => {
-        try {
-          const orgUrl = `${config.apiUrl}/organizations/${orgId}`;
-          console.log('[linkedin] Fetching org details for:', orgId);
-
-          const orgResponse = await fetch(orgUrl, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'LinkedIn-Version': '202401',
-            },
-          });
-
-          if (!orgResponse.ok) {
-            console.warn(`[linkedin] Failed to fetch org ${orgId}:`, orgResponse.status);
-            return null;
-          }
-
-          const orgData = await orgResponse.json();
-
-          return {
-            organizationId: orgId,
-            name: orgData.localizedName || orgData.name || 'Unknown Organization',
-            logoUrl: orgData.logoV2?.original || undefined,
-          };
-        } catch (error) {
-          console.warn(`[linkedin] Error fetching org ${orgId}:`, error);
-          return null;
-        }
-      })
-    );
-
-    const validOrgs = organizations.filter((org): org is NonNullable<typeof org> => org !== null);
-    console.log(`[linkedin] Returning ${validOrgs.length} organizations`);
-    return validOrgs;
+    console.log(`[linkedin] Returning ${organizations.length} organizations via DMA API`);
+    return organizations;
   } catch (error) {
     console.warn('[linkedin] Error fetching organizations:', error);
     return [];
