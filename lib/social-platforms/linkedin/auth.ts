@@ -138,13 +138,15 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
   logoUrl?: string;
 }>> {
   const config = getLinkedInConfig();
+  if (!config.version) {
+    throw new Error("LinkedIn DMA requires LINKEDIN_VERSION to be set to an active version.");
+  }
+  console.log('[linkedin] Using LinkedIn-Version:', config.version);
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${accessToken}`,
     'X-Restli-Protocol-Version': '2.0.0',
   };
-  if (config.version) {
-    headers['LinkedIn-Version'] = config.version;
-  }
+  headers['LinkedIn-Version'] = config.version;
 
   try {
     // Step 1: Get organizations where user is admin using DMA access control
@@ -159,7 +161,9 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
 
     if (aclsData.status && aclsData.status >= 400) {
       console.warn('[linkedin] ACL API error:', aclsData);
-      return [];
+      const code = typeof aclsData.code === 'string' ? aclsData.code : '';
+      const message = typeof aclsData.message === 'string' ? aclsData.message : 'LinkedIn DMA ACL error';
+      throw new Error(`LinkedIn DMA ACL error ${aclsData.status}${code ? ` (${code})` : ''}: ${message}`);
     }
 
     // Extract organization IDs from ACLs
@@ -209,6 +213,12 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
             logoUrl,
           });
         } else {
+          const errorBody = await orgResponse.json().catch(() => null);
+          const code = errorBody && typeof errorBody.code === 'string' ? errorBody.code : '';
+          const message = errorBody && typeof errorBody.message === 'string' ? errorBody.message : '';
+          if (code === 'NONEXISTENT_VERSION' || code === 'VERSION_MISSING') {
+            throw new Error(`LinkedIn DMA org error ${orgResponse.status}${code ? ` (${code})` : ''}: ${message}`);
+          }
           console.warn(`[linkedin] Failed to fetch org ${orgId}:`, orgResponse.status);
         }
       } catch (error) {
