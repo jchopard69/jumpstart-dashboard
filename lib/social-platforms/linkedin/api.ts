@@ -276,7 +276,22 @@ function extractPostUrns(data: DmaFeedContentsResponse | null | undefined): stri
     const urn = (record.postUrn || record.urn || record.id) as string | undefined;
     if (urn) urns.push(urn);
   }
-  return urns.filter((urn) => urn.startsWith("urn:li:share:") || urn.startsWith("urn:li:ugcPost:"));
+  return urns
+    .map(normalizePostUrn)
+    .filter((urn): urn is string => !!urn)
+    .filter((urn) => urn.startsWith("urn:li:share:") || urn.startsWith("urn:li:ugcPost:"));
+}
+
+function normalizePostUrn(urn: string): string | null {
+  const trimmed = urn.trim();
+  if (!trimmed) return null;
+  if (!trimmed.includes("%")) return trimmed;
+  try {
+    const decoded = decodeURIComponent(trimmed);
+    return decoded || trimmed;
+  } catch {
+    return trimmed;
+  }
 }
 
 async function fetchPostUrns(
@@ -305,11 +320,16 @@ async function fetchPostsByUrn(
   urns: string[]
 ): Promise<Record<string, Record<string, unknown>>> {
   const results: Record<string, Record<string, unknown>> = {};
+  const normalizedUrns = urns
+    .map(normalizePostUrn)
+    .filter((urn): urn is string => !!urn)
+    .filter((urn) => urn.startsWith("urn:li:share:") || urn.startsWith("urn:li:ugcPost:"));
+  if (!normalizedUrns.length) return results;
   const chunkSize = 20;
 
-  for (let i = 0; i < urns.length; i += chunkSize) {
-    const chunk = urns.slice(i, i + chunkSize);
-    const idsParam = `List(${chunk.map((urn) => encodeURIComponent(urn)).join(",")})`;
+  for (let i = 0; i < normalizedUrns.length; i += chunkSize) {
+    const chunk = normalizedUrns.slice(i, i + chunkSize);
+    const idsParam = `List(${chunk.map((urn) => encodeRFC3986(urn)).join(",")})`;
     const postsUrl = `${API_URL}/dmaPosts?ids=${idsParam}&viewContext=READER`;
 
     const response = await apiRequest<DmaPostsResponse>(
