@@ -3,7 +3,7 @@
  */
 
 import { LINKEDIN_CONFIG, getLinkedInVersion } from './config';
-import { apiRequest } from '../core/api-client';
+import { apiRequest, SocialApiError } from '../core/api-client';
 import type { Connector } from '@/lib/connectors/types';
 import type { DailyMetric, PostMetric } from '../core/types';
 
@@ -59,9 +59,62 @@ function parseCount(value?: DmaAnalyticsValue): number {
   return total || organic || 0;
 }
 
-function buildTimeIntervalRange(start: Date, end: Date) {
-  // DMA content analytics expects TimeIntervals (singular) for trend.
-  return `(timeRange:(start:${start.getTime()},end:${end.getTime()}))`;
+function buildTimeIntervalVariants(start: Date, end: Date) {
+  const base = `timeRange:(start:${start.getTime()},end:${end.getTime()})`;
+  return [
+    `(${base})`,
+    `(${base},timeGranularityType:DAY)`,
+    `List((${base}))`,
+    `List((${base},timeGranularityType:DAY))`,
+  ];
+}
+
+function isTimeIntervalsError(error: unknown): boolean {
+  if (!(error instanceof SocialApiError)) return false;
+  const raw = error.rawError as Record<string, unknown> | undefined;
+  const details = raw?.errorDetails as Record<string, unknown> | undefined;
+  const inputErrors = details?.inputErrors as Array<Record<string, unknown>> | undefined;
+  if (!inputErrors) return false;
+  return inputErrors.some((item) => {
+    const input = item.input as Record<string, unknown> | undefined;
+    const inputPath = input?.inputPath as Record<string, unknown> | undefined;
+    return inputPath?.fieldPath === "timeIntervals";
+  });
+}
+
+async function fetchTrendAnalytics(
+  headers: Record<string, string>,
+  sourceEntity: string,
+  start: Date,
+  end: Date,
+  endpointName: string
+): Promise<DmaAnalyticsResponse> {
+  const metricsParam = `List(${METRIC_TYPES.join(',')})`;
+  const timeIntervalsVariants = buildTimeIntervalVariants(start, end);
+  let lastError: unknown = null;
+
+  for (const timeIntervals of timeIntervalsVariants) {
+    const analyticsUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics` +
+      `?q=trend&sourceEntity=${encodeURIComponent(sourceEntity)}` +
+      `&metricTypes=${metricsParam}` +
+      `&timeIntervals=${timeIntervals}`;
+    console.log('[linkedin] dma_page_trend url:', analyticsUrl);
+    try {
+      return await apiRequest<DmaAnalyticsResponse>(
+        'linkedin',
+        analyticsUrl,
+        { headers },
+        endpointName
+      );
+    } catch (error) {
+      lastError = error;
+      if (!isTimeIntervalsError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError ?? new Error('LinkedIn DMA trend failed');
 }
 
 async function resolveOrganizationalPageId(
@@ -152,19 +205,7 @@ async function fetchPostTrendMetrics(
   start: Date,
   end: Date
 ): Promise<Record<string, number>> {
-  const timeIntervals = buildTimeIntervalRange(start, end);
-  const metricsParam = `List(${METRIC_TYPES.join(",")})`;
-  const trendUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics` +
-    `?q=trend&sourceEntity=${encodeURIComponent(postUrn)}` +
-    `&metricTypes=${metricsParam}` +
-    `&timeIntervals=${timeIntervals}`;
-
-  const response = await apiRequest<DmaAnalyticsResponse>(
-    "linkedin",
-    trendUrl,
-    { headers },
-    "dma_post_trend"
-  );
+  const response = await fetchTrendAnalytics(headers, postUrn, start, end, "dma_post_trend");
 
   const totals = {
     impressions: 0,
@@ -227,20 +268,7 @@ export const linkedinConnector: Connector = {
 
     const pageId = await resolveOrganizationalPageId(headers, externalAccountId);
     const sourceEntity = `urn:li:organizationalPage:${pageId}`;
-    const timeIntervals = buildTimeIntervalRange(since, now);
-    const metricsParam = `List(${METRIC_TYPES.join(',')})`;
-    const analyticsUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics` +
-      `?q=trend&sourceEntity=${encodeURIComponent(sourceEntity)}` +
-      `&metricTypes=${metricsParam}` +
-      `&timeIntervals=${timeIntervals}`;
-    console.log('[linkedin] dma_page_trend url:', analyticsUrl);
-
-    const response = await apiRequest<DmaAnalyticsResponse>(
-      'linkedin',
-      analyticsUrl,
-      { headers },
-      'dma_page_trend'
-    );
+    const response = await fetchTrendAnalytics(headers, sourceEntity, since, now, 'dma_page_trend');
 
     const dailyMap = new Map<string, DailyMetric>();
     const clicksMap = new Map<string, number>();
