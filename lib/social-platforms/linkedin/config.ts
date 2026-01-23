@@ -6,11 +6,14 @@ export const LINKEDIN_CONFIG = {
   authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
   tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
   apiUrl: 'https://api.linkedin.com/rest',
+  apiV2Url: 'https://api.linkedin.com/v2',
 
-  // OAuth scopes (DMA-only)
-  // See: https://learn.microsoft.com/en-us/linkedin/dma/pages-data-portability-overview
+  // OAuth scopes (Community Management / Organizations)
+  // See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations
   scopes: [
-    'r_dma_admin_pages_content',  // DMA: Pages content + reporting data
+    'r_organization_admin',
+    'rw_organization_admin',
+    'r_organization_social'
   ],
 };
 

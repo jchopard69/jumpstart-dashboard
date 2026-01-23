@@ -129,8 +129,8 @@ export async function fetchLinkedInProfile(accessToken: string): Promise<{
 
 /**
  * Fetch LinkedIn organization pages the user manages
- * Uses the DMA Organization Access Control API (DMA-only)
- * See: https://learn.microsoft.com/en-us/linkedin/dma/pages-data-portability-overview
+ * Uses Organization Access Control (Community Management / Organizations)
+ * See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations
  */
 export async function fetchLinkedInOrganizations(accessToken: string): Promise<Array<{
   organizationId: string;
@@ -138,20 +138,21 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
   logoUrl?: string;
 }>> {
   const config = getLinkedInConfig();
-  if (!config.version || !/^\d{6}$/.test(config.version)) {
-    throw new Error("LinkedIn DMA requires LINKEDIN_VERSION to be set to an active YYYYMM version.");
+  if (config.version) {
+    console.log('[linkedin] Using LinkedIn-Version:', config.version);
   }
-  console.log('[linkedin] Using LinkedIn-Version:', config.version);
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${accessToken}`,
     'X-Restli-Protocol-Version': '2.0.0',
   };
-  headers['LinkedIn-Version'] = config.version;
+  if (config.version) {
+    headers['LinkedIn-Version'] = config.version;
+  }
 
   try {
-    // Step 1: Get organizations where user is admin using DMA access control
-    const aclsUrl = `${config.apiUrl}/dmaOrganizationAcls?q=roleAssignee&role=(value:ADMINISTRATOR)&state=(value:APPROVED)&start=0&count=100`;
-    console.log('[linkedin] Fetching DMA organization ACLs from:', aclsUrl);
+    // Step 1: Get organizations where user is admin using Organization Access Control
+    const aclsUrl = `${config.apiUrl}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED&start=0&count=100`;
+    console.log('[linkedin] Fetching organization ACLs from:', aclsUrl);
 
     const aclsResponse = await fetch(aclsUrl, { headers });
     console.log('[linkedin] ACL response status:', aclsResponse.status);
@@ -166,7 +167,7 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
       console.warn('[linkedin] ACL API error:', aclsData);
       const code = typeof aclsData.code === 'string' ? aclsData.code : '';
       const message = typeof aclsData.message === 'string' ? aclsData.message : 'LinkedIn DMA ACL error';
-      throw new Error(`LinkedIn DMA ACL error ${aclsData.status}${code ? ` (${code})` : ''}: ${message}`);
+      throw new Error(`LinkedIn org ACL error ${aclsData.status}${code ? ` (${code})` : ''}: ${message}`);
     }
 
     // Extract organization IDs from ACLs
@@ -175,7 +176,7 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
 
     const orgIds = new Set<string>();
     for (const element of elements) {
-      const orgUrn = element?.key?.organization;
+      const orgUrn = element?.organizationTarget || element?.organization || element?.key?.organization;
       if (orgUrn) {
         const orgId = String(orgUrn).replace('urn:li:organization:', '');
         if (orgId && orgId !== 'undefined') {
@@ -191,41 +192,53 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
       return [];
     }
 
-    // Step 2: Fetch organization details
+    // Step 2: Fetch organization details (batch if possible)
     const organizations: Array<{ organizationId: string; name: string; logoUrl?: string }> = [];
+    const idsList = Array.from(orgIds);
+    try {
+      const idsParam = `List(${idsList.join(',')})`;
+      const orgsUrl = `${config.apiUrl}/organizations?ids=${encodeURIComponent(idsParam)}`;
+      console.log('[linkedin] Fetching org details from:', orgsUrl);
 
-    for (const orgId of orgIds) {
-      try {
-        const orgUrl = `${config.apiUrl}/dmaOrganizations/${orgId}`;
-        console.log('[linkedin] Fetching org details from:', orgUrl);
-
-        const orgResponse = await fetch(orgUrl, { headers });
-        console.log('[linkedin] Org response status:', orgResponse.status);
-
-        if (orgResponse.ok) {
-          const orgData = await orgResponse.json();
-          console.log('[linkedin] Org data:', JSON.stringify(orgData, null, 2));
-
-          const logoV2 = orgData.logoV2 as Record<string, unknown> | undefined;
-          const original = logoV2?.original as Record<string, unknown> | undefined;
-          const logoUrl = original?.url as string | undefined;
-
+      const orgsResponse = await fetch(orgsUrl, { headers });
+      console.log('[linkedin] Org batch response status:', orgsResponse.status);
+      if (orgsResponse.ok) {
+        const orgsData = await orgsResponse.json();
+        const results = orgsData?.results || {};
+        for (const orgId of idsList) {
+          const orgData = results[orgId];
+          if (!orgData) continue;
           organizations.push({
             organizationId: orgId,
             name: orgData.localizedName || orgData.name?.localized?.en_US || 'Unknown Organization',
-            logoUrl,
+            logoUrl: undefined
           });
-        } else {
-          const errorBody = await orgResponse.json().catch(() => null);
-          const code = errorBody && typeof errorBody.code === 'string' ? errorBody.code : '';
-          const message = errorBody && typeof errorBody.message === 'string' ? errorBody.message : '';
-          if (code === 'NONEXISTENT_VERSION' || code === 'VERSION_MISSING') {
-            throw new Error(`LinkedIn DMA org error ${orgResponse.status}${code ? ` (${code})` : ''}: ${message}`);
-          }
-          console.warn(`[linkedin] Failed to fetch org ${orgId}:`, orgResponse.status);
         }
-      } catch (error) {
-        console.warn(`[linkedin] Error fetching org ${orgId}:`, error);
+      } else {
+        console.warn('[linkedin] Failed to fetch org batch details:', orgsResponse.status);
+      }
+    } catch (error) {
+      console.warn('[linkedin] Error fetching org batch details:', error);
+    }
+
+    if (!organizations.length) {
+      for (const orgId of orgIds) {
+        try {
+          const orgUrl = `${config.apiUrl}/organizations/${orgId}`;
+          const orgResponse = await fetch(orgUrl, { headers });
+          if (!orgResponse.ok) {
+            console.warn(`[linkedin] Failed to fetch org ${orgId}:`, orgResponse.status);
+            continue;
+          }
+          const orgData = await orgResponse.json();
+          organizations.push({
+            organizationId: orgId,
+            name: orgData.localizedName || orgData.name?.localized?.en_US || 'Unknown Organization',
+            logoUrl: undefined
+          });
+        } catch (error) {
+          console.warn(`[linkedin] Error fetching org ${orgId}:`, error);
+        }
       }
     }
 
@@ -233,7 +246,7 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
     return organizations;
   } catch (error) {
     console.warn('[linkedin] Error fetching organizations:', error);
-    throw error instanceof Error ? error : new Error('LinkedIn DMA organization lookup failed');
+    throw error instanceof Error ? error : new Error('LinkedIn organization lookup failed');
   }
 }
 

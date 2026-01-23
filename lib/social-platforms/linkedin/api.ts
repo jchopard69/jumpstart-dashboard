@@ -1,5 +1,5 @@
 /**
- * LinkedIn DMA Pages API client for fetching analytics
+ * LinkedIn Community Management (Organizations) API client for analytics
  */
 
 import { LINKEDIN_CONFIG, getLinkedInVersion } from './config';
@@ -7,132 +7,106 @@ import { apiRequest, SocialApiError } from '../core/api-client';
 import type { Connector } from '@/lib/connectors/types';
 import type { DailyMetric, PostMetric } from '../core/types';
 
-const API_URL = LINKEDIN_CONFIG.apiUrl;
+const API_REST_URL = LINKEDIN_CONFIG.apiUrl;
+const API_V2_URL = LINKEDIN_CONFIG.apiV2Url ?? 'https://api.linkedin.com/v2';
 const API_VERSION = getLinkedInVersion();
 
-type DmaAnalyticsValue = {
-  totalCount?: { long?: number; bigDecimal?: string };
-  typeSpecificValue?: {
-    contentAnalyticsValue?: {
-      organicValue?: { long?: number; bigDecimal?: string };
-      sponsoredValue?: { long?: number; bigDecimal?: string };
-    };
+const MAX_POSTS_SYNC = 50;
+
+type ShareStats = {
+  impressionCount?: number;
+  uniqueImpressionsCount?: number;
+  clickCount?: number;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  engagement?: number;
+};
+
+type ShareStatsElement = {
+  timeRange?: { start?: number; end?: number };
+  totalShareStatistics?: ShareStats;
+  share?: string;
+};
+
+type ShareStatsResponse = {
+  elements?: ShareStatsElement[];
+};
+
+type FollowerStatsElement = {
+  timeRange?: { start?: number; end?: number };
+  followerGains?: {
+    organicFollowerGain?: number;
+    paidFollowerGain?: number;
   };
 };
 
-type DmaAnalyticsElement = {
-  type?: string;
-  metric?: {
-    timeIntervals?: {
-      timeRange?: { start?: number; end?: number };
-    };
-    value?: DmaAnalyticsValue;
-  };
-  timeIntervals?: {
-    timeRange?: { start?: number; end?: number };
-  };
-  value?: DmaAnalyticsValue;
-  sourceEntity?: string;
+type FollowerStatsResponse = {
+  elements?: FollowerStatsElement[];
 };
 
-type DmaAnalyticsResponse = {
-  elements?: DmaAnalyticsElement[];
+type NetworkSizeResponse = {
+  firstDegreeSize?: number;
+};
+
+type SharesResponse = {
+  elements?: Array<Record<string, unknown>>;
+  paging?: { total?: number; count?: number; start?: number; links?: Array<Record<string, unknown>> };
 };
 
 type TrendCounts = {
   impressions: number;
   uniqueImpressions: number;
-  comments: number;
-  reactions: number;
-  reposts: number;
   clicks: number;
+  likes: number;
+  comments: number;
+  shares: number;
 };
-
-type DmaFeedContentsResponse = {
-  elements?: Array<string | Record<string, unknown>>;
-  metadata?: {
-    paginationCursorMetdata?: {
-      nextPaginationCursor?: string;
-    };
-  };
-  paging?: Record<string, unknown>;
-};
-
-type DmaPostsResponse = {
-  results?: Record<string, Record<string, unknown>>;
-  statuses?: Record<string, number>;
-};
-
-// Supported metrics per DMA doc: IMPRESSIONS, UNIQUE_IMPRESSIONS, COMMENTS, REACTIONS, REPOSTS, CLICKS
-const METRIC_TYPES = ["IMPRESSIONS", "UNIQUE_IMPRESSIONS", "COMMENTS", "REACTIONS", "REPOSTS", "CLICKS"];
-const MAX_POSTS_SYNC = 50;
-
-function parseCount(value?: DmaAnalyticsValue): number {
-  if (!value) return 0;
-  const total = value.totalCount?.long ?? (value.totalCount?.bigDecimal ? Number(value.totalCount.bigDecimal) : 0);
-  const organic = value.typeSpecificValue?.contentAnalyticsValue?.organicValue?.long ??
-    (value.typeSpecificValue?.contentAnalyticsValue?.organicValue?.bigDecimal
-      ? Number(value.typeSpecificValue?.contentAnalyticsValue?.organicValue?.bigDecimal)
-      : 0);
-  return total || organic || 0;
-}
 
 function createEmptyTrendCounts(): TrendCounts {
   return {
     impressions: 0,
     uniqueImpressions: 0,
-    comments: 0,
-    reactions: 0,
-    reposts: 0,
     clicks: 0,
+    likes: 0,
+    comments: 0,
+    shares: 0
   };
-}
-
-function addTrendCount(target: TrendCounts, type: string | undefined, count: number) {
-  switch (type) {
-    case "IMPRESSIONS":
-      target.impressions += count;
-      break;
-    case "UNIQUE_IMPRESSIONS":
-      target.uniqueImpressions += count;
-      break;
-    case "COMMENTS":
-      target.comments += count;
-      break;
-    case "REACTIONS":
-      target.reactions += count;
-      break;
-    case "REPOSTS":
-      target.reposts += count;
-      break;
-    case "CLICKS":
-      target.clicks += count;
-      break;
-    default:
-      break;
-  }
 }
 
 function encodeRFC3986(value: string) {
   return encodeURIComponent(value).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
-function buildTimeIntervalQueries(start: Date, end: Date, granularity?: "DAY") {
+function buildHeaders(accessToken: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    'X-Restli-Protocol-Version': '2.0.0'
+  };
+  if (API_VERSION) {
+    headers['LinkedIn-Version'] = API_VERSION;
+  }
+  return headers;
+}
+
+function normalizeOrganizationId(value: string): string {
+  return value.replace('urn:li:organization:', '').replace('urn:li:organizationalPage:', '');
+}
+
+function buildTimeIntervalQueries(start: Date, end: Date, granularity?: 'DAY') {
   const startMs = start.getTime();
   const endMs = end.getTime();
 
-  // Dot notation format (preferred by LinkedIn APIs)
   const dotNotation = granularity
     ? `timeIntervals.timeGranularityType=${granularity}&timeIntervals.timeRange.start=${startMs}&timeIntervals.timeRange.end=${endMs}`
     : `timeIntervals.timeRange.start=${startMs}&timeIntervals.timeRange.end=${endMs}`;
 
-  // Rest.li tuple format (parentheses notation)
-  const tupleFormat = `(timeRange:(start:${startMs},end:${endMs})${granularity ? `,timeGranularityType:${granularity}` : ""})`;
+  const tupleFormat = `(timeRange:(start:${startMs},end:${endMs})${granularity ? `,timeGranularityType:${granularity}` : ''})`;
 
   return [
-    { label: "timeIntervals_dot", query: dotNotation },
-    { label: "timeIntervals_encoded", query: `timeIntervals=${encodeRFC3986(tupleFormat)}` },
-    { label: "timeIntervals_raw", query: `timeIntervals=${tupleFormat}` },
+    { label: 'timeIntervals_dot', query: dotNotation },
+    { label: 'timeIntervals_encoded', query: `timeIntervals=${encodeRFC3986(tupleFormat)}` },
+    { label: 'timeIntervals_raw', query: `timeIntervals=${tupleFormat}` }
   ];
 }
 
@@ -145,94 +119,41 @@ function isTimeIntervalsError(error: unknown): boolean {
   return inputErrors.some((item) => {
     const input = item.input as Record<string, unknown> | undefined;
     const inputPath = input?.inputPath as Record<string, unknown> | undefined;
-    return inputPath?.fieldPath === "timeIntervals";
+    return inputPath?.fieldPath === 'timeIntervals';
   });
 }
 
-async function fetchTrendAnalytics(
+async function fetchFollowerGains(
   headers: Record<string, string>,
-  sourceEntity: string,
+  organizationUrn: string,
   start: Date,
-  end: Date,
-  endpointName: string
-): Promise<DmaAnalyticsResponse> {
-  const metricsParam = `List(${METRIC_TYPES.join(',')})`;
+  end: Date
+): Promise<Record<string, number>> {
   const timeIntervalsVariants = [
-    ...buildTimeIntervalQueries(start, end, "DAY"),
+    ...buildTimeIntervalQueries(start, end, 'DAY'),
     ...buildTimeIntervalQueries(start, end)
   ];
   let lastError: unknown = null;
 
   for (const variant of timeIntervalsVariants) {
-    const baseQuery = `q=trend&sourceEntity=${encodeURIComponent(sourceEntity)}&metricTypes=${metricsParam}`;
-    const analyticsUrl = `${API_URL}/dmaOrganizationalPageContentAnalytics?${baseQuery}&${(variant as { query: string }).query}`;
-    console.log('[linkedin] dma_content_trend url:', analyticsUrl, 'variant:', (variant as { label: string }).label);
+    const baseQuery = `q=organizationalEntity&organizationalEntity=${encodeURIComponent(organizationUrn)}`;
+    const url = `${API_REST_URL}/organizationalEntityFollowerStatistics?${baseQuery}&${variant.query}`;
+
     try {
-      return await apiRequest<DmaAnalyticsResponse>(
+      const response = await apiRequest<FollowerStatsResponse>(
         'linkedin',
-        analyticsUrl,
-        { headers },
-        endpointName
-      );
-    } catch (error) {
-      lastError = error;
-      if (!isTimeIntervalsError(error)) {
-        throw error;
-      }
-    }
-  }
-
-  throw lastError ?? new Error('LinkedIn DMA trend failed');
-}
-
-type EdgeAnalyticsElement = {
-  type?: string;
-  value?: DmaAnalyticsValue;
-  timeIntervals?: {
-    timeRange?: { start?: number; end?: number };
-  };
-  metric?: {
-    timeIntervals?: {
-      timeRange?: { start?: number; end?: number };
-    };
-    value?: DmaAnalyticsValue;
-  };
-  organizationalPage?: string;
-};
-
-type EdgeAnalyticsResponse = {
-  elements?: EdgeAnalyticsElement[];
-};
-
-async function fetchFollowerTrend(
-  headers: Record<string, string>,
-  organizationalPageUrn: string,
-  start: Date,
-  end: Date
-): Promise<Record<string, number>> {
-  const timeQueries = buildTimeIntervalQueries(start, end, "DAY");
-  let lastError: unknown = null;
-
-  for (const variant of timeQueries) {
-    const url = `${API_URL}/dmaOrganizationalPageEdgeAnalytics` +
-      `?q=trend&organizationalPage=${encodeURIComponent(organizationalPageUrn)}` +
-      `&analyticsType=FOLLOWER&${(variant as { query: string }).query}`;
-
-    try {
-      const response = await apiRequest<EdgeAnalyticsResponse>(
-        "linkedin",
         url,
         { headers },
-        "dma_page_followers_trend"
+        'linkedin_follower_stats'
       );
       const daily: Record<string, number> = {};
       for (const element of response.elements ?? []) {
-        const startMs = element.timeIntervals?.timeRange?.start
-          ?? element.metric?.timeIntervals?.timeRange?.start;
+        const startMs = element.timeRange?.start;
         if (!startMs) continue;
         const dateKey = new Date(startMs).toISOString().slice(0, 10);
-        const count = parseCount(element.value ?? element.metric?.value);
-        daily[dateKey] = (daily[dateKey] ?? 0) + count;
+        const organic = element.followerGains?.organicFollowerGain ?? 0;
+        const paid = element.followerGains?.paidFollowerGain ?? 0;
+        daily[dateKey] = (daily[dateKey] ?? 0) + organic + paid;
       }
       return daily;
     } catch (error) {
@@ -243,162 +164,143 @@ async function fetchFollowerTrend(
     }
   }
 
-  throw lastError ?? new Error("LinkedIn DMA follower trend failed");
+  throw lastError ?? new Error('LinkedIn follower stats failed');
 }
 
-async function resolveOrganizationalPageId(
+function parseShareStats(element: ShareStatsElement): TrendCounts {
+  const stats = element.totalShareStatistics ?? {};
+  return {
+    impressions: stats.impressionCount ?? 0,
+    uniqueImpressions: stats.uniqueImpressionsCount ?? 0,
+    clicks: stats.clickCount ?? 0,
+    likes: stats.likeCount ?? 0,
+    comments: stats.commentCount ?? 0,
+    shares: stats.shareCount ?? 0
+  };
+}
+
+async function fetchShareStats(
   headers: Record<string, string>,
-  externalAccountId: string
-): Promise<string> {
-  const orgsUrl = `${API_URL}/dmaOrganizations?ids=List(${externalAccountId})`;
-  try {
-    const response = await apiRequest<{ results?: Record<string, Record<string, unknown>> }>(
-      'linkedin',
-      orgsUrl,
-      { headers },
-      'dma_org_lookup'
-    );
-    const result = response.results?.[externalAccountId];
-    const pageUrn = result?.organizationalPage as string | undefined;
-    const pageId = pageUrn?.replace('urn:li:organizationalPage:', '');
-    return pageId || externalAccountId;
-  } catch {
-    return externalAccountId;
+  organizationUrn: string,
+  start: Date,
+  end: Date,
+  shares?: string[]
+): Promise<ShareStatsResponse> {
+  const timeIntervalsVariants = [
+    ...buildTimeIntervalQueries(start, end, 'DAY'),
+    ...buildTimeIntervalQueries(start, end)
+  ];
+  let lastError: unknown = null;
+
+  for (const variant of timeIntervalsVariants) {
+    const baseQuery = `q=organizationalEntity&organizationalEntity=${encodeURIComponent(organizationUrn)}`;
+    const sharesParam = shares?.length
+      ? `&shares=${encodeRFC3986(`List(${shares.join(',')})`)}`
+      : '';
+    const url = `${API_REST_URL}/organizationalEntityShareStatistics?${baseQuery}${sharesParam}&${variant.query}`;
+
+    try {
+      return await apiRequest<ShareStatsResponse>(
+        'linkedin',
+        url,
+        { headers },
+        shares?.length ? 'linkedin_share_stats_by_share' : 'linkedin_share_stats'
+      );
+    } catch (error) {
+      lastError = error;
+      if (!isTimeIntervalsError(error)) {
+        throw error;
+      }
+    }
   }
+
+  throw lastError ?? new Error('LinkedIn share stats failed');
 }
 
-function extractPostUrns(data: DmaFeedContentsResponse | null | undefined): string[] {
-  if (!data?.elements) return [];
-  const urns: string[] = [];
-  for (const element of data.elements) {
-    if (typeof element === "string") {
-      urns.push(element);
+async function fetchNetworkSize(headers: Record<string, string>, organizationId: string): Promise<number> {
+  const orgUrn = `urn:li:organization:${organizationId}`;
+  const edgeTypes = ['CompanyFollowedByMember', 'COMPANY_FOLLOWED_BY_MEMBER'];
+  for (const edgeType of edgeTypes) {
+    const url = `${API_REST_URL}/networkSizes/${encodeURIComponent(orgUrn)}?edgeType=${edgeType}`;
+    try {
+      const response = await apiRequest<NetworkSizeResponse>('linkedin', url, { headers }, 'linkedin_network_size');
+      if (typeof response.firstDegreeSize === 'number') {
+        return response.firstDegreeSize;
+      }
+    } catch (error) {
       continue;
     }
-    const record = element as Record<string, unknown>;
-    const urn = (record.postUrn || record.urn || record.id) as string | undefined;
-    if (urn) urns.push(urn);
   }
-  return urns
-    .map(normalizePostUrn)
-    .filter((urn): urn is string => !!urn)
-    .filter((urn) => urn.startsWith("urn:li:share:") || urn.startsWith("urn:li:ugcPost:"));
+  return 0;
 }
 
-function normalizePostUrn(urn: string): string | null {
-  const trimmed = urn.trim();
-  if (!trimmed) return null;
-  if (!trimmed.includes("%")) return trimmed;
-  try {
-    const decoded = decodeURIComponent(trimmed);
-    return decoded || trimmed;
-  } catch {
-    return trimmed;
-  }
-}
-
-async function fetchPostUrns(
+async function fetchOrganizationShares(
   headers: Record<string, string>,
-  organizationId: string,
-  maxCount: number
-): Promise<string[]> {
-  const authorUrn = `urn:li:organization:${organizationId}`;
-  const urns: string[] = [];
-  let cursor: string | undefined;
+  organizationUrn: string,
+  limit: number
+): Promise<Array<Record<string, unknown>>> {
+  const pageSize = Math.min(100, limit);
+  const url = `${API_V2_URL}/shares?q=owners&owners=${encodeURIComponent(organizationUrn)}` +
+    `&sharesPerOwner=${pageSize}&count=${pageSize}` +
+    `&projection=(elements*(id,created,commentary,text,content,specificContent),paging)`;
 
-  while (urns.length < maxCount) {
-    const remaining = maxCount - urns.length;
-    const pageSize = Math.min(100, remaining);
-    const feedUrl = `${API_URL}/dmaFeedContentsExternal` +
-      `?author=${encodeURIComponent(authorUrn)}` +
-      `&maxPaginationCount=${pageSize}` +
-      `&q=postsByAuthor` +
-      (cursor ? `&paginationCursor=${encodeURIComponent(cursor)}` : "");
-
-    const response = await apiRequest<DmaFeedContentsResponse>(
-      "linkedin",
-      feedUrl,
-      { headers },
-      "dma_feed_contents"
-    );
-
-    const batch = extractPostUrns(response);
-    if (batch.length) {
-      urns.push(...batch);
-    }
-
-    cursor = response.metadata?.paginationCursorMetdata?.nextPaginationCursor;
-    if (!cursor || batch.length === 0) {
-      break;
-    }
-  }
-
-  return Array.from(new Set(urns)).slice(0, maxCount);
+  const response = await apiRequest<SharesResponse>('linkedin', url, { headers }, 'linkedin_shares');
+  return (response.elements ?? []).slice(0, limit);
 }
 
-async function fetchPostsByUrn(
-  headers: Record<string, string>,
-  urns: string[]
-): Promise<Record<string, Record<string, unknown>>> {
-  const results: Record<string, Record<string, unknown>> = {};
-  const normalizedUrns = urns
-    .map(normalizePostUrn)
-    .filter((urn): urn is string => !!urn)
-    .filter((urn) => urn.startsWith("urn:li:share:") || urn.startsWith("urn:li:ugcPost:"));
-  if (!normalizedUrns.length) return results;
-  const chunkSize = 20;
-
-  for (let i = 0; i < normalizedUrns.length; i += chunkSize) {
-    const chunk = normalizedUrns.slice(i, i + chunkSize);
-    const idsParam = `List(${chunk.map((urn) => encodeRFC3986(urn)).join(",")})`;
-    const postsUrl = `${API_URL}/dmaPosts?ids=${idsParam}&viewContext=READER`;
-    const batchHeaders = {
-      ...headers,
-      "X-RestLi-Method": "BATCH_GET",
-      "X-Restli-Protocol-Version": "2.0.0",
-    };
-
-    const response = await apiRequest<DmaPostsResponse>(
-      "linkedin",
-      postsUrl,
-      { headers: batchHeaders },
-      "dma_posts_batch"
-    );
-    Object.assign(results, response.results ?? {});
+function extractShareText(share: Record<string, unknown>): string | undefined {
+  const commentary = share.commentary as Record<string, unknown> | undefined;
+  const commentaryText = commentary?.text as string | undefined;
+  const text = share.text as Record<string, unknown> | string | undefined;
+  if (typeof text === 'string') return text;
+  if (typeof text === 'object' && text) {
+    const textText = (text as Record<string, unknown>).text as string | undefined;
+    if (textText) return textText;
   }
-
-  return results;
+  return commentaryText;
 }
 
-async function fetchPostTrendSeries(
+function shareUrnFromId(id: unknown): string | null {
+  if (!id) return null;
+  if (typeof id === 'string' && id.startsWith('urn:li:share:')) return id;
+  return `urn:li:share:${id}`;
+}
+
+async function fetchShareStatsByShare(
   headers: Record<string, string>,
-  postUrn: string,
+  organizationUrn: string,
+  shareUrns: string[],
   start: Date,
   end: Date
-): Promise<{ totals: TrendCounts; perDate: Record<string, TrendCounts> }> {
-  const response = await fetchTrendAnalytics(headers, postUrn, start, end, "dma_post_trend");
-  const totals = createEmptyTrendCounts();
-  const perDate: Record<string, TrendCounts> = {};
+): Promise<Record<string, TrendCounts>> {
+  const statsByShare: Record<string, TrendCounts> = {};
+  const chunkSize = 20;
 
-  for (const element of response.elements ?? []) {
-    const count = parseCount(element.metric?.value ?? element.value);
-    addTrendCount(totals, element.type, count);
-
-    const startMs = element.metric?.timeIntervals?.timeRange?.start
-      ?? element.timeIntervals?.timeRange?.start;
-    if (!startMs) continue;
-    const dateKey = new Date(startMs).toISOString().slice(0, 10);
-    const bucket = perDate[dateKey] ?? createEmptyTrendCounts();
-    addTrendCount(bucket, element.type, count);
-    perDate[dateKey] = bucket;
+  for (let i = 0; i < shareUrns.length; i += chunkSize) {
+    const chunk = shareUrns.slice(i, i + chunkSize);
+    try {
+      const response = await fetchShareStats(headers, organizationUrn, start, end, chunk);
+      for (const element of response.elements ?? []) {
+        const shareUrn = element.share;
+        if (!shareUrn) continue;
+        const counts = parseShareStats(element);
+        const existing = statsByShare[shareUrn] ?? createEmptyTrendCounts();
+        existing.impressions += counts.impressions;
+        existing.uniqueImpressions += counts.uniqueImpressions;
+        existing.clicks += counts.clicks;
+        existing.likes += counts.likes;
+        existing.comments += counts.comments;
+        existing.shares += counts.shares;
+        statsByShare[shareUrn] = existing;
+      }
+    } catch (error) {
+      console.warn('[linkedin] Failed to fetch share stats by share:', error);
+    }
   }
 
-  return { totals, perDate };
+  return statsByShare;
 }
 
-/**
- * LinkedIn connector
- */
 export const linkedinConnector: Connector = {
   platform: 'linkedin',
 
@@ -407,12 +309,7 @@ export const linkedinConnector: Connector = {
       throw new Error('Missing LinkedIn access token');
     }
 
-    const headers: Record<string, string> = {
-      'Authorization': `Bearer ${accessToken}`,
-    };
-    if (API_VERSION) {
-      headers['LinkedIn-Version'] = API_VERSION;
-    }
+    const headers = buildHeaders(accessToken);
 
     const now = new Date();
     const since = new Date(now);
@@ -421,7 +318,6 @@ export const linkedinConnector: Connector = {
     now.setUTCHours(23, 59, 59, 999);
 
     const dailyMap = new Map<string, DailyMetric>();
-    const clicksMap = new Map<string, number>();
     for (let d = new Date(since); d <= now; d.setDate(d.getDate() + 1)) {
       const date = d.toISOString().slice(0, 10);
       dailyMap.set(date, {
@@ -433,13 +329,14 @@ export const linkedinConnector: Connector = {
         likes: 0,
         comments: 0,
         shares: 0,
-        views: 0,
+        views: 0
       });
     }
 
-    const pageId = await resolveOrganizationalPageId(headers, externalAccountId);
-    const orgPageUrn = `urn:li:organizationalPage:${pageId}`;
-    const followerDaily = await fetchFollowerTrend(headers, orgPageUrn, since, now);
+    const organizationId = normalizeOrganizationId(externalAccountId);
+    const organizationUrn = `urn:li:organization:${organizationId}`;
+
+    const followerDaily = await fetchFollowerGains(headers, organizationUrn, since, now);
     for (const [dateKey, count] of Object.entries(followerDaily)) {
       const entry = dailyMap.get(dateKey);
       if (entry) {
@@ -447,60 +344,76 @@ export const linkedinConnector: Connector = {
       }
     }
 
-    const postUrns = await fetchPostUrns(headers, externalAccountId, MAX_POSTS_SYNC);
-    const postData = postUrns.length ? await fetchPostsByUrn(headers, postUrns) : {};
+    const shareStats = await fetchShareStats(headers, organizationUrn, since, now);
+    for (const element of shareStats.elements ?? []) {
+      const startMs = element.timeRange?.start;
+      if (!startMs) continue;
+      const dateKey = new Date(startMs).toISOString().slice(0, 10);
+      const entry = dailyMap.get(dateKey);
+      if (!entry) continue;
+      const counts = parseShareStats(element);
+      entry.impressions = (entry.impressions ?? 0) + counts.impressions;
+      entry.reach = (entry.reach ?? 0) + counts.uniqueImpressions;
+      entry.likes = (entry.likes ?? 0) + counts.likes;
+      entry.comments = (entry.comments ?? 0) + counts.comments;
+      entry.shares = (entry.shares ?? 0) + counts.shares;
+      entry.engagements = (entry.engagements ?? 0) + counts.likes + counts.comments + counts.shares + counts.clicks;
+      entry.views = (entry.views ?? 0) + counts.impressions;
+    }
+
+    const totalFollowers = await fetchNetworkSize(headers, organizationId);
+    const latestDate = Array.from(dailyMap.keys()).sort().slice(-1)[0];
+    if (latestDate && totalFollowers > 0) {
+      const entry = dailyMap.get(latestDate);
+      if (entry) {
+        entry.followers = entry.followers ?? 0;
+      }
+    }
+
+    let shares: Array<Record<string, unknown>> = [];
+    try {
+      shares = await fetchOrganizationShares(headers, organizationUrn, MAX_POSTS_SYNC);
+    } catch (error) {
+      console.warn('[linkedin] Failed to fetch shares list:', error);
+    }
+
+    const shareUrns = shares
+      .map((share) => shareUrnFromId(share.id))
+      .filter((urn): urn is string => !!urn);
+
+    const shareStatsByShare = shareUrns.length
+      ? await fetchShareStatsByShare(headers, organizationUrn, shareUrns, since, now)
+      : {};
+
     const posts: PostMetric[] = [];
 
-    for (const postUrn of postUrns) {
-      const post = postData[postUrn];
-      if (!post) continue;
-
-      const created = post.created as Record<string, unknown> | undefined;
-      const publishedAt = post.publishedAt as number | undefined;
+    for (const share of shares) {
+      const shareUrn = shareUrnFromId(share.id);
+      if (!shareUrn) continue;
+      const created = share.created as Record<string, unknown> | undefined;
       const createdAt = (created?.time as number | undefined) ?? Date.now();
-      const postedAt = new Date(publishedAt ?? createdAt).toISOString();
-
-      const commentary = post.commentary as Record<string, unknown> | string | undefined;
-      const caption = typeof commentary === "string"
-        ? commentary
-        : (commentary?.text as string | undefined);
-
-      const trend = await fetchPostTrendSeries(headers, postUrn, since, now);
-      const reach = trend.totals.uniqueImpressions || trend.totals.impressions;
-      const engagements = trend.totals.reactions + trend.totals.comments + trend.totals.reposts + trend.totals.clicks;
+      const postedAt = new Date(createdAt).toISOString();
+      const caption = extractShareText(share);
+      const counts = shareStatsByShare[shareUrn] ?? createEmptyTrendCounts();
+      const engagements = counts.likes + counts.comments + counts.shares + counts.clicks;
 
       posts.push({
-        external_post_id: postUrn,
+        external_post_id: shareUrn,
         posted_at: postedAt,
-        url: `https://www.linkedin.com/feed/update/${postUrn}`,
-        caption: caption?.slice(0, 280) || "LinkedIn post",
-        media_type: "ugc",
+        url: `https://www.linkedin.com/feed/update/${shareUrn}`,
+        caption: caption?.slice(0, 280) || 'LinkedIn post',
+        media_type: 'share',
         metrics: {
-          impressions: trend.totals.impressions,
-          reach,
+          impressions: counts.impressions,
+          reach: counts.uniqueImpressions,
           engagements,
-          likes: trend.totals.reactions,
-          comments: trend.totals.comments,
-          shares: trend.totals.reposts,
-          clicks: trend.totals.clicks,
+          likes: counts.likes,
+          comments: counts.comments,
+          shares: counts.shares,
+          clicks: counts.clicks
         },
-        raw_json: post,
+        raw_json: share
       });
-
-      for (const [dateKey, counts] of Object.entries(trend.perDate)) {
-        const entry = dailyMap.get(dateKey);
-        if (!entry) continue;
-        const dailyReach = counts.uniqueImpressions || counts.impressions;
-        entry.impressions = (entry.impressions ?? 0) + counts.impressions;
-        entry.reach = (entry.reach ?? 0) + dailyReach;
-        entry.views = (entry.views ?? 0) + counts.impressions;
-        entry.likes = (entry.likes ?? 0) + counts.reactions;
-        entry.comments = (entry.comments ?? 0) + counts.comments;
-        entry.shares = (entry.shares ?? 0) + counts.reposts;
-        if (counts.clicks) {
-          clicksMap.set(dateKey, (clicksMap.get(dateKey) ?? 0) + counts.clicks);
-        }
-      }
 
       const dateKey = postedAt.slice(0, 10);
       const entry = dailyMap.get(dateKey);
@@ -509,14 +422,9 @@ export const linkedinConnector: Connector = {
       }
     }
 
-    for (const [dateKey, entry] of dailyMap.entries()) {
-      const clicks = clicksMap.get(dateKey) ?? 0;
-      entry.engagements = (entry.likes ?? 0) + (entry.comments ?? 0) + (entry.shares ?? 0) + clicks;
-    }
-
     const dailyMetrics = Array.from(dailyMap.values());
     dailyMetrics.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
 
     return { dailyMetrics, posts };
-  },
+  }
 };

@@ -27,19 +27,15 @@ type DebugAttempt = {
 const API_URL = LINKEDIN_CONFIG.apiUrl;
 const API_VERSION = getLinkedInVersion();
 
-function buildTimeIntervalsList(start: Date, end: Date) {
-  return `List((timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY))`;
-}
-
 function buildTimeIntervalsSingle(start: Date, end: Date) {
   return `(timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY)`;
 }
 
-function buildBracketParams(start: Date, end: Date) {
+function buildDotParams(start: Date, end: Date) {
   return new URLSearchParams({
-    "timeIntervals[0].timeRange.start": String(start.getTime()),
-    "timeIntervals[0].timeRange.end": String(end.getTime()),
-    "timeIntervals[0].timeGranularityType": "DAY"
+    "timeIntervals.timeRange.start": String(start.getTime()),
+    "timeIntervals.timeRange.end": String(end.getTime()),
+    "timeIntervals.timeGranularityType": "DAY"
   }).toString();
 }
 
@@ -143,35 +139,23 @@ export async function GET(request: Request) {
     const statsAttempts: DebugAttempt[] = [];
     const shareAttempts: DebugAttempt[] = [];
 
-    const listStats = await tryLinkedIn(`${baseStatsUrl}&timeIntervals=${buildTimeIntervalsList(start, end)}`, headers);
-    statsAttempts.push(listStats.attempt);
-
     const singleStats = await tryLinkedIn(`${baseStatsUrl}&timeIntervals=${buildTimeIntervalsSingle(start, end)}`, headers);
     statsAttempts.push(singleStats.attempt);
-
-    const encListStats = await tryLinkedIn(`${baseStatsUrl}&timeIntervals=${encodeURIComponent(buildTimeIntervalsList(start, end))}`, headers);
-    statsAttempts.push(encListStats.attempt);
-
-    const bracketStats = await tryLinkedIn(`${baseStatsUrl}&${buildBracketParams(start, end)}`, headers);
-    statsAttempts.push(bracketStats.attempt);
+    const dotStats = await tryLinkedIn(`${baseStatsUrl}&${buildDotParams(start, end)}`, headers);
+    statsAttempts.push(dotStats.attempt);
 
     response.follower_stats = { attempts: statsAttempts };
 
-    const listShare = await tryLinkedIn(`${baseShareUrl}&timeIntervals=${buildTimeIntervalsList(start, end)}`, headers);
-    shareAttempts.push(listShare.attempt);
-
     const singleShare = await tryLinkedIn(`${baseShareUrl}&timeIntervals=${buildTimeIntervalsSingle(start, end)}`, headers);
     shareAttempts.push(singleShare.attempt);
-
-    const encListShare = await tryLinkedIn(`${baseShareUrl}&timeIntervals=${encodeURIComponent(buildTimeIntervalsList(start, end))}`, headers);
-    shareAttempts.push(encListShare.attempt);
-
-    const bracketShare = await tryLinkedIn(`${baseShareUrl}&${buildBracketParams(start, end)}`, headers);
-    shareAttempts.push(bracketShare.attempt);
+    const dotShare = await tryLinkedIn(`${baseShareUrl}&${buildDotParams(start, end)}`, headers);
+    shareAttempts.push(dotShare.attempt);
 
     response.share_stats = { attempts: shareAttempts };
 
-    const sharesUrl = `${API_URL}/shares?q=owners&owners=urn:li:organization:${account.external_account_id}&count=10&sharesPerOwner=10&projection=(elements*(id,created,specificContent,socialDetail))`;
+    const sharesUrl = `${LINKEDIN_CONFIG.apiV2Url ?? "https://api.linkedin.com/v2"}/shares` +
+      `?q=owners&owners=urn:li:organization:${account.external_account_id}` +
+      `&count=10&sharesPerOwner=10&projection=(elements*(id,created,commentary,text,content,specificContent))`;
     response.shares = await apiRequest("linkedin", sharesUrl, { headers }, "shares_debug", true);
   } catch (error) {
     response.error = error instanceof Error ? error.message : "Unknown error";
