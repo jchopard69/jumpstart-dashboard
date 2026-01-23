@@ -186,9 +186,12 @@ async function fetchShareStats(
   end: Date,
   shares?: string[]
 ): Promise<ShareStatsResponse> {
+  // LinkedIn share stats only available for the last 12 months (rolling window).
+  const minStartMs = end.getTime() - 365 * 24 * 60 * 60 * 1000;
+  const clampedStart = new Date(Math.max(start.getTime(), minStartMs));
   const timeIntervalsVariants = [
-    ...buildTimeIntervalQueries(start, end, 'DAY'),
-    ...buildTimeIntervalQueries(start, end)
+    ...buildTimeIntervalQueries(clampedStart, end, 'DAY'),
+    ...buildTimeIntervalQueries(clampedStart, end)
   ];
   let lastError: unknown = null;
 
