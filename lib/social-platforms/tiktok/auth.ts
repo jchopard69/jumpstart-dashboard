@@ -159,7 +159,8 @@ export async function fetchTikTokUserInfo(accessToken: string): Promise<{
   const error = data.error as { code?: string | number; message?: string } | undefined;
   const errorCode = error?.code;
   const errorMessage = error?.message?.toLowerCase();
-  const isOk = errorCode === 0 || errorCode === "0" || errorMessage === "ok";
+  const errorCodeStr = errorCode !== undefined ? String(errorCode) : "";
+  const isOk = errorCodeStr === "0" || errorMessage === "ok";
   if (error && !isOk) {
     throw new Error(`TikTok API error: ${data.error.message || data.error.code}`);
   }
