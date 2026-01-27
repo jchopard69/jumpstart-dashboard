@@ -11,7 +11,6 @@ export const TIKTOK_CONFIG = {
   // See: https://developers.tiktok.com/doc/tiktok-api-scopes
   scopes: [
     'user.info.basic',      // Basic user info
-    'user.info.profile',    // Profile info (username, avatar)
     'user.info.stats',      // User statistics
     'video.list',           // List user's videos
   ],
