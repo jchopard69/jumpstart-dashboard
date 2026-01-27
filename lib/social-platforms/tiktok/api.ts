@@ -100,47 +100,51 @@ export const tiktokConnector: Connector = {
       raw_json: user as unknown as Record<string, unknown>,
     }];
 
-    // Fetch recent videos (optional - requires approved video.list scope)
+    // Fetch recent videos (POST request required by TikTok API v2)
+    const videosResponse = await apiRequest<TikTokVideosResponse>(
+      'tiktok',
+      `${API_URL}/video/list/?fields=id,title,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count`,
+      {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ max_count: 20 }),
+      },
+      'video_list'
+    );
+
     const posts: PostMetric[] = [];
 
-    try {
-      const videosResponse = await apiRequest<TikTokVideosResponse>(
-        'tiktok',
-        `${API_URL}/video/list/?fields=id,title,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count&max_count=10`,
-        { headers },
-        'video_list'
-      );
+    const videosErrorCode = videosResponse.error?.code;
+    const videosErrorMessage = videosResponse.error?.message?.toLowerCase();
+    const videosCode = videosErrorCode !== undefined ? String(videosErrorCode) : "";
+    const videosOk = videosCode === "0" || videosCode.toLowerCase() === "ok" || videosErrorMessage === "ok";
 
-      const videosErrorCode = videosResponse.error?.code;
-      const videosErrorMessage = videosResponse.error?.message?.toLowerCase();
-      const videosCode = videosErrorCode !== undefined ? String(videosErrorCode) : "";
-      const videosOk = videosCode === "0" || videosCode.toLowerCase() === "ok" || videosErrorMessage === "ok";
+    if (videosResponse.error && !videosOk) {
+      throw new Error(`TikTok API error: ${videosResponse.error.message}`);
+    }
 
-      if (videosResponse.error && !videosOk) {
-        console.warn(`[tiktok] video_list returned error (scope may not be approved): ${videosResponse.error.message}`);
-      } else if (videosResponse.data?.videos) {
-        for (const video of videosResponse.data.videos) {
-          posts.push({
-            external_post_id: video.id,
-            posted_at: new Date(video.create_time * 1000).toISOString(),
-            url: video.share_url,
-            caption: video.title,
-            media_type: 'video',
-            thumbnail_url: video.cover_image_url,
-            media_url: video.share_url,
-            metrics: {
-              views: video.view_count ?? 0,
-              likes: video.like_count ?? 0,
-              comments: video.comment_count ?? 0,
-              shares: video.share_count ?? 0,
-            },
-            raw_json: video as unknown as Record<string, unknown>,
-          });
-        }
+    if (videosResponse.data?.videos) {
+      for (const video of videosResponse.data.videos) {
+        posts.push({
+          external_post_id: video.id,
+          posted_at: new Date(video.create_time * 1000).toISOString(),
+          url: video.share_url,
+          caption: video.title,
+          media_type: 'video',
+          thumbnail_url: video.cover_image_url,
+          media_url: video.share_url,
+          metrics: {
+            views: video.view_count ?? 0,
+            likes: video.like_count ?? 0,
+            comments: video.comment_count ?? 0,
+            shares: video.share_count ?? 0,
+          },
+          raw_json: video as unknown as Record<string, unknown>,
+        });
       }
-    } catch (error) {
-      // video.list scope requires TikTok approval - continue sync without videos
-      console.warn(`[tiktok] Failed to fetch videos (video.list scope may not be approved): ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     return { dailyMetrics, posts };
