@@ -87,20 +87,7 @@ export const tiktokConnector: Connector = {
       throw new Error('Failed to fetch TikTok user info');
     }
 
-    // Create daily metrics with current stats
-    const today = new Date().toISOString().slice(0, 10);
-    const dailyMetrics: DailyMetric[] = [{
-      date: today,
-      followers: user.follower_count ?? 0,
-      likes: user.likes_count ?? 0,
-      posts_count: user.video_count ?? 0,
-      impressions: 0, // TikTok doesn't provide this at user level
-      reach: 0,
-      engagements: user.likes_count ?? 0,
-      raw_json: user as unknown as Record<string, unknown>,
-    }];
-
-    // Fetch recent videos (POST request required by TikTok API v2)
+    // Fetch recent videos first (POST request required by TikTok API v2)
     const videosResponse = await apiRequest<TikTokVideosResponse>(
       'tiktok',
       `${API_URL}/video/list/?fields=id,title,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count`,
@@ -116,6 +103,8 @@ export const tiktokConnector: Connector = {
     );
 
     const posts: PostMetric[] = [];
+    let totalViews = 0;
+    let totalEngagements = 0;
 
     const videosErrorCode = videosResponse.error?.code;
     const videosErrorMessage = videosResponse.error?.message?.toLowerCase();
@@ -128,6 +117,14 @@ export const tiktokConnector: Connector = {
 
     if (videosResponse.data?.videos) {
       for (const video of videosResponse.data.videos) {
+        const views = video.view_count ?? 0;
+        const likes = video.like_count ?? 0;
+        const comments = video.comment_count ?? 0;
+        const shares = video.share_count ?? 0;
+
+        totalViews += views;
+        totalEngagements += likes + comments + shares;
+
         posts.push({
           external_post_id: video.id,
           posted_at: new Date(video.create_time * 1000).toISOString(),
@@ -137,15 +134,28 @@ export const tiktokConnector: Connector = {
           thumbnail_url: video.cover_image_url,
           media_url: video.share_url,
           metrics: {
-            views: video.view_count ?? 0,
-            likes: video.like_count ?? 0,
-            comments: video.comment_count ?? 0,
-            shares: video.share_count ?? 0,
+            views,
+            likes,
+            comments,
+            shares,
           },
           raw_json: video as unknown as Record<string, unknown>,
         });
       }
     }
+
+    // Create daily metrics with aggregated stats from videos
+    const today = new Date().toISOString().slice(0, 10);
+    const dailyMetrics: DailyMetric[] = [{
+      date: today,
+      followers: user.follower_count ?? 0,
+      likes: user.likes_count ?? 0,
+      posts_count: user.video_count ?? 0,
+      impressions: totalViews,
+      reach: totalViews, // TikTok doesn't distinguish reach from views
+      engagements: totalEngagements,
+      raw_json: user as unknown as Record<string, unknown>,
+    }];
 
     return { dailyMetrics, posts };
   },
