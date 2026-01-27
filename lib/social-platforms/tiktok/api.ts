@@ -77,7 +77,7 @@ export const tiktokConnector: Connector = {
     const userInfoErrorCode = userInfoResponse.error?.code;
     const userInfoErrorMessage = userInfoResponse.error?.message?.toLowerCase();
     const userInfoCode = userInfoErrorCode !== undefined ? String(userInfoErrorCode) : "";
-    const userInfoOk = userInfoCode === "0" || userInfoErrorMessage === "ok";
+    const userInfoOk = userInfoCode === "0" || userInfoCode.toLowerCase() === "ok" || userInfoErrorMessage === "ok";
     if (userInfoResponse.error && !userInfoOk) {
       throw new Error(`TikTok API error: ${userInfoResponse.error.message}`);
     }
@@ -113,7 +113,7 @@ export const tiktokConnector: Connector = {
     const videosErrorCode = videosResponse.error?.code;
     const videosErrorMessage = videosResponse.error?.message?.toLowerCase();
     const videosCode = videosErrorCode !== undefined ? String(videosErrorCode) : "";
-    const videosOk = videosCode === "0" || videosErrorMessage === "ok";
+    const videosOk = videosCode === "0" || videosCode.toLowerCase() === "ok" || videosErrorMessage === "ok";
     if (videosResponse.error && !videosOk) {
       throw new Error(`TikTok API error: ${videosResponse.error.message}`);
     }
