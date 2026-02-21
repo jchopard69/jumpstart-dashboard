@@ -64,29 +64,29 @@ interface MetaPostsResponse {
 
 /**
  * Map Meta insights to daily metrics format
- * Only uses real time-series data from the API (reach, impressions)
- * Engagement metrics come from post-level data which is accurate
+ * Distributes total_value metrics proportionally based on daily reach
  */
 function mapInsightsToDaily(
   insights: MetaInsight[],
   baseMetric: Partial<DailyMetric> = {},
-  _fallbackDate?: string
+  fallbackDate?: string
 ): DailyMetric[] {
   const dailyMap: Record<string, Record<string, number>> = {};
+  const totalValueMetrics: Record<string, number> = {};
 
-  // Only process time-series values (real daily data)
-  // We ignore total_value metrics as they can't be accurately distributed
+  // First pass: collect time-series data and total_value metrics separately
   for (const metric of insights) {
     const metricName = metric.name;
 
-    // Skip total_value metrics - we'll get engagement from posts instead
-    if (!metric.values?.length) {
+    // Store total_value metrics for later distribution
+    if (!metric.values?.length && metric.total_value) {
+      totalValueMetrics[metricName] = metric.total_value.value ?? 0;
       continue;
     }
 
-    // Process time-series values (these are real daily values)
+    // Process time-series values
     for (const value of metric.values || []) {
-      const date = value.end_time?.slice(0, 10);
+      const date = value.end_time?.slice(0, 10) ?? fallbackDate;
       if (!date) continue;
 
       if (!dailyMap[date]) {
@@ -104,23 +104,57 @@ function mapInsightsToDaily(
     }
   }
 
+  // Calculate total reach for proportional distribution
+  const totalReach = Object.values(dailyMap).reduce((sum, day) => sum + (day.reach ?? 0), 0);
+
+  // Distribute total_value metrics proportionally based on reach
+  if (totalReach > 0 && Object.keys(totalValueMetrics).length > 0) {
+    for (const [date, values] of Object.entries(dailyMap)) {
+      const dayReach = values.reach ?? 0;
+      const proportion = dayReach / totalReach;
+
+      for (const [metricName, totalValue] of Object.entries(totalValueMetrics)) {
+        // Distribute proportionally, rounding to avoid decimals
+        values[metricName] = Math.round(totalValue * proportion);
+      }
+    }
+  } else if (Object.keys(totalValueMetrics).length > 0 && fallbackDate) {
+    // Fallback: assign all totals to fallbackDate if no reach data
+    if (!dailyMap[fallbackDate]) {
+      dailyMap[fallbackDate] = {};
+    }
+    for (const [metricName, totalValue] of Object.entries(totalValueMetrics)) {
+      dailyMap[fallbackDate][metricName] = totalValue;
+    }
+  }
+
   return Object.entries(dailyMap).map(([date, values]) => {
+    const likes = values.likes ?? 0;
+    const comments = values.comments ?? 0;
+    const shares = values.shares ?? 0;
+    const saves = values.saves ?? 0;
     const impressions = values.page_impressions ?? values.impressions ?? 0;
-    const reach = values.reach ?? 0;
+    const views = values.views ?? values.content_views ?? values.video_views ?? 0;
+    const engagementFallback =
+      values.accounts_engaged ??
+      values.total_interactions ??
+      values.engagement ??
+      values.page_engaged_users ??
+      0;
+    const engagements = likes + comments + shares + saves;
 
     return {
       date,
       ...baseMetric,
       impressions,
-      reach,
-      // Engagements will be added from post data (real metrics)
-      engagements: 0,
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      saves: 0,
-      replies: 0,
-      views: 0,
+      reach: values.reach ?? 0,
+      engagements: engagements > 0 ? engagements : engagementFallback,
+      likes,
+      comments,
+      shares,
+      saves,
+      replies: values.replies ?? 0,
+      views,
       raw_json: values,
     };
   });
@@ -313,13 +347,13 @@ export const instagramConnector: Connector = {
       dailyMetrics.splice(0, dailyMetrics.length, ...dailyMap.values());
     }
 
-    // Only set impressions from reach if we have no impressions data
-    // Do NOT invent views - keep them as actual post views only
     for (const metric of dailyMetrics) {
       if ((metric.impressions ?? 0) === 0 && (metric.reach ?? 0) > 0) {
         metric.impressions = metric.reach ?? 0;
       }
-      // Views are only from posts - don't inflate with reach/impressions
+      if ((metric.views ?? 0) === 0) {
+        metric.views = metric.impressions ?? metric.reach ?? 0;
+      }
     }
 
     return { dailyMetrics, posts };
