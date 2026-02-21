@@ -2,7 +2,34 @@
   "permissions": {
     "allow": [
       "Bash(ls:*)",
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "Bash(npm run lint:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(timeout 15 npm run dev:*)",
+      "Bash(git push:*)",
+      "Bash(gh auth:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(brew install:*)",
+      "Bash(gh pr create:*)",
+      "Bash(test:*)",
+      "Bash(gh api:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)",
+      "Bash(curl:*)",
+      "Bash(SUPABASE_URL=\"https://mvcuurnhfijxaytydbuo.supabase.co\":*)",
+      "Bash(SUPABASE_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12Y3V1cm5oZmlqeGF5dHlkYnVvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzI3MjU4NiwiZXhwIjoyMDgyODQ4NTg2fQ.VNPbP_InTHOGp2dJ-9S3lp-msLHiFIOk-yX4tg9RaaY\":*)",
+      "Bash(TENANT_ID=\"6b13b0b2-3467-4abc-9bc0-7ad483bcc4d0\")",
+      "Bash(__NEW_LINE_434bca90e6b7fa5b__ curl -s \"$SUPABASE_URL/rest/v1/social_daily_metrics?tenant_id=eq.$TENANT_ID&platform=eq.instagram&select=date,followers,impressions,reach,engagements,views,posts_count&order=date.desc&limit=30\" -H \"apikey: $SUPABASE_KEY\" -H \"Authorization: Bearer $SUPABASE_KEY\")",
+      "Bash(export:*)",
+      "Bash(bash:*)",
+      "Bash(git restore:*)",
+      "Bash(wc:*)",
+      "Bash(__NEW_LINE_2e37e08eef526af4__ curl -s \"$SUPABASE_URL/rest/v1/social_daily_metrics?tenant_id=eq.$TENANT_ID&platform=eq.instagram&select=date,followers,impressions,reach,engagements,views,posts_count&order=date.desc&limit=30\" -H \"apikey: $SUPABASE_KEY\" -H \"Authorization: Bearer $SUPABASE_KEY\")",
+      "Bash(python3 -m json.tool:*)",
+      "Bash(python3:*)",
+      "Bash(git revert:*)"
     ]
   }
 }

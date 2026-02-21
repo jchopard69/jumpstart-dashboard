@@ -72,6 +72,20 @@ export function TrendChart({ title, data, showComparison = false, showTrend = tr
     ? data.reduce((sum, item) => sum + item.value, 0) / data.length
     : 0;
 
+  // Empty state
+  if (data.length === 0) {
+    return (
+      <Card className="card-surface p-4 fade-in-up">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+        </div>
+        <div className="h-48 flex items-center justify-center text-muted-foreground">
+          <p className="text-sm">Aucune donnée disponible</p>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card className="card-surface p-4 fade-in-up">
       <div className="mb-2 flex items-center justify-between">
