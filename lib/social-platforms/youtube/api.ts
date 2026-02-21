@@ -71,7 +71,7 @@ export const youtubeConnector: Connector = {
 
     // Determine auth method
     let authParam: string;
-    let headers: Record<string, string> = {};
+    const headers: Record<string, string> = {};
 
     if (accessToken) {
       headers['Authorization'] = `Bearer ${accessToken}`;
