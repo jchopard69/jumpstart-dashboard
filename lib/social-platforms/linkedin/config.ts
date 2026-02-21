@@ -10,10 +10,14 @@ export const LINKEDIN_CONFIG = {
 
   // OAuth scopes (Community Management / Organizations)
   // See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations
+  // Production scopes (require LinkedIn approval):
+  // 'r_organization_admin', 'rw_organization_admin', 'r_organization_social'
+  // Temporary self-serve scopes for authorization screenshot:
   scopes: [
-    'r_organization_admin',
-    'rw_organization_admin',
-    'r_organization_social'
+    'openid',
+    'profile',
+    'email',
+    'w_member_social'
   ],
 };
 
