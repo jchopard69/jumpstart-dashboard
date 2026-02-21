@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PLATFORM_LABELS, type Platform } from "@/lib/types";
+import { PLATFORM_LABELS, PLATFORM_ICONS, type Platform } from "@/lib/types";
 
 const presets = [
   { value: "last_7_days", label: "7 derniers jours" },
@@ -107,7 +107,10 @@ export function DashboardFilters({
           <SelectItem value="all">Toutes les plateformes</SelectItem>
           {Object.entries(PLATFORM_LABELS).map(([value, label]) => (
             <SelectItem key={value} value={value}>
-              {label}
+              <span className="inline-flex items-center gap-2">
+                <span>{PLATFORM_ICONS[value as Platform]}</span>
+                {label}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>
@@ -123,7 +126,10 @@ export function DashboardFilters({
           <SelectItem value="all">Tous les comptes</SelectItem>
           {accounts.map((account) => (
             <SelectItem key={account.id} value={account.id}>
-              {PLATFORM_LABELS[account.platform]} · {account.account_name}
+              <span className="inline-flex items-center gap-2">
+                <span>{PLATFORM_ICONS[account.platform]}</span>
+                {account.account_name}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>
