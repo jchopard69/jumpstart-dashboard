@@ -30,10 +30,12 @@ export default function LoginPage() {
       setError(signInError.message);
       return;
     }
+    // Fetch profile by auth user id (more robust than email)
+    const { data: { user } } = await supabase.auth.getUser();
     const { data: profile } = await supabase
       .from("profiles")
       .select("role,tenant_id")
-      .eq("email", email)
+      .eq("id", user?.id ?? "")
       .single();
     if (profile?.role === "agency_admin") {
       router.push("/admin");
