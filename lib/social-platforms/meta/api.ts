@@ -64,6 +64,7 @@ interface MetaPostsResponse {
 
 /**
  * Map Meta insights to daily metrics format
+ * Distributes total_value metrics proportionally based on daily reach
  */
 function mapInsightsToDaily(
   insights: MetaInsight[],
@@ -71,18 +72,19 @@ function mapInsightsToDaily(
   fallbackDate?: string
 ): DailyMetric[] {
   const dailyMap: Record<string, Record<string, number>> = {};
+  const totalValueMetrics: Record<string, number> = {};
 
+  // First pass: collect time-series data and total_value metrics separately
   for (const metric of insights) {
     const metricName = metric.name;
 
-    if (!metric.values?.length && metric.total_value && fallbackDate) {
-      if (!dailyMap[fallbackDate]) {
-        dailyMap[fallbackDate] = {};
-      }
-      dailyMap[fallbackDate][metricName] = metric.total_value.value ?? 0;
+    // Store total_value metrics for later distribution
+    if (!metric.values?.length && metric.total_value) {
+      totalValueMetrics[metricName] = metric.total_value.value ?? 0;
       continue;
     }
 
+    // Process time-series values
     for (const value of metric.values || []) {
       const date = value.end_time?.slice(0, 10) ?? fallbackDate;
       if (!date) continue;
@@ -99,6 +101,30 @@ function mapInsightsToDaily(
           : 0;
 
       dailyMap[date][metricName] = numValue;
+    }
+  }
+
+  // Calculate total reach for proportional distribution
+  const totalReach = Object.values(dailyMap).reduce((sum, day) => sum + (day.reach ?? 0), 0);
+
+  // Distribute total_value metrics proportionally based on reach
+  if (totalReach > 0 && Object.keys(totalValueMetrics).length > 0) {
+    for (const [date, values] of Object.entries(dailyMap)) {
+      const dayReach = values.reach ?? 0;
+      const proportion = dayReach / totalReach;
+
+      for (const [metricName, totalValue] of Object.entries(totalValueMetrics)) {
+        // Distribute proportionally, rounding to avoid decimals
+        values[metricName] = Math.round(totalValue * proportion);
+      }
+    }
+  } else if (Object.keys(totalValueMetrics).length > 0 && fallbackDate) {
+    // Fallback: assign all totals to fallbackDate if no reach data
+    if (!dailyMap[fallbackDate]) {
+      dailyMap[fallbackDate] = {};
+    }
+    for (const [metricName, totalValue] of Object.entries(totalValueMetrics)) {
+      dailyMap[fallbackDate][metricName] = totalValue;
     }
   }
 
@@ -215,7 +241,7 @@ export const instagramConnector: Connector = {
     const fallbackDate = new Date().toISOString().slice(0, 10);
     const dailyMetrics = mapInsightsToDaily(insights, {
       followers: accountInfo.followers_count ?? 0,
-      posts_count: accountInfo.media_count ?? 0,
+      posts_count: 0, // Will be calculated from posts, not total account media count
     }, fallbackDate);
 
     // If no insights data, create a single metric for today

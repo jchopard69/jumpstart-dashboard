@@ -48,15 +48,16 @@ export default async function ClientDashboardPage({
     tenantId: searchParams.tenantId
   });
 
-  const queryString = new URLSearchParams({
-    preset: preset,
-    from: searchParams.from ?? "",
-    to: searchParams.to ?? "",
-    platform: searchParams.platform ?? "",
-    view: searchParams.view ?? "",
-    tenantId: searchParams.tenantId ?? "",
-    accountId: searchParams.accountId ?? ""
-  }).toString();
+  // Build query string, excluding empty values
+  const queryParams = new URLSearchParams();
+  queryParams.set("preset", preset);
+  if (searchParams.from) queryParams.set("from", searchParams.from);
+  if (searchParams.to) queryParams.set("to", searchParams.to);
+  if (searchParams.platform) queryParams.set("platform", searchParams.platform);
+  if (searchParams.view) queryParams.set("view", searchParams.view);
+  if (searchParams.tenantId) queryParams.set("tenantId", searchParams.tenantId);
+  if (searchParams.accountId) queryParams.set("accountId", searchParams.accountId);
+  const queryString = queryParams.toString();
 
   const msDay = 24 * 60 * 60 * 1000;
   const offsetDays = data.range && data.prevRange

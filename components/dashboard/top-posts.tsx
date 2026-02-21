@@ -1,3 +1,5 @@
+"use client";
+
 import { Card } from "@/components/ui/card";
 import { EmptyPosts } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +9,33 @@ import type { PostData } from "@/lib/types/dashboard";
 type TopPostsProps = {
   posts: PostData[];
 };
+
+function PostThumbnail({ url, platform }: { url?: string; platform?: string }) {
+  if (!url) {
+    return (
+      <div className="h-20 w-20 rounded-lg bg-muted flex items-center justify-center text-2xl text-muted-foreground">
+        {platform ? PLATFORM_ICONS[platform as Platform] ?? "📄" : "📄"}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={url}
+      alt="thumbnail"
+      className="h-20 w-20 rounded-lg object-cover"
+      onError={(e) => {
+        // Replace broken image with platform icon placeholder
+        const target = e.currentTarget;
+        target.style.display = 'none';
+        const placeholder = document.createElement('div');
+        placeholder.className = 'h-20 w-20 rounded-lg bg-muted flex items-center justify-center text-2xl text-muted-foreground';
+        placeholder.textContent = platform ? PLATFORM_ICONS[platform as Platform] ?? "📄" : "📄";
+        target.parentNode?.insertBefore(placeholder, target);
+      }}
+    />
+  );
+}
 
 export function TopPosts({ posts }: TopPostsProps) {
   return (
@@ -23,12 +52,7 @@ export function TopPosts({ posts }: TopPostsProps) {
         ) : (
           posts.map((post) => (
             <div key={post.id} className="flex items-start gap-4 border-b border-border pb-4 last:border-0">
-              {post.thumbnail_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={post.thumbnail_url} alt="thumbnail" className="h-20 w-20 rounded-lg object-cover" />
-              ) : (
-                <div className="h-20 w-20 rounded-lg bg-muted" />
-              )}
+              <PostThumbnail url={post.thumbnail_url ?? undefined} platform={post.platform ?? undefined} />
               <div className="flex-1">
                 <p className="text-sm font-medium line-clamp-2">{post.caption ?? "Publication sans titre"}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
