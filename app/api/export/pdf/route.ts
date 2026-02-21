@@ -1,21 +1,21 @@
 import { renderToBuffer } from "@react-pdf/renderer";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
 import { resolveDateRange, buildPreviousRange } from "@/lib/date";
 import type { Platform } from "@/lib/types";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const supabase = createSupabaseServerClient();
+  const authClient = createSupabaseServerClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await authClient.auth.getUser();
 
   if (!user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await authClient
     .from("profiles")
     .select("id,email,full_name,role,tenant_id")
     .eq("id", user.id)
@@ -25,10 +25,13 @@ export async function GET(request: Request) {
     return Response.json({ error: "Profile missing" }, { status: 403 });
   }
 
-  const tenantId =
-    profile.role === "agency_admin" && searchParams.get("tenantId")
-      ? searchParams.get("tenantId")
-      : profile.tenant_id;
+  const isAdmin = profile.role === "agency_admin" && searchParams.get("tenantId");
+  const tenantId = isAdmin
+    ? searchParams.get("tenantId")
+    : profile.tenant_id;
+
+  // Use service client for admins viewing client data (bypasses RLS)
+  const supabase = isAdmin ? createSupabaseServiceClient() : authClient;
 
   if (!tenantId) {
     return Response.json({ error: "Tenant missing" }, { status: 403 });
