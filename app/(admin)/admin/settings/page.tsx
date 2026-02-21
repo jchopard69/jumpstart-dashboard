@@ -30,7 +30,14 @@ export default async function AdminSettingsPage() {
           </div>
           <div className="flex items-center justify-between rounded-2xl bg-muted/30 px-4 py-3">
             <span>Endpoint cron</span>
-            <code className="text-xs">/api/cron/sync?secret=...</code>
+            <div className="text-right text-xs text-muted-foreground">
+              <div>
+                <code>/api/cron/sync</code>
+              </div>
+              <div>
+                <code>Authorization: Bearer ...</code>
+              </div>
+            </div>
           </div>
         </div>
       </Card>

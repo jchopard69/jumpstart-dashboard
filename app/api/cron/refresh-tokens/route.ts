@@ -71,9 +71,7 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
-  }
+  // Vercel Cron uses GET requests. We still enforce the same auth as POST.
   return POST(request);
 }
 
