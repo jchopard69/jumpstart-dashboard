@@ -21,11 +21,13 @@ function validateAuth(request: Request): boolean {
     }
   }
 
-  const { searchParams } = new URL(request.url);
-  const secretParam = searchParams.get("secret");
-  if (secretParam === cronSecret) {
-    console.warn("[cron] Using query param auth is deprecated. Please use Authorization: Bearer header.");
-    return true;
+  if (process.env.CRON_ALLOW_QUERY_SECRET === "true") {
+    const { searchParams } = new URL(request.url);
+    const secretParam = searchParams.get("secret");
+    if (secretParam === cronSecret) {
+      console.warn("[cron] Using query param auth is deprecated. Please use Authorization: Bearer header.");
+      return true;
+    }
   }
 
   return false;
