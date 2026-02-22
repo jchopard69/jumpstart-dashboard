@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   // Get ALL posts (no date filter to debug)
   const { data: posts, count: postCount } = await serviceClient
     .from("social_posts")
-    .select("id,platform,posted_at,caption,external_post_id", { count: "exact" })
+    .select("id,platform,posted_at,caption,external_post_id,social_account_id", { count: "exact" })
     .eq("tenant_id", tenantId)
     .order("posted_at", { ascending: false })
     .limit(50);
@@ -56,6 +56,17 @@ export async function GET(request: Request) {
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId)
     .gte("posted_at", since30);
+
+  // Check ALL social_accounts (including inactive/pending)
+  const { data: allAccounts } = await serviceClient
+    .from("social_accounts")
+    .select("id,platform,account_name,auth_status,tenant_id")
+    .eq("tenant_id", tenantId);
+
+  // Check if there are posts for ANY tenant (global check)
+  const { count: globalPostCount } = await serviceClient
+    .from("social_posts")
+    .select("id", { count: "exact", head: true });
 
   // Group posts by platform
   const postsByPlatform: Record<string, number> = {};
@@ -103,16 +114,19 @@ export async function GET(request: Request) {
   return NextResponse.json({
     tenantId,
     accounts: accounts ?? [],
+    allAccounts: allAccounts ?? [],
     syncLogs: syncLogs ?? [],
     testInsertResult,
     postsSummary: {
       totalAllTime: postCount ?? 0,
       last30Days: last30DaysCount ?? 0,
+      globalPostCount: globalPostCount ?? 0,
       byPlatform: postsByPlatform,
       recent: (posts ?? []).slice(0, 10).map(p => ({
         id: p.id,
         platform: p.platform,
         posted_at: p.posted_at,
+        social_account_id: p.social_account_id,
         caption: p.caption?.slice(0, 50)
       }))
     }
