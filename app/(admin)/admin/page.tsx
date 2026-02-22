@@ -29,11 +29,11 @@ export default async function AdminOverviewPage() {
       <section className="surface-panel p-8">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Console agence</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Centre de controle</p>
             <h1 className="page-heading">Vue d&apos;ensemble</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Suivi temps réel de l&apos;activité Social Pulse.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Pilotage en temps reel de l&apos;ecosysteme Social Pulse.</p>
           </div>
-          <Badge variant="secondary">Opérations studio</Badge>
+          <Badge variant="secondary">Operations</Badge>
         </div>
         <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
           <Card className="card-surface p-5">

@@ -34,7 +34,7 @@ export function DailyMetricsTable({ metrics, showViews, showReach, showEngagemen
     return (
       <section>
         <Card className="card-surface p-6 fade-in-up">
-          <h2 className="section-title">Métriques quotidiennes</h2>
+          <h2 className="section-title">Suivi journalier</h2>
           <div className="mt-4 text-center py-8 text-muted-foreground">
             <p>Aucune donnée disponible pour cette période.</p>
           </div>
@@ -47,7 +47,7 @@ export function DailyMetricsTable({ metrics, showViews, showReach, showEngagemen
     <section>
       <Card className="card-surface p-6 fade-in-up">
         <div className="flex items-center justify-between">
-          <h2 className="section-title">Métriques quotidiennes</h2>
+          <h2 className="section-title">Suivi journalier</h2>
           <span className="text-xs text-muted-foreground">{sortedMetrics.length} jours</span>
         </div>
         <div className="mt-4 max-h-[400px] overflow-auto">

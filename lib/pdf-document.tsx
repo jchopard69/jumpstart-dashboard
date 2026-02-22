@@ -362,8 +362,8 @@ export function PdfDocument(props: PdfDocumentProps) {
         <View style={styles.header}>
           <View>
             <Text style={styles.brand}>JumpStart Studio</Text>
-            <Text style={styles.title}>{tenantName} • Social Pulse</Text>
-            <Text style={styles.meta}>Période : {rangeLabel}</Text>
+            <Text style={styles.title}>{tenantName} • Social Intelligence</Text>
+            <Text style={styles.meta}>Periode : {rangeLabel}</Text>
             <Text style={styles.comparisonRow}>vs. {prevRangeLabel}</Text>
           </View>
           <View>
@@ -393,7 +393,7 @@ export function PdfDocument(props: PdfDocumentProps) {
               </View>
               {keyTakeaways && keyTakeaways.length > 0 && (
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", marginBottom: 6 }}>Points cles</Text>
+                  <Text style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", marginBottom: 6 }}>A retenir</Text>
                   {keyTakeaways.map((t, i) => (
                     <Text key={i} style={{ fontSize: 8, color: "#334155", marginBottom: 3 }}>• {sanitizeText(t)}</Text>
                   ))}
@@ -406,7 +406,7 @@ export function PdfDocument(props: PdfDocumentProps) {
         {/* Strategic Insights */}
         {insights && insights.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Insights strategiques</Text>
+            <Text style={styles.sectionTitle}>Analyse strategique</Text>
             <View style={{ marginBottom: 12 }}>
               {insights.slice(0, 4).map((insight, i) => (
                 <View key={i} style={{ marginBottom: 6, borderLeftWidth: 2, borderLeftColor: "#7c3aed", paddingLeft: 8 }}>
@@ -419,7 +419,7 @@ export function PdfDocument(props: PdfDocumentProps) {
         )}
 
         {/* KPIs */}
-        <Text style={styles.sectionTitle}>Indicateurs cles</Text>
+        <Text style={styles.sectionTitle}>Indicateurs de performance</Text>
         <View style={styles.kpiGrid}>
           {kpis.map((kpi, index) => (
             <KpiCard key={index} kpi={kpi} />
@@ -429,7 +429,7 @@ export function PdfDocument(props: PdfDocumentProps) {
         {/* Platforms breakdown */}
         {platforms.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Performance par plateforme</Text>
+            <Text style={styles.sectionTitle}>Ecosysteme digital</Text>
             <View style={styles.platformGrid}>
               {platforms.map((platform, index) => (
                 <PlatformCard key={index} platform={platform} />
@@ -441,7 +441,7 @@ export function PdfDocument(props: PdfDocumentProps) {
         {/* Top Posts */}
         {posts.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Top contenus</Text>
+            <Text style={styles.sectionTitle}>Contenus phares</Text>
             <View style={styles.table}>
               <View style={styles.tableHeader}>
                 <Text style={[styles.tableHeaderCell, styles.colWide]}>Publication</Text>
@@ -470,7 +470,7 @@ export function PdfDocument(props: PdfDocumentProps) {
         )}
 
         {/* Collaboration */}
-        <Text style={styles.sectionTitle}>Collaboration</Text>
+        <Text style={styles.sectionTitle}>Studio & Production</Text>
         <View style={styles.collaborationGrid}>
           <View style={styles.collaborationCard}>
             <Text style={styles.collaborationTitle}>Prochains shootings</Text>
@@ -502,8 +502,8 @@ export function PdfDocument(props: PdfDocumentProps) {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text>Rapport généré par JumpStart Studio</Text>
-          <Text>Les variations (%) comparent la période actuelle à la période précédente équivalente</Text>
+          <Text>Rapport genere par JumpStart Studio</Text>
+          <Text>Les variations (%) comparent la periode selectionnee a la periode precedente equivalente</Text>
         </View>
       </Page>
     </Document>

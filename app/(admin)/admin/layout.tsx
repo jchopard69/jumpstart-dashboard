@@ -35,7 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                       Admin
                     </span>
                   </div>
-                  <p className="mt-3 text-xs uppercase tracking-[0.3em] text-muted-foreground">Console agence</p>
+                  <p className="mt-3 text-xs uppercase tracking-[0.3em] text-muted-foreground">Centre de controle</p>
                   <nav className="mt-6 flex flex-col gap-2 text-sm">
                     <Link className="nav-pill" href="/admin">
                       Vue d&apos;ensemble

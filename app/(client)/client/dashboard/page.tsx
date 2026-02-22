@@ -213,9 +213,9 @@ export default async function ClientDashboardPage({
       <section className="surface-panel p-8">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Rapport social media</p>
-            <h1 className="page-heading">Performance</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Synthese multi-plateformes sur la periode selectionnee.</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Social Intelligence</p>
+            <h1 className="page-heading">Vue d'ensemble</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Analyse consolidee de votre presence digitale.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <RefreshButton tenantId={searchParams.tenantId} />

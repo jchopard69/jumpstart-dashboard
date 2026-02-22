@@ -16,7 +16,7 @@ export function CollaborationCard({ collaboration, shoots, documents }: Collabor
   return (
     <Card className="card-surface p-6 fade-in-up">
       <div className="flex items-center justify-between">
-        <h2 className="section-title">Collaboration</h2>
+        <h2 className="section-title">Studio & Production</h2>
         <Link
           href="/client/os"
           className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
@@ -24,7 +24,7 @@ export function CollaborationCard({ collaboration, shoots, documents }: Collabor
           Voir tout
         </Link>
       </div>
-      <p className="text-sm text-muted-foreground">Suivi de production & prochains shootings.</p>
+      <p className="text-sm text-muted-foreground">Planning de production et prochaines sessions.</p>
       <div className="mt-4 space-y-4">
         <div className="flex items-center justify-between rounded-xl border border-border/60 p-3">
           <p className="text-sm">Jours de shooting restants</p>

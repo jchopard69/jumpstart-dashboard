@@ -19,7 +19,7 @@ export function PlatformTable({ perPlatform, showViews, showReach, showEngagemen
     return (
       <section>
         <Card className="card-surface p-6 fade-in-up">
-          <h2 className="section-title">Détail par plateforme</h2>
+          <h2 className="section-title">Ecosysteme digital</h2>
           <div className="mt-4 text-center py-8 text-muted-foreground">
             <p>Aucune plateforme connectée.</p>
           </div>
@@ -33,8 +33,8 @@ export function PlatformTable({ perPlatform, showViews, showReach, showEngagemen
       <Card className="card-surface p-6 fade-in-up">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="section-title">Détail par plateforme</h2>
-            <p className="text-sm text-muted-foreground">Résumé des performances par réseau connecté.</p>
+            <h2 className="section-title">Ecosysteme digital</h2>
+            <p className="text-sm text-muted-foreground">Performance detaillee par canal.</p>
           </div>
         </div>
         <div className="mt-4 overflow-x-auto">

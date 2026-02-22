@@ -355,6 +355,44 @@ export const instagramConnector: Connector = {
       }
     };
 
+    const fetchMediaReachImpressions = async (mediaId: string, mediaType?: string) => {
+      const normalized = (mediaType ?? "").toUpperCase();
+      // Instagram media insights: impressions and reach are available for IMAGE, VIDEO, CAROUSEL_ALBUM, REEL
+      // For REEL, use "reach" and "impressions" (supported since v18+)
+      // For STORY, these metrics have different names but stories are ephemeral
+      const metricsToFetch = normalized === "REEL"
+        ? "impressions,reach"
+        : normalized === "STORY"
+          ? "impressions,reach"
+          : "impressions,reach";
+
+      try {
+        const insightsUrl = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
+          metric: metricsToFetch,
+          access_token: accessToken,
+        });
+        const response = await apiRequest<{ data?: Array<{ name?: string; values?: Array<{ value?: number }> }> }>(
+          "instagram",
+          insightsUrl,
+          {},
+          "media_reach_impressions",
+          true
+        );
+        let impressions = 0;
+        let reach = 0;
+        for (const metric of response.data ?? []) {
+          const value = metric?.values?.[0]?.value;
+          if (typeof value === "number") {
+            if (metric.name === "impressions") impressions = value;
+            if (metric.name === "reach") reach = value;
+          }
+        }
+        return { impressions, reach };
+      } catch {
+        return { impressions: 0, reach: 0 };
+      }
+    };
+
     const posts: PostMetric[] = [];
     for (const item of allMedia) {
       const likes = item.like_count || 0;
@@ -363,6 +401,8 @@ export const instagramConnector: Connector = {
       const engagements = baseEngagements > 0
         ? baseEngagements
         : await fetchMediaEngagements(item.id);
+
+      const { impressions, reach } = await fetchMediaReachImpressions(item.id, item.media_type);
 
       posts.push({
         external_post_id: item.id,
@@ -376,11 +416,16 @@ export const instagramConnector: Connector = {
           likes,
           comments,
           engagements,
+          impressions,
+          reach,
           views: await fetchMediaViews(item.id, item.media_type),
         },
         raw_json: item as unknown as Record<string, unknown>,
       });
     }
+
+    const postsWithReach = posts.filter(p => (p.metrics?.impressions ?? 0) > 0 || (p.metrics?.reach ?? 0) > 0);
+    console.log(`[instagram] Post insights: ${posts.length} total, ${postsWithReach.length} with reach/impressions data`);
 
     if (posts.length) {
       const dailyMap = new Map<string, DailyMetric>();
@@ -599,8 +644,15 @@ export const facebookConnector: Connector = {
             true
           );
 
+          let batchErrors = 0;
           response.forEach((item, index) => {
-            if (!item || item.code !== 200) return;
+            if (!item || item.code !== 200) {
+              batchErrors++;
+              if (batchErrors <= 2) {
+                console.warn(`[facebook] Batch insights item ${index} failed: code=${item?.code}`);
+              }
+              return;
+            }
             try {
               const parsed = JSON.parse(item.body);
               const data = parsed?.data ?? [];
@@ -622,9 +674,39 @@ export const facebookConnector: Connector = {
               return;
             }
           });
+          if (batchErrors > 0) {
+            console.warn(`[facebook] ${batchErrors}/${chunk.length} batch insight items failed in this chunk`);
+          }
         } catch (error) {
-          console.warn("[facebook] Post insights fetch failed, continuing without insights");
-          return result;
+          console.warn("[facebook] Batch post insights fetch failed, trying individual requests for this chunk");
+          // Fallback: fetch insights individually for first 10 posts of the failed chunk
+          for (const postId of chunk.slice(0, 10)) {
+            try {
+              const url = buildUrl(`${GRAPH_URL}/${postId}/insights`, {
+                metric: "post_impressions,post_impressions_unique",
+                period: "lifetime",
+                access_token: accessToken,
+              });
+              const resp = await apiRequest<{ data?: Array<{ name?: string; values?: Array<{ value?: unknown }> }> }>(
+                'facebook', url, {}, 'post_insights_single', true
+              );
+              const byName = new Map<string, number>();
+              for (const metric of resp.data ?? []) {
+                const val = parseInsightValue(metric?.values?.[0]?.value);
+                if (val > 0) byName.set(metric.name!, val);
+              }
+              if (byName.size > 0) {
+                result.set(postId, {
+                  impressions: byName.get("post_impressions") ?? 0,
+                  reach: byName.get("post_impressions_unique") ?? 0,
+                  views: 0,
+                });
+              }
+            } catch {
+              // Individual request also failed - likely permission issue
+              continue;
+            }
+          }
         }
       }
 

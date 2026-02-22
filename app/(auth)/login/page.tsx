@@ -55,23 +55,23 @@ export default function LoginPage() {
               <span className="rounded-full px-3 py-1 text-xs font-semibold brand-pill">Accès sécurisé</span>
             </div>
             <h1 className="mt-6 text-3xl font-semibold tracking-tight font-display">
-              Le cockpit social media premium de vos clients.
+              Votre intelligence sociale, centralisee.
             </h1>
             <p className="mt-3 text-sm text-muted-foreground">
-              Centralisez les performances, l&apos;historique et les documents dans une expérience élégante et fluide.
+              Pilotez la strategie digitale de vos clients avec des donnees consolidees, des insights actionnables et un suivi premium.
             </p>
           </div>
           <div className="mt-8 space-y-3 text-sm text-muted-foreground">
-            <p>✔ Rapports consolidés multi-plateformes</p>
-            <p>✔ Données mises à jour quotidiennement</p>
-            <p>✔ Export PDF/CSV prêt à partager</p>
+            <p>✔ Scoring proprietaire JumpStart Score</p>
+            <p>✔ Insights strategiques auto-generes</p>
+            <p>✔ Rapports PDF premium prets a partager</p>
           </div>
         </div>
 
         <Card className="card-glass">
           <CardHeader>
             <CardTitle className="text-2xl">Bienvenue</CardTitle>
-            <CardDescription>Connectez-vous à votre espace Social Pulse.</CardDescription>
+            <CardDescription>Accedez a votre espace Social Pulse.</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleLogin}>

@@ -129,9 +129,9 @@ export default async function ClientOsPage({
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">JumpStart OS</p>
-            <h1 className="page-heading">Collaboration & Production</h1>
+            <h1 className="page-heading">Espace de production</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Suivi des contenus, priorités et prochaines actions pour garder le rythme.
+              Pilotez vos contenus, priorites et prochaines actions.
             </p>
           </div>
           <div className="rounded-2xl border border-border/60 bg-white/80 px-4 py-3">

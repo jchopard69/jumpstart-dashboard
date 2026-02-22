@@ -51,8 +51,8 @@ export function SyncStatus({ lastSync, range, metrics = [] }: SyncStatusProps) {
       <Card className="card-surface p-6 fade-in-up">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="section-title">Statut de synchronisation</h2>
-            <p className="text-sm text-muted-foreground">Dernière mise à jour automatique.</p>
+            <h2 className="section-title">Flux de donnees</h2>
+            <p className="text-sm text-muted-foreground">Etat de la synchronisation automatique.</p>
           </div>
           {getStatusBadge(lastSync?.status ?? null)}
         </div>

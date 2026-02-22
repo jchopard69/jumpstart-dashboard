@@ -48,11 +48,11 @@ export default async function ClientDocumentsPage({
       <section className="surface-panel p-8">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Portail client</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Espace client</p>
             <h1 className="page-heading">Documents</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Accès sécurisé aux ressources partagées.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Ressources et livrables partages.</p>
           </div>
-          <Badge variant="secondary">Bibliothèque client</Badge>
+          <Badge variant="secondary">Bibliotheque</Badge>
         </div>
       </section>
 

@@ -99,7 +99,7 @@ export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps
         <svg className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
         </svg>
-        <h2 className="section-title">Ce qu'il faut retenir</h2>
+        <h2 className="section-title">Synthese executive</h2>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -124,7 +124,7 @@ export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps
         {/* Takeaways */}
         <div className="flex-1 min-w-0 space-y-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">Points cles</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">A retenir</p>
             <ul className="space-y-2">
               {takeaways.map((t, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">

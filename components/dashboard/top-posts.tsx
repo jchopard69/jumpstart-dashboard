@@ -72,8 +72,8 @@ export function TopPosts({ posts }: TopPostsProps) {
     <Card className="card-surface p-6 lg:col-span-2 fade-in-up">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="section-title">Top contenus</h2>
-          <p className="text-sm text-muted-foreground">Publications les plus performantes sur la période.</p>
+          <h2 className="section-title">Contenus phares</h2>
+          <p className="text-sm text-muted-foreground">Les publications a plus fort impact sur la periode.</p>
         </div>
       </div>
       <div className="mt-4 space-y-4">
