@@ -494,39 +494,24 @@ export const facebookConnector: Connector = {
     // Fetch recent posts with engagement metrics (with pagination)
     console.log(`[facebook] Fetching posts...`);
     const allFbPosts: MetaPostItem[] = [];
-    const buildPostsUrl = (fields: string) => buildUrl(`${GRAPH_URL}/${externalAccountId}/posts`, {
-      fields,
+    const postsFieldsBase = 'id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count),comments.summary(total_count)';
+    const buildPostsUrl = () => buildUrl(`${GRAPH_URL}/${externalAccountId}/posts`, {
+      fields: postsFieldsBase,
       limit: 50,
       access_token: accessToken,
     });
 
-    const postsFieldsBase = 'id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count),comments.summary(total_count)';
-    const postsFieldsWithInsights = `${postsFieldsBase},insights.metric(post_impressions,post_impressions_unique,post_engaged_users,post_video_views)`;
-
-    let nextPostsUrl: string | null = buildPostsUrl(postsFieldsWithInsights);
-    let postsFallbackToBase = false;
+    let nextPostsUrl: string | null = buildPostsUrl();
 
     // Paginate to get more posts (max 2 pages = 100 posts)
     let postPages = 0;
     while (nextPostsUrl && postPages < 2) {
-      let fbPageResponse: MetaPostsResponse;
-      try {
-        fbPageResponse = await apiRequest<MetaPostsResponse>(
-          'facebook',
-          nextPostsUrl,
-          {},
-          'posts'
-        );
-      } catch (error: any) {
-        const status = error?.status ?? error?.response?.status;
-        if (!postsFallbackToBase && status === 400) {
-          console.warn('[facebook] Posts insights not available, retrying without insights fields');
-          postsFallbackToBase = true;
-          nextPostsUrl = buildPostsUrl(postsFieldsBase);
-          continue;
-        }
-        throw error;
-      }
+      const fbPageResponse = await apiRequest<MetaPostsResponse>(
+        'facebook',
+        nextPostsUrl,
+        {},
+        'posts'
+      );
       if (fbPageResponse.data?.length) {
         allFbPosts.push(...fbPageResponse.data);
       }
@@ -536,21 +521,75 @@ export const facebookConnector: Connector = {
 
     console.log(`[facebook] Fetched ${allFbPosts.length} posts`);
 
-    const extractInsightValue = (post: any, key: string) => {
-      const insights = post?.insights?.data;
-      if (!Array.isArray(insights)) return 0;
-      const metric = insights.find((item: any) => item?.name === key);
-      const value = metric?.values?.[0]?.value;
-      return typeof value === "number" ? value : 0;
+    const fetchPostInsights = async (postIds: string[]) => {
+      const result = new Map<string, { impressions: number; reach: number; views: number }>();
+      if (!postIds.length) return result;
+
+      const chunks: string[][] = [];
+      for (let i = 0; i < postIds.length; i += 50) {
+        chunks.push(postIds.slice(i, i + 50));
+      }
+
+      for (const chunk of chunks) {
+        const batch = chunk.map((postId) => ({
+          method: "GET",
+          relative_url: `${postId}/insights?metric=post_impressions,post_impressions_unique,post_video_views&period=lifetime`,
+        }));
+
+        try {
+          const batchUrl = buildUrl(`${GRAPH_URL}/`, { access_token: accessToken });
+          const body = new URLSearchParams();
+          body.set("batch", JSON.stringify(batch));
+          const response = await apiRequest<Array<{ code: number; body: string }>>(
+            'facebook',
+            batchUrl,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: body.toString(),
+            },
+            'posts_insights_batch',
+            true
+          );
+
+          response.forEach((item, index) => {
+            if (!item || item.code !== 200) return;
+            try {
+              const parsed = JSON.parse(item.body);
+              const data = parsed?.data ?? [];
+              const byName = new Map<string, number>();
+              for (const metric of data) {
+                const value = metric?.values?.[0]?.value;
+                if (typeof value === "number") {
+                  byName.set(metric.name, value);
+                }
+              }
+              const postId = chunk[index];
+              result.set(postId, {
+                impressions: byName.get("post_impressions") ?? 0,
+                reach: byName.get("post_impressions_unique") ?? 0,
+                views: byName.get("post_video_views") ?? 0,
+              });
+            } catch {
+              return;
+            }
+          });
+        } catch (error) {
+          console.warn("[facebook] Post insights fetch failed, continuing without insights");
+          return result;
+        }
+      }
+
+      return result;
     };
+
+    const postInsightsById = await fetchPostInsights(allFbPosts.map((post: any) => post.id));
 
     const posts: PostMetric[] = allFbPosts.map((post: any) => {
       const reactions = post.reactions?.summary?.total_count ?? 0;
       const comments = post.comments?.summary?.total_count ?? 0;
       const shares = post.shares?.count ?? 0;
-      const impressions = extractInsightValue(post, "post_impressions");
-      const reach = extractInsightValue(post, "post_impressions_unique");
-      const views = extractInsightValue(post, "post_video_views");
+      const insights = postInsightsById.get(post.id) ?? { impressions: 0, reach: 0, views: 0 };
 
       return {
         external_post_id: post.id,
@@ -564,9 +603,9 @@ export const facebookConnector: Connector = {
           likes: reactions,
           comments: comments,
           shares: shares,
-          impressions,
-          reach,
-          views,
+          impressions: insights.impressions,
+          reach: insights.reach,
+          views: insights.views,
           engagements: reactions + comments + shares,
         },
         raw_json: post as unknown as Record<string, unknown>,
