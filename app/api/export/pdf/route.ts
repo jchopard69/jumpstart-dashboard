@@ -2,7 +2,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
 import { resolveDateRange, buildPreviousRange } from "@/lib/date";
-import { getPostEngagements, getPostImpressions } from "@/lib/metrics";
+import { coerceMetric, getPostEngagements, getPostImpressions } from "@/lib/metrics";
 import type { Platform } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
     rows?: Array<{
       social_account_id?: string | null;
       date?: string | null;
-      followers?: number | null;
+      followers?: number | string | null;
     }>
   ) => {
     if (!rows?.length) return 0;
@@ -102,7 +102,7 @@ export async function GET(request: Request) {
       if (!existing || row.date > existing.date) {
         latestByAccount.set(row.social_account_id, {
           date: row.date,
-          followers: row.followers,
+          followers: coerceMetric(row.followers),
         });
       }
     }
@@ -119,12 +119,12 @@ export async function GET(request: Request) {
   // Calculate totals
   const totals = (metrics ?? []).reduce(
     (acc, row) => {
-      acc.impressions += row.impressions ?? 0;
-      acc.reach += row.reach ?? 0;
-      acc.engagements += row.engagements ?? 0;
-      acc.views += row.views ?? 0;
-      acc.watch_time += row.watch_time ?? 0;
-      acc.posts_count += row.posts_count ?? 0;
+      acc.impressions += coerceMetric(row.impressions);
+      acc.reach += coerceMetric(row.reach);
+      acc.engagements += coerceMetric(row.engagements);
+      acc.views += coerceMetric(row.views);
+      acc.watch_time += coerceMetric(row.watch_time);
+      acc.posts_count += coerceMetric(row.posts_count);
       return acc;
     },
     {
@@ -140,12 +140,12 @@ export async function GET(request: Request) {
 
   const prevTotals = (prevMetrics ?? []).reduce(
     (acc, row) => {
-      acc.impressions += row.impressions ?? 0;
-      acc.reach += row.reach ?? 0;
-      acc.engagements += row.engagements ?? 0;
-      acc.views += row.views ?? 0;
-      acc.watch_time += row.watch_time ?? 0;
-      acc.posts_count += row.posts_count ?? 0;
+      acc.impressions += coerceMetric(row.impressions);
+      acc.reach += coerceMetric(row.reach);
+      acc.engagements += coerceMetric(row.engagements);
+      acc.views += coerceMetric(row.views);
+      acc.watch_time += coerceMetric(row.watch_time);
+      acc.posts_count += coerceMetric(row.posts_count);
       return acc;
     },
     {
@@ -186,11 +186,11 @@ export async function GET(request: Request) {
 
     const platformTotals = currentRows.reduce(
       (acc, row) => {
-        acc.impressions += row.impressions ?? 0;
-        acc.reach += row.reach ?? 0;
-        acc.engagements += row.engagements ?? 0;
-        acc.views += row.views ?? 0;
-        acc.posts_count += row.posts_count ?? 0;
+        acc.impressions += coerceMetric(row.impressions);
+        acc.reach += coerceMetric(row.reach);
+        acc.engagements += coerceMetric(row.engagements);
+        acc.views += coerceMetric(row.views);
+        acc.posts_count += coerceMetric(row.posts_count);
         return acc;
       },
       { followers: currentFollowers, impressions: 0, reach: 0, engagements: 0, views: 0, posts_count: 0 }
@@ -198,11 +198,11 @@ export async function GET(request: Request) {
 
     const platformPrevTotals = prevRows.reduce(
       (acc, row) => {
-        acc.impressions += row.impressions ?? 0;
-        acc.reach += row.reach ?? 0;
-        acc.engagements += row.engagements ?? 0;
-        acc.views += row.views ?? 0;
-        acc.posts_count += row.posts_count ?? 0;
+        acc.impressions += coerceMetric(row.impressions);
+        acc.reach += coerceMetric(row.reach);
+        acc.engagements += coerceMetric(row.engagements);
+        acc.views += coerceMetric(row.views);
+        acc.posts_count += coerceMetric(row.posts_count);
         return acc;
       },
       { followers: prevFollowers, impressions: 0, reach: 0, engagements: 0, views: 0, posts_count: 0 }

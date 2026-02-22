@@ -1,7 +1,7 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { assertTenant } from "@/lib/auth";
 import { buildPreviousRange, resolveDateRange } from "@/lib/date";
-import { getPostEngagements, getPostImpressions } from "@/lib/metrics";
+import { coerceMetric, getPostEngagements, getPostImpressions } from "@/lib/metrics";
 import type { Platform } from "@/lib/types";
 
 export async function fetchDashboardData(params: {
@@ -49,6 +49,28 @@ export async function fetchDashboardData(params: {
     prevQuery.order("date", { ascending: true })
   ]);
 
+  const normalizeMetrics = <T extends {
+    followers?: number | string | null;
+    impressions?: number | string | null;
+    reach?: number | string | null;
+    engagements?: number | string | null;
+    views?: number | string | null;
+    watch_time?: number | string | null;
+    posts_count?: number | string | null;
+  }>(rows?: T[]) => (rows ?? []).map((row) => ({
+    ...row,
+    followers: coerceMetric(row.followers),
+    impressions: coerceMetric(row.impressions),
+    reach: coerceMetric(row.reach),
+    engagements: coerceMetric(row.engagements),
+    views: coerceMetric(row.views),
+    watch_time: coerceMetric(row.watch_time),
+    posts_count: coerceMetric(row.posts_count)
+  }));
+
+  const normalizedMetrics = normalizeMetrics(metrics as any);
+  const normalizedPrevMetrics = normalizeMetrics(prevMetrics as any);
+
   const sumLatestFollowers = (rows?: Array<{ social_account_id?: string | null; date?: string | null; followers?: number | null }>) => {
     if (!rows?.length) return 0;
     const latestByAccount = new Map<string, { date: string; followers: number }>();
@@ -65,10 +87,10 @@ export async function fetchDashboardData(params: {
     }
     return total;
   };
-  const followersCurrent = sumLatestFollowers(metrics ?? undefined);
-  const followersPrev = sumLatestFollowers(prevMetrics ?? undefined);
+  const followersCurrent = sumLatestFollowers(normalizedMetrics ?? undefined);
+  const followersPrev = sumLatestFollowers(normalizedPrevMetrics ?? undefined);
 
-  const totals = metrics?.reduce(
+  const totals = normalizedMetrics?.reduce(
     (acc, row) => {
       acc.impressions += row.impressions ?? 0;
       acc.reach += row.reach ?? 0;
@@ -88,7 +110,7 @@ export async function fetchDashboardData(params: {
     }
   );
 
-  const prevTotals = prevMetrics?.reduce(
+  const prevTotals = normalizedPrevMetrics?.reduce(
     (acc, row) => {
       acc.impressions += row.impressions ?? 0;
       acc.reach += row.reach ?? 0;
@@ -234,11 +256,11 @@ export async function fetchDashboardData(params: {
     ? [params.platform]
     : params.platforms?.length
       ? params.platforms
-      : Array.from(new Set((metrics ?? []).map((row) => row.platform as Platform).filter(Boolean)));
+      : Array.from(new Set((normalizedMetrics ?? []).map((row) => row.platform as Platform).filter(Boolean)));
 
   const buildPlatformStats = (platform: Platform) => {
-    const currentRows = (metrics ?? []).filter((row) => row.platform === platform);
-    const prevRows = (prevMetrics ?? []).filter((row) => row.platform === platform);
+    const currentRows = (normalizedMetrics ?? []).filter((row) => row.platform === platform);
+    const prevRows = (normalizedPrevMetrics ?? []).filter((row) => row.platform === platform);
     const currentFollowers = sumLatestFollowers(currentRows);
     const prevFollowers = sumLatestFollowers(prevRows);
 
@@ -341,8 +363,8 @@ export async function fetchDashboardData(params: {
     prevRange,
     totals: { ...totalsSafe, posts_count: postsCount ?? 0 },
     delta: deltaPercent,
-    metrics: metrics ?? [],
-    prevMetrics: prevMetrics ?? [],
+    metrics: normalizedMetrics ?? [],
+    prevMetrics: normalizedPrevMetrics ?? [],
     posts: sortedPosts,
     perPlatform: platformSummaries,
     collaboration,
