@@ -12,7 +12,10 @@ import { TopPosts } from "@/components/dashboard/top-posts";
 import { CollaborationCard } from "@/components/dashboard/collaboration-card";
 import { SyncStatus } from "@/components/dashboard/sync-status";
 import { DailyMetricsTable } from "@/components/dashboard/daily-metrics-table";
-import { InsightCard, generateInsights } from "@/components/dashboard/insight-card";
+import { InsightCard } from "@/components/dashboard/insight-card";
+import { ScoreCard } from "@/components/dashboard/score-card";
+import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
+import { generateStrategicInsights, generateKeyTakeaways, generateExecutiveSummary, type InsightsInput } from "@/lib/insights";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -129,8 +132,76 @@ export default async function ClientDashboardPage({
   const showViews = data.perPlatform.some((item) => item.available.views);
   const showReach = data.perPlatform.some((item) => item.available.reach);
   const showEngagements = data.perPlatform.some((item) => item.available.engagements);
-  const insights = generateInsights({ totals: data.totals, delta: data.delta });
   const showComparison = Boolean(offsetDays && (data.prevMetrics?.length ?? 0) > 0);
+
+  // Compute JumpStart Score
+  const periodDays = data.range
+    ? Math.max(1, Math.round((data.range.end.getTime() - data.range.start.getTime()) / msDay))
+    : 30;
+
+  const prevTotals = (data.prevMetrics ?? []).reduce(
+    (acc, row) => {
+      acc.views += row.views ?? 0;
+      acc.reach += row.reach ?? 0;
+      acc.engagements += row.engagements ?? 0;
+      return acc;
+    },
+    { followers: 0, views: 0, reach: 0, engagements: 0, postsCount: 0 }
+  );
+  // Get previous followers from data.delta
+  const prevFollowers = data.delta.followers !== 0 && data.totals?.followers
+    ? Math.round(data.totals.followers / (1 + data.delta.followers / 100))
+    : data.totals?.followers ?? 0;
+  prevTotals.followers = prevFollowers;
+
+  const scoreInput: ScoreInput = {
+    followers: data.totals?.followers ?? 0,
+    views: data.totals?.views ?? 0,
+    reach: data.totals?.reach ?? 0,
+    engagements: data.totals?.engagements ?? 0,
+    postsCount: data.totals?.posts_count ?? 0,
+    prevFollowers: prevTotals.followers,
+    prevViews: prevTotals.views,
+    prevReach: prevTotals.reach,
+    prevEngagements: prevTotals.engagements,
+    prevPostsCount: prevTotals.postsCount,
+    periodDays,
+  };
+  const jumpStartScore = computeJumpStartScore(scoreInput);
+
+  // Generate strategic insights
+  const insightsInput: InsightsInput = {
+    totals: {
+      followers: data.totals?.followers ?? 0,
+      views: data.totals?.views ?? 0,
+      reach: data.totals?.reach ?? 0,
+      engagements: data.totals?.engagements ?? 0,
+      postsCount: data.totals?.posts_count ?? 0,
+    },
+    prevTotals: {
+      followers: prevTotals.followers,
+      views: prevTotals.views,
+      reach: prevTotals.reach,
+      engagements: prevTotals.engagements,
+      postsCount: prevTotals.postsCount,
+    },
+    platforms: data.perPlatform.map(p => ({
+      platform: p.platform,
+      totals: p.totals,
+      delta: p.delta ?? { followers: 0, views: 0, reach: 0, engagements: 0, posts_count: 0 },
+    })),
+    posts: data.posts.map(p => ({
+      platform: p.platform as any,
+      media_type: (p as any).media_type,
+      posted_at: p.posted_at,
+      metrics: p.metrics as any,
+    })),
+    score: jumpStartScore,
+    periodDays,
+  };
+  const strategicInsights = generateStrategicInsights(insightsInput);
+  const keyTakeaways = generateKeyTakeaways(insightsInput);
+  const executiveSummary = generateExecutiveSummary(insightsInput);
 
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
@@ -180,6 +251,15 @@ export default async function ClientDashboardPage({
         </section>
       )}
 
+      {/* JumpStart Score + Strategic Summary */}
+      <section className="grid grid-cols-1 gap-4">
+        <ScoreCard
+          score={jumpStartScore}
+          takeaways={keyTakeaways}
+          executiveSummary={executiveSummary}
+        />
+      </section>
+
       <KpiSection
         totals={data.totals}
         delta={data.delta}
@@ -189,7 +269,11 @@ export default async function ClientDashboardPage({
       />
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <InsightCard insights={insights} />
+        <InsightCard insights={strategicInsights.map(i => ({
+          type: i.type === "opportunity" || i.type === "recommendation" ? "positive" : i.type as any,
+          title: i.title,
+          description: i.description,
+        }))} />
         <CollaborationCard
           collaboration={data.collaboration}
           shoots={data.shoots}

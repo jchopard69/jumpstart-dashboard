@@ -3,6 +3,8 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/s
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
 import { resolveDateRange, buildPreviousRange } from "@/lib/date";
 import { coerceMetric, getPostEngagements, getPostImpressions, getPostVisibility } from "@/lib/metrics";
+import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
+import { generateStrategicInsights, generateKeyTakeaways, generateExecutiveSummary, type InsightsInput } from "@/lib/insights";
 import type { Platform } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -318,6 +320,37 @@ export async function GET(request: Request) {
     },
   ];
 
+  // Compute JumpStart Score for PDF
+  const msDay = 24 * 60 * 60 * 1000;
+  const periodDays = Math.max(1, Math.round((range.end.getTime() - range.start.getTime()) / msDay));
+  const scoreInput: ScoreInput = {
+    followers: totals.followers,
+    views: totals.views,
+    reach: totals.reach,
+    engagements: totals.engagements,
+    postsCount: totals.posts_count,
+    prevFollowers: prevTotals.followers,
+    prevViews: prevTotals.views,
+    prevReach: prevTotals.reach,
+    prevEngagements: prevTotals.engagements,
+    prevPostsCount: prevTotals.posts_count,
+    periodDays,
+  };
+  const jumpStartScore = computeJumpStartScore(scoreInput);
+
+  // Generate insights for PDF
+  const insightsInput: InsightsInput = {
+    totals: { followers: totals.followers, views: totals.views, reach: totals.reach, engagements: totals.engagements, postsCount: totals.posts_count },
+    prevTotals: { followers: prevTotals.followers, views: prevTotals.views, reach: prevTotals.reach, engagements: prevTotals.engagements, postsCount: prevTotals.posts_count },
+    platforms: platforms.map(p => ({ platform: p.platform as Platform, totals: p.totals, delta: p.delta })),
+    posts: (posts ?? []).map(p => ({ metrics: p.metrics as any, posted_at: p.posted_at })),
+    score: jumpStartScore,
+    periodDays,
+  };
+  const pdfInsights = generateStrategicInsights(insightsInput);
+  const pdfTakeaways = generateKeyTakeaways(insightsInput);
+  const pdfSummary = generateExecutiveSummary(insightsInput);
+
   const documentProps: PdfDocumentProps = {
     tenantName: tenant?.name ?? "Client",
     rangeLabel: `${range.start.toLocaleDateString("fr-FR")} - ${range.end.toLocaleDateString("fr-FR")}`,
@@ -335,6 +368,10 @@ export async function GET(request: Request) {
       name: doc.file_name,
       tag: doc.tag,
     })),
+    score: jumpStartScore,
+    keyTakeaways: pdfTakeaways,
+    executiveSummary: pdfSummary,
+    insights: pdfInsights.map(i => ({ title: i.title, description: i.description })),
   };
 
   try {

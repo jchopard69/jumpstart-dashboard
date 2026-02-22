@@ -252,6 +252,16 @@ export type PdfDocumentProps = {
   shootDays: number;
   shoots: ShootSummary[];
   documents: DocumentSummary[];
+  // Premium: JumpStart Score & Insights
+  score?: {
+    global: number;
+    grade: string;
+    subScores: Array<{ label: string; value: number }>;
+    summary: string;
+  };
+  keyTakeaways?: string[];
+  executiveSummary?: string;
+  insights?: Array<{ title: string; description: string }>;
 };
 
 function formatNumber(value: number): string {
@@ -339,6 +349,10 @@ export function PdfDocument(props: PdfDocumentProps) {
     shootDays,
     shoots,
     documents,
+    score,
+    keyTakeaways,
+    executiveSummary,
+    insights,
   } = props;
 
   return (
@@ -357,8 +371,55 @@ export function PdfDocument(props: PdfDocumentProps) {
           </View>
         </View>
 
+        {/* JumpStart Score */}
+        {score && (
+          <>
+            <View style={{ flexDirection: "row", gap: 16, marginTop: 12, marginBottom: 16 }}>
+              <View style={{ width: "25%", borderWidth: 2, borderColor: "#7c3aed", borderRadius: 12, padding: 12, alignItems: "center" }}>
+                <Text style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", marginBottom: 4 }}>JumpStart Score</Text>
+                <Text style={{ fontSize: 28, fontFamily: "Helvetica-Bold", color: "#7c3aed" }}>{score.global}</Text>
+                <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#059669", marginTop: 2 }}>{score.grade}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                {score.subScores.map((sub, i) => (
+                  <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
+                    <Text style={{ fontSize: 9, color: "#64748b" }}>{sub.label}</Text>
+                    <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold" }}>{Math.round(sub.value)}/100</Text>
+                  </View>
+                ))}
+                {executiveSummary && (
+                  <Text style={{ fontSize: 8, color: "#64748b", marginTop: 6 }}>{sanitizeText(executiveSummary)}</Text>
+                )}
+              </View>
+              {keyTakeaways && keyTakeaways.length > 0 && (
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", marginBottom: 6 }}>Points cles</Text>
+                  {keyTakeaways.map((t, i) => (
+                    <Text key={i} style={{ fontSize: 8, color: "#334155", marginBottom: 3 }}>• {sanitizeText(t)}</Text>
+                  ))}
+                </View>
+              )}
+            </View>
+          </>
+        )}
+
+        {/* Strategic Insights */}
+        {insights && insights.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Insights strategiques</Text>
+            <View style={{ marginBottom: 12 }}>
+              {insights.slice(0, 4).map((insight, i) => (
+                <View key={i} style={{ marginBottom: 6, borderLeftWidth: 2, borderLeftColor: "#7c3aed", paddingLeft: 8 }}>
+                  <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#1e293b" }}>{sanitizeText(insight.title)}</Text>
+                  <Text style={{ fontSize: 8, color: "#64748b", marginTop: 1 }}>{sanitizeText(insight.description)}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
         {/* KPIs */}
-        <Text style={styles.sectionTitle}>Indicateurs clés</Text>
+        <Text style={styles.sectionTitle}>Indicateurs cles</Text>
         <View style={styles.kpiGrid}>
           {kpis.map((kpi, index) => (
             <KpiCard key={index} kpi={kpi} />
