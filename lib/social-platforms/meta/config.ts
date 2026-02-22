@@ -16,6 +16,7 @@ export const META_CONFIG = {
     'pages_read_engagement',     // Read page engagement data
     'pages_read_user_content',   // Read user-generated content on pages
     'pages_manage_metadata',     // Read page metadata
+    'read_insights',             // CRITICAL: Required for page insights (impressions, reach, etc.)
 
     // Instagram
     'instagram_basic',           // Basic Instagram account info
@@ -57,10 +58,15 @@ export const META_CONFIG = {
   ],
 
   // Fields for Facebook page insights
+  // See: https://developers.facebook.com/docs/graph-api/reference/insights
   facebookInsightMetrics: [
-    'page_impressions',
-    'page_impressions_unique',
-    'page_engaged_users',
+    'page_impressions',           // Total impressions
+    'page_impressions_unique',    // Reach (unique users)
+    'page_engaged_users',         // Engaged users
+    'page_post_engagements',      // Post engagements (likes, comments, shares)
+    'page_fan_adds',              // New page likes/follows
+    'page_views_total',           // Page views
+    'page_video_views',           // Video views
   ],
 };
 

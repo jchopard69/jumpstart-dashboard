@@ -134,8 +134,10 @@ function mapInsightsToDaily(
     const shares = values.shares ?? 0;
     const saves = values.saves ?? 0;
     const impressions = values.page_impressions ?? values.impressions ?? 0;
-    const views = values.views ?? values.content_views ?? values.video_views ?? 0;
+    const reach = values.reach ?? values.page_impressions_unique ?? 0;
+    const views = values.views ?? values.content_views ?? values.video_views ?? values.page_video_views ?? values.page_views_total ?? 0;
     const engagementFallback =
+      values.page_post_engagements ??
       values.accounts_engaged ??
       values.total_interactions ??
       values.engagement ??
@@ -147,7 +149,7 @@ function mapInsightsToDaily(
       date,
       ...baseMetric,
       impressions,
-      reach: values.reach ?? 0,
+      reach,
       engagements: engagements > 0 ? engagements : engagementFallback,
       likes,
       comments,
@@ -388,26 +390,37 @@ export const facebookConnector: Connector = {
       'page_info'
     );
 
-    // Fetch page insights
-    const insightsUrl = buildUrl(`${GRAPH_URL}/${externalAccountId}/insights`, {
-      metric: META_CONFIG.facebookInsightMetrics.join(','),
-      period: 'day',
-      since: since,
-      until: until,
-      access_token: accessToken,
-    });
-
+    // Fetch page insights with pagination
     let insights: MetaInsight[] = [];
     try {
-      const insightsResponse = await apiRequest<MetaInsightsResponse>(
-        'facebook',
-        insightsUrl,
-        {},
-        'insights'
-      );
-      insights = insightsResponse.data || [];
+      let nextUrl: string | undefined = buildUrl(`${GRAPH_URL}/${externalAccountId}/insights`, {
+        metric: META_CONFIG.facebookInsightMetrics.join(','),
+        period: 'day',
+        since: since,
+        until: until,
+        access_token: accessToken,
+      });
+
+      while (nextUrl) {
+        const insightsResponse: MetaInsightsResponse = await apiRequest<MetaInsightsResponse>(
+          'facebook',
+          nextUrl,
+          {},
+          'insights'
+        );
+        if (insightsResponse.data?.length) {
+          insights.push(...insightsResponse.data);
+        }
+        nextUrl = insightsResponse.paging?.next;
+      }
+
+      console.log(`[facebook] Fetched ${insights.length} insight metrics for page ${externalAccountId}`);
     } catch (error) {
-      console.warn('[facebook] Failed to fetch insights:', error);
+      // Log detailed error for debugging
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.warn(`[facebook] Failed to fetch insights for page ${externalAccountId}:`, errorMsg);
+      // Note: This often fails due to missing read_insights permission
+      // The client needs to reconnect with updated permissions
     }
 
     // Build daily metrics
