@@ -407,10 +407,14 @@ export async function fetchDashboardData(params: {
       engagements: item.prevTotals.engagements ? (delta.engagements / item.prevTotals.engagements) * 100 : 0,
       posts_count: postsPrev ? (delta.posts_count / postsPrev) * 100 : 0
     };
+    // Determine which metrics are available for this platform
+    // Always show core metrics for major platforms, even if currently 0
+    const platformsWithFullMetrics = ['facebook', 'instagram', 'tiktok', 'youtube', 'linkedin'];
+    const hasFullMetrics = platformsWithFullMetrics.includes(item.platform);
     const available = {
-      views: item.totals.views > 0 || item.prevTotals.views > 0,
-      reach: item.totals.reach > 0 || item.prevTotals.reach > 0,
-      engagements: item.totals.engagements > 0 || item.prevTotals.engagements > 0
+      views: hasFullMetrics || item.totals.views > 0 || item.prevTotals.views > 0,
+      reach: hasFullMetrics || item.totals.reach > 0 || item.prevTotals.reach > 0,
+      engagements: hasFullMetrics || item.totals.engagements > 0 || item.prevTotals.engagements > 0
     };
 
     return {
