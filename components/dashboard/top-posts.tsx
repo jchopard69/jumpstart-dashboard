@@ -78,13 +78,21 @@ export function TopPosts({ posts }: TopPostsProps) {
                     )}
                   </div>
                 </div>
-                <div className="text-right text-xs text-muted-foreground">
-                  <p>
-                    Visibilite: {visibility.value > 0 ? visibility.value.toLocaleString() : "-"} ({visibility.label})
-                  </p>
-                  <p>
-                    Engagements: {engagements > 0 ? engagements.toLocaleString() : "-"}
-                  </p>
+                <div className="text-right text-xs space-y-1">
+                  {visibility.value > 0 ? (
+                    <p className="text-foreground font-medium">
+                      {visibility.value.toLocaleString("fr-FR")} <span className="text-muted-foreground font-normal">{visibility.label.toLowerCase()}</span>
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">-</p>
+                  )}
+                  {engagements > 0 ? (
+                    <p className="text-foreground font-medium">
+                      {engagements.toLocaleString("fr-FR")} <span className="text-muted-foreground font-normal">engagements</span>
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">-</p>
+                  )}
                 </div>
               </div>
             );

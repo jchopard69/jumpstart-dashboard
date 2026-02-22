@@ -1,17 +1,19 @@
 "use client";
 
+import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PLATFORM_LABELS, PLATFORM_ICONS, type Platform } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const presets = [
-  { value: "last_7_days", label: "7 derniers jours" },
-  { value: "last_30_days", label: "30 derniers jours" },
-  { value: "last_90_days", label: "90 derniers jours" },
-  { value: "last_365_days", label: "365 derniers jours" },
-  { value: "this_month", label: "Ce mois-ci" },
+  { value: "last_7_days", label: "7 jours" },
+  { value: "last_30_days", label: "30 jours" },
+  { value: "last_90_days", label: "90 jours" },
+  { value: "last_365_days", label: "365 jours" },
+  { value: "this_month", label: "Ce mois" },
   { value: "last_month", label: "Mois dernier" }
 ];
 
@@ -32,6 +34,7 @@ export function DashboardFilters({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   const updateParams = (next: Record<string, string | undefined>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -42,11 +45,16 @@ export function DashboardFilters({
         params.set(key, value);
       }
     });
-    router.push(`/client/dashboard?${params.toString()}`);
+    startTransition(() => {
+      router.push(`/client/dashboard?${params.toString()}`);
+    });
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-white/70 p-3">
+    <div className={cn(
+      "flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-white/70 p-3 transition-opacity duration-200",
+      isPending && "opacity-60 pointer-events-none"
+    )}>
       <div className="flex flex-wrap gap-2">
         {presets.map((item) => (
           <Button

@@ -9,8 +9,14 @@ import type { UserRole } from "@/lib/types";
 export async function createTenant(formData: FormData) {
   const profile = await getSessionProfile();
   requireAdmin(profile);
-  const name = String(formData.get("name") ?? "");
-  const slug = String(formData.get("slug") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const slug = String(formData.get("slug") ?? "").trim().toLowerCase();
+  if (!name || name.length > 255) {
+    throw new Error("Nom invalide (1-255 caractères)");
+  }
+  if (!slug || !/^[a-z0-9-]+$/.test(slug) || slug.length > 63) {
+    throw new Error("Slug invalide (lettres minuscules, chiffres, tirets uniquement, max 63 caractères)");
+  }
   const supabase = createSupabaseServiceClient();
   await supabase.from("tenants").insert({ name, slug, is_active: true });
   revalidatePath("/admin/clients");
@@ -150,7 +156,10 @@ export async function selectLinkedInAccounts(formData: FormData) {
   const profile = await getSessionProfile();
   requireAdmin(profile);
   const tenantId = String(formData.get("tenant_id") ?? "");
-  const selectedIds = formData.getAll("account_ids").map((id) => String(id));
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const selectedIds = formData.getAll("account_ids")
+    .map((id) => String(id))
+    .filter((id) => uuidRegex.test(id));
   const supabase = createSupabaseServiceClient();
 
   if (selectedIds.length) {
@@ -170,7 +179,7 @@ export async function selectLinkedInAccounts(formData: FormData) {
     .eq("auth_status", "pending");
 
   if (selectedIds.length) {
-    deleteQuery = deleteQuery.not("id", "in", `(${selectedIds.map((id) => `"${id}"`).join(",")})`);
+    deleteQuery = deleteQuery.not("id", "in", `(${selectedIds.join(",")})`);
   }
 
   await deleteQuery;

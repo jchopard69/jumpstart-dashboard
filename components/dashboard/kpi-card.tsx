@@ -7,6 +7,7 @@ type KpiCardProps = {
   delta: number;
   suffix?: string;
   className?: string;
+  index?: number;
 };
 
 function formatDelta(delta: number): string {
@@ -23,13 +24,18 @@ function formatDelta(delta: number): string {
   return `${sign}${Math.round(delta)}%`;
 }
 
-export function KpiCard({ label, value, delta, suffix, className }: KpiCardProps) {
+export function KpiCard({ label, value, delta, suffix, className, index = 0 }: KpiCardProps) {
   const trend = delta >= 0 ? "up" : "down";
-  const formatted = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(value);
+  const formatted = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 })
+    .format(value)
+    .replace(/[\u00A0\u202F]/g, "\u2009"); // Use thin space for cleaner display
   const deltaValue = formatDelta(delta);
 
   return (
-    <Card className={cn("card-surface relative overflow-hidden p-4 fade-in-up", className)}>
+    <Card
+      className={cn("card-surface relative overflow-hidden p-4 fade-in-up", className)}
+      style={{ animationDelay: `${index * 80}ms` }}
+    >
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400" />
       <div className="flex items-center justify-between gap-1">
         <p className="min-w-0 truncate text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>

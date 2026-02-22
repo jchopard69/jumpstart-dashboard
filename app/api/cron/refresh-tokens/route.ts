@@ -23,13 +23,7 @@ export async function POST(request: Request) {
     }
   }
 
-  // Optional legacy fallback (disabled by default)
-  if (!authorized && process.env.CRON_ALLOW_QUERY_SECRET === "true") {
-    const { searchParams } = new URL(request.url);
-    if (searchParams.get("secret") === cronSecret) {
-      authorized = true;
-    }
-  }
+  // Query param auth removed for security (secrets in URLs get logged)
 
   if (!authorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

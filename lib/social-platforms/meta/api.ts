@@ -575,9 +575,12 @@ export const facebookConnector: Connector = {
       };
 
       for (const chunk of chunks) {
+        // Only use standard post-level insight metrics
+        // post_media_view and post_total_media_view_unique are PAGE-level metrics
+        // and cause the entire batch item to fail with error code when requested at post level
         const batch = chunk.map((postId) => ({
           method: "GET",
-          relative_url: `${postId}/insights?metric=post_impressions,post_impressions_unique,post_media_view,post_total_media_view_unique,post_video_views&period=lifetime`,
+          relative_url: `${postId}/insights?metric=post_impressions,post_impressions_unique,post_video_views&period=lifetime`,
         }));
 
         try {
@@ -611,18 +614,9 @@ export const facebookConnector: Connector = {
               }
               const postId = chunk[index];
               result.set(postId, {
-                impressions:
-                  byName.get("post_impressions") ??
-                  byName.get("post_media_view") ??
-                  0,
-                reach:
-                  byName.get("post_impressions_unique") ??
-                  byName.get("post_total_media_view_unique") ??
-                  0,
-                views:
-                  byName.get("post_video_views") ??
-                  byName.get("post_media_view") ??
-                  0,
+                impressions: byName.get("post_impressions") ?? 0,
+                reach: byName.get("post_impressions_unique") ?? 0,
+                views: byName.get("post_video_views") ?? 0,
               });
             } catch {
               return;
@@ -638,6 +632,8 @@ export const facebookConnector: Connector = {
     };
 
     const postInsightsById = await fetchPostInsights(allFbPosts.map((post: any) => post.id));
+    const postsWithInsights = Array.from(postInsightsById.values()).filter(v => v.reach > 0 || v.impressions > 0);
+    console.log(`[facebook] Post insights: ${postInsightsById.size} fetched, ${postsWithInsights.length} with reach/impressions data`);
 
     const posts: PostMetric[] = allFbPosts.map((post: any) => {
       const reactions = post.reactions?.summary?.total_count ?? 0;

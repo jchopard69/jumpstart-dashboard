@@ -255,7 +255,11 @@ export type PdfDocumentProps = {
 };
 
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 })
+    .format(value)
+    // Replace narrow no-break space (U+202F) and no-break space (U+00A0) with regular space
+    // @react-pdf Helvetica doesn't support these Unicode chars, rendering them as slashes
+    .replace(/[\u00A0\u202F]/g, " ");
 }
 
 function sanitizeText(value: string): string {

@@ -22,15 +22,7 @@ function validateAuth(request: Request): boolean {
     }
   }
 
-  // Optional legacy fallback (disabled by default)
-  if (process.env.CRON_ALLOW_QUERY_SECRET === "true") {
-    const { searchParams } = new URL(request.url);
-    const secretParam = searchParams.get("secret");
-    if (secretParam === cronSecret) {
-      console.warn("[cron] Using query param auth is deprecated. Please use Authorization: Bearer header.");
-      return true;
-    }
-  }
+  // Query param auth removed for security (secrets in URLs get logged)
 
   return false;
 }

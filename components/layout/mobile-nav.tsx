@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -56,6 +56,13 @@ type MobileNavProps = {
 
 export function MobileNav({ isAdmin, signOutAction }: MobileNavProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tenantId = searchParams.get("tenantId");
+
+  const resolveHref = (href: string) =>
+    tenantId && href.startsWith("/client")
+      ? `${href}?tenantId=${encodeURIComponent(tenantId)}`
+      : href;
 
   return (
     <Sheet>
@@ -84,7 +91,7 @@ export function MobileNav({ isAdmin, signOutAction }: MobileNavProps) {
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={resolveHref(item.href)}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors",
                   isActive
