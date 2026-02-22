@@ -1,6 +1,7 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { assertTenant } from "@/lib/auth";
 import { buildPreviousRange, resolveDateRange } from "@/lib/date";
+import { getPostEngagements, getPostImpressions } from "@/lib/metrics";
 import type { Platform } from "@/lib/types";
 
 export async function fetchDashboardData(params: {
@@ -222,10 +223,10 @@ export async function fetchDashboardData(params: {
     .single();
 
   const sortedPosts = (posts ?? []).sort((a, b) => {
-    const aImp = a.metrics?.impressions ?? a.metrics?.views ?? 0;
-    const bImp = b.metrics?.impressions ?? b.metrics?.views ?? 0;
-    const aEng = a.metrics?.engagements ?? a.metrics?.likes ?? 0;
-    const bEng = b.metrics?.engagements ?? b.metrics?.likes ?? 0;
+    const aImp = getPostImpressions(a.metrics);
+    const bImp = getPostImpressions(b.metrics);
+    const aEng = getPostEngagements(a.metrics);
+    const bEng = getPostEngagements(b.metrics);
     return bImp - aImp || bEng - aEng;
   });
 
@@ -367,4 +368,3 @@ export async function fetchDashboardAccounts(params: {
 
   return accounts ?? [];
 }
-

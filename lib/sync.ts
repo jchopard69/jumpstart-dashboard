@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { coerceMetric } from "@/lib/metrics";
 import { decryptToken } from "@/lib/crypto";
 import { getConnector } from "@/lib/connectors";
 import { getValidAccessToken } from "@/lib/social-platforms/core/token-manager";
@@ -135,12 +136,12 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
 
         for (const post of result.posts) {
           try {
-            const likes = Number(post.metrics?.likes) || 0;
-            const comments = Number(post.metrics?.comments) || 0;
-            const shares = Number(post.metrics?.shares) || 0;
-            const views = Number(post.metrics?.views) || 0;
-            const engagements = Number(post.metrics?.engagements) || 0;
-            const impressions = Number(post.metrics?.impressions) || 0;
+            const likes = coerceMetric(post.metrics?.likes);
+            const comments = coerceMetric(post.metrics?.comments);
+            const shares = coerceMetric(post.metrics?.shares);
+            const views = coerceMetric(post.metrics?.views);
+            const engagements = coerceMetric(post.metrics?.engagements);
+            const impressions = coerceMetric(post.metrics?.impressions);
 
             const postPayload = {
               tenant_id: tenantId,

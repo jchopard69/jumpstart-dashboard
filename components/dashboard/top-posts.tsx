@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyPosts } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { PLATFORM_ICONS, PLATFORM_LABELS, type Platform } from "@/lib/types";
+import { getPostEngagements, getPostImpressions } from "@/lib/metrics";
 import type { PostData } from "@/lib/types/dashboard";
 
 type TopPostsProps = {
@@ -70,8 +71,8 @@ export function TopPosts({ posts }: TopPostsProps) {
                 </div>
               </div>
               <div className="text-right text-xs text-muted-foreground">
-                <p>Impressions: {(post.metrics?.impressions ?? post.metrics?.views ?? 0).toLocaleString()}</p>
-                <p>Engagements: {(post.metrics?.engagements ?? post.metrics?.likes ?? 0).toLocaleString()}</p>
+                <p>Impressions: {getPostImpressions(post.metrics).toLocaleString()}</p>
+                <p>Engagements: {getPostEngagements(post.metrics).toLocaleString()}</p>
               </div>
             </div>
           ))
