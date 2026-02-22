@@ -329,8 +329,41 @@ export const instagramConnector: Connector = {
       return 0;
     };
 
+    const fetchMediaEngagements = async (mediaId: string) => {
+      try {
+        const insightsUrl = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
+          metric: "engagement,total_interactions,saved",
+          access_token: accessToken,
+        });
+        const response = await apiRequest<{ data?: Array<{ name?: string; values?: Array<{ value?: number }> }> }>(
+          "instagram",
+          insightsUrl,
+          {},
+          "media_engagements",
+          true
+        );
+        let best = 0;
+        for (const metric of response.data ?? []) {
+          const value = metric?.values?.[0]?.value;
+          if (typeof value === "number" && value > best) {
+            best = value;
+          }
+        }
+        return best;
+      } catch {
+        return 0;
+      }
+    };
+
     const posts: PostMetric[] = [];
     for (const item of allMedia) {
+      const likes = item.like_count || 0;
+      const comments = item.comments_count || 0;
+      const baseEngagements = likes + comments;
+      const engagements = baseEngagements > 0
+        ? baseEngagements
+        : await fetchMediaEngagements(item.id);
+
       posts.push({
         external_post_id: item.id,
         posted_at: item.timestamp || new Date().toISOString(),
@@ -340,8 +373,9 @@ export const instagramConnector: Connector = {
         thumbnail_url: item.thumbnail_url || item.media_url,
         media_url: item.media_url,
         metrics: {
-          likes: item.like_count || 0,
-          comments: item.comments_count || 0,
+          likes,
+          comments,
+          engagements,
           views: await fetchMediaViews(item.id, item.media_type),
         },
         raw_json: item as unknown as Record<string, unknown>,
