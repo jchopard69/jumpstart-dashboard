@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
@@ -14,6 +15,10 @@ import {
   deleteUser
 } from "./actions";
 import { UserTenantManager } from "@/components/admin/user-tenant-manager";
+
+export const metadata: Metadata = {
+  title: "Admin - Utilisateurs"
+};
 
 export default async function AdminUsersPage() {
   const profile = await getSessionProfile();

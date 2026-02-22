@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Accueil"
+};
 
 export default function HomePage() {
   return (

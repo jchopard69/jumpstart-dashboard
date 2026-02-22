@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSessionProfile, requireClientAccess } from "@/lib/auth";
@@ -9,6 +10,10 @@ import { IdeasList } from "@/components/os/ideas-list";
 import { KanbanBoard } from "@/components/os/kanban-board";
 import { ShootCalendar } from "@/components/os/shoot-calendar";
 import { NotesEditor } from "@/components/os/notes-editor";
+
+export const metadata: Metadata = {
+  title: "JumpStart OS"
+};
 
 const PIPELINE_KINDS = ["shoot", "edit", "publish"];
 

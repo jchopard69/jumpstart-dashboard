@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { getSessionProfile, assertTenant } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+export const metadata: Metadata = {
+  title: "Documents"
+};
 
 export default async function ClientDocumentsPage({
   searchParams

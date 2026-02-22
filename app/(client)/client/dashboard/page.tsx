@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getSessionProfile } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
@@ -12,6 +13,10 @@ import { CollaborationCard } from "@/components/dashboard/collaboration-card";
 import { SyncStatus } from "@/components/dashboard/sync-status";
 import { DailyMetricsTable } from "@/components/dashboard/daily-metrics-table";
 import { InsightCard, generateInsights } from "@/components/dashboard/insight-card";
+
+export const metadata: Metadata = {
+  title: "Tableau de bord"
+};
 
 export default async function ClientDashboardPage({
   searchParams

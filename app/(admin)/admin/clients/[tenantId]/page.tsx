@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
@@ -21,6 +22,19 @@ import { DocumentManager } from "@/components/admin/document-manager";
 import { SocialAccountsSection } from "@/components/admin/social-accounts-section";
 import { MultiTenantAccess } from "@/components/admin/multi-tenant-access";
 import type { Platform } from "@/lib/types";
+
+export async function generateMetadata({ params }: { params: { tenantId: string } }): Promise<Metadata> {
+  const supabase = createSupabaseServiceClient();
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("name")
+    .eq("id", params.tenantId)
+    .single();
+
+  return {
+    title: tenant?.name ?? "Client"
+  };
+}
 
 export default async function ClientDetailPage({ params }: { params: { tenantId: string } }) {
   const profile = await getSessionProfile();

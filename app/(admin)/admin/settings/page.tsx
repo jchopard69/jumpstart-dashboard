@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+export const metadata: Metadata = {
+  title: "Admin - Réglages"
+};
 
 export default async function AdminSettingsPage() {
   const demoMode = process.env.DEMO_MODE === "true";

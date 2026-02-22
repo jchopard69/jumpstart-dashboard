@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+export const metadata: Metadata = {
+  title: "Admin - Vue d'ensemble"
+};
 
 export default async function AdminOverviewPage() {
   const profile = await getSessionProfile();

@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SecurityCheck } from "@/components/admin/security-check";
+
+export const metadata: Metadata = {
+  title: "Admin - Santé"
+};
 
 export default async function AdminHealthPage() {
   const profile = await getSessionProfile();

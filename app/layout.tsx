@@ -6,8 +6,15 @@ const sora = Sora({ subsets: ["latin"], variable: "--font-display" });
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-body" });
 
 export const metadata: Metadata = {
-  title: "JumpStart Studio | Social Pulse",
-  description: "Tableau de bord social media multi-tenant pour les clients JumpStart Studio."
+  title: {
+    default: "JumpStart Dashboard",
+    template: "JumpStart Dashboard | %s"
+  },
+  description: "Tableau de bord social media multi-tenant pour les clients JumpStart Studio.",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg"
+  }
 };
 
 export default function RootLayout({

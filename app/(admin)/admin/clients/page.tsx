@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
@@ -7,6 +8,10 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { createTenant, deactivateTenant } from "@/app/(admin)/admin/actions";
+
+export const metadata: Metadata = {
+  title: "Admin - Clients"
+};
 
 export default async function AdminClientsPage() {
   const profile = await getSessionProfile();

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
@@ -6,6 +7,19 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { selectLinkedInAccounts } from "@/app/(admin)/admin/actions";
+
+export async function generateMetadata({ params }: { params: { tenantId: string } }): Promise<Metadata> {
+  const supabase = createSupabaseServiceClient();
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("name")
+    .eq("id", params.tenantId)
+    .single();
+
+  return {
+    title: tenant?.name ? `LinkedIn - ${tenant.name}` : "LinkedIn"
+  };
+}
 
 export default async function LinkedInSelectPage({ params }: { params: { tenantId: string } }) {
   const profile = await getSessionProfile();
