@@ -107,6 +107,11 @@ export default async function ClientDashboardPage({
   const showOrganic = view !== "ads";
   const showAds = view !== "organic";
 
+  // Detect if metrics are missing (account connected but no insights data)
+  const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
+  const hasInsightsData = (data.totals?.views ?? 0) > 0 || (data.totals?.reach ?? 0) > 0 || (data.totals?.engagements ?? 0) > 0;
+  const showMissingDataWarning = hasFollowersOrPosts && !hasInsightsData && data.perPlatform.length > 0;
+
   return (
     <div className="space-y-8 fade-in">
       <section className="surface-panel p-8">
@@ -140,6 +145,23 @@ export default async function ClientDashboardPage({
             <Badge variant="secondary">Organique</Badge>
             <p className="text-sm text-muted-foreground">Performance des contenus non sponsorisés.</p>
           </section>
+
+          {showMissingDataWarning && (
+            <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <svg className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Données d&apos;insights manquantes</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Le compte est connecté mais les métriques de portée, vues et engagements ne sont pas disponibles.
+                    Cela peut être dû à des permissions manquantes. Essayez de reconnecter le compte dans les paramètres admin.
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
 
           <KpiSection
             totals={data.totals}
