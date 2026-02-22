@@ -171,6 +171,17 @@ export async function GET(request: Request) {
     posts_count: calcDelta(totals.posts_count, prevTotals.posts_count),
   };
 
+  const coerceNumber = (value: unknown) => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const raw = value.includes("/") ? value.split("/")[0] : value;
+      const normalized = raw.replace(/[^\d.-]/g, "");
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
+
   // Build platform summaries
   const platformsSet = new Set(
     (metrics ?? []).map((row) => row.platform).filter(Boolean)
@@ -231,10 +242,22 @@ export async function GET(request: Request) {
 
   const sortedPosts = (posts ?? [])
     .sort((a, b) => {
-      const aImp = a.metrics?.impressions ?? a.metrics?.views ?? 0;
-      const bImp = b.metrics?.impressions ?? b.metrics?.views ?? 0;
-      const aEng = a.metrics?.engagements ?? a.metrics?.likes ?? 0;
-      const bEng = b.metrics?.engagements ?? b.metrics?.likes ?? 0;
+      const aImp = coerceNumber(a.metrics?.impressions ?? a.metrics?.views ?? a.metrics?.reach ?? a.metrics?.plays ?? a.metrics?.video_views ?? 0);
+      const bImp = coerceNumber(b.metrics?.impressions ?? b.metrics?.views ?? b.metrics?.reach ?? b.metrics?.plays ?? b.metrics?.video_views ?? 0);
+      const aEng = coerceNumber(
+        a.metrics?.engagements ??
+        (coerceNumber(a.metrics?.likes ?? 0) +
+          coerceNumber(a.metrics?.comments ?? 0) +
+          coerceNumber(a.metrics?.shares ?? 0) +
+          coerceNumber(a.metrics?.saves ?? 0))
+      );
+      const bEng = coerceNumber(
+        b.metrics?.engagements ??
+        (coerceNumber(b.metrics?.likes ?? 0) +
+          coerceNumber(b.metrics?.comments ?? 0) +
+          coerceNumber(b.metrics?.shares ?? 0) +
+          coerceNumber(b.metrics?.saves ?? 0))
+      );
       return bImp - aImp || bEng - aEng;
     })
     .slice(0, 8)
@@ -243,8 +266,14 @@ export async function GET(request: Request) {
       date: post.posted_at
         ? new Date(post.posted_at).toLocaleDateString("fr-FR")
         : "-",
-      impressions: post.metrics?.impressions ?? post.metrics?.views ?? 0,
-      engagements: post.metrics?.engagements ?? post.metrics?.likes ?? 0,
+      impressions: coerceNumber(post.metrics?.impressions ?? post.metrics?.views ?? post.metrics?.reach ?? post.metrics?.plays ?? post.metrics?.video_views ?? 0),
+      engagements: coerceNumber(
+        post.metrics?.engagements ??
+        (coerceNumber(post.metrics?.likes ?? 0) +
+          coerceNumber(post.metrics?.comments ?? 0) +
+          coerceNumber(post.metrics?.shares ?? 0) +
+          coerceNumber(post.metrics?.saves ?? 0))
+      ),
     }));
 
   // Fetch collaboration data

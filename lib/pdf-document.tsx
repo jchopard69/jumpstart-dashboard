@@ -7,6 +7,7 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica",
     fontSize: 10,
     color: "#0f172a",
+    backgroundColor: "#ffffff",
   },
   header: {
     flexDirection: "row",
@@ -254,6 +255,14 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value);
 }
 
+function sanitizeText(value: string): string {
+  return value
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[^\x20-\x7EÀ-ÖØ-öø-ÿ’“”«»—–·•]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function formatDelta(delta: number): string {
   if (delta === 0) return "0%";
   const sign = delta > 0 ? "+" : "";
@@ -372,16 +381,20 @@ export function PdfDocument(props: PdfDocumentProps) {
                 <Text style={[styles.tableHeaderCell, styles.colMedium]}>Impressions</Text>
                 <Text style={[styles.tableHeaderCell, styles.colMedium]}>Engagements</Text>
               </View>
-              {posts.slice(0, 8).map((post, index) => (
-                <View key={index} style={styles.tableRow}>
-                  <Text style={[styles.tableCell, styles.colWide]}>
-                    {post.caption.slice(0, 60)}{post.caption.length > 60 ? "..." : ""}
-                  </Text>
+              {posts.slice(0, 8).map((post, index) => {
+                const caption = sanitizeText(post.caption);
+                return (
+                  <View key={index} style={styles.tableRow}>
+                    <Text style={[styles.tableCell, styles.colWide]}>
+                      {caption.slice(0, 60)}
+                      {caption.length > 60 ? "..." : ""}
+                    </Text>
                   <Text style={[styles.tableCell, styles.colNarrow]}>{post.date}</Text>
                   <Text style={[styles.tableCell, styles.colMedium]}>{formatNumber(post.impressions)}</Text>
                   <Text style={[styles.tableCell, styles.colMedium]}>{formatNumber(post.engagements)}</Text>
-                </View>
-              ))}
+                  </View>
+                );
+              })}
             </View>
           </>
         )}
@@ -395,7 +408,7 @@ export function PdfDocument(props: PdfDocumentProps) {
             {shoots.length > 0 ? (
               shoots.slice(0, 4).map((shoot, index) => (
                 <Text key={index} style={styles.listItem}>
-                  • {shoot.date} - {shoot.location || "Lieu à définir"}
+                  • {shoot.date} - {sanitizeText(shoot.location || "Lieu à définir")}
                 </Text>
               ))
             ) : (
@@ -407,8 +420,8 @@ export function PdfDocument(props: PdfDocumentProps) {
             {documents.length > 0 ? (
               documents.slice(0, 5).map((doc, index) => (
                 <View key={index} style={{ flexDirection: "row", marginBottom: 3, alignItems: "center" }}>
-                  <Text style={styles.listItem}>• {doc.name}</Text>
-                  <Text style={styles.tag}>{doc.tag}</Text>
+                  <Text style={styles.listItem}>• {sanitizeText(doc.name)}</Text>
+                  <Text style={styles.tag}>{sanitizeText(doc.tag)}</Text>
                 </View>
               ))
             ) : (
