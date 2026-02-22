@@ -59,15 +59,27 @@ export const META_CONFIG = {
 
   // Fields for Facebook page insights
   // See: https://developers.facebook.com/docs/graph-api/reference/page/insights
+  // Based on official Meta API documentation (2025)
   // These are fetched individually to handle unavailable metrics gracefully
-  // Note: Available metrics vary by page type and activity level
   facebookInsightMetrics: [
-    'page_impressions_unique',     // Reach (unique users) - most reliable
-    'page_impressions_organic',    // Organic impressions
-    'page_impressions_viral',      // Viral impressions
-    'page_consumptions',           // Total clicks on page content
-    'page_engaged_users',          // Engaged users
-    'page_actions_post_reactions_total', // Total reactions
+    // Impressions & Reach (period: day)
+    'page_impressions',            // Total impressions (content displayed)
+    'page_impressions_unique',     // Reach (unique users who saw content)
+
+    // Media Views - NEW metric replacing impressions (period: day)
+    'page_media_view',             // Number of times content was played/displayed
+
+    // Engagement (period: day)
+    'page_post_engagements',       // Total interactions (reactions, comments, shares)
+
+    // Video Views (period: day)
+    'page_video_views',            // 3s+ video views
+
+    // Page Views (period: day)
+    'page_views_total',            // Page profile views
+
+    // Posts impressions (period: day)
+    'page_posts_impressions',      // Times posts appeared on screen
   ],
 };
 

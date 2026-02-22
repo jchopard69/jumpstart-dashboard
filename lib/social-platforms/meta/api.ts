@@ -134,36 +134,33 @@ function mapInsightsToDaily(
     const shares = values.shares ?? 0;
     const saves = values.saves ?? 0;
 
-    // Impressions: combine organic + viral, or use direct value
-    const organicImpressions = values.page_impressions_organic ?? 0;
-    const viralImpressions = values.page_impressions_viral ?? 0;
-    const combinedImpressions = organicImpressions + viralImpressions;
-    const impressions = combinedImpressions > 0 ? combinedImpressions : (values.page_impressions ?? values.impressions ?? 0);
+    // Impressions: use page_impressions or page_posts_impressions
+    const impressions = values.page_impressions ?? values.page_posts_impressions ?? values.impressions ?? 0;
 
-    // Reach
+    // Reach: use page_impressions_unique (unique users who saw content)
     const reach = values.reach ?? values.page_impressions_unique ?? 0;
 
-    // Views: use impressions as fallback if no direct views
-    const directViews = values.views ?? values.content_views ?? values.video_views ?? values.page_video_views ?? values.page_views_total ?? 0;
-    const views = directViews > 0 ? directViews : impressions;
+    // Views: use page_media_view (new metric) or page_video_views, fallback to impressions
+    const mediaViews = values.page_media_view ?? 0;
+    const videoViews = values.page_video_views ?? 0;
+    const pageViews = values.page_views_total ?? 0;
+    const directViews = values.views ?? values.content_views ?? mediaViews ?? videoViews ?? 0;
+    // For Facebook, use media_view as primary, then video_views, then impressions
+    const views = mediaViews > 0 ? mediaViews : (videoViews > 0 ? videoViews : (directViews > 0 ? directViews : impressions));
 
-    // Engagement: combine all engagement metrics
-    const pageConsumptions = values.page_consumptions ?? 0;
-    const pageReactions = values.page_actions_post_reactions_total ?? 0;
-    const engagementFallback =
-      pageConsumptions + pageReactions +
-      (values.page_post_engagements ?? 0) +
-      (values.accounts_engaged ?? 0) +
-      (values.total_interactions ?? 0) +
-      (values.page_engaged_users ?? 0);
-    const engagements = likes + comments + shares + saves;
+    // Engagement: use page_post_engagements (official engagement metric)
+    const pageEngagements = values.page_post_engagements ?? 0;
+    const igEngagements = (values.accounts_engaged ?? 0) + (values.total_interactions ?? 0);
+    const manualEngagements = likes + comments + shares + saves;
+    // Prefer page_post_engagements if available, otherwise sum manual counts
+    const engagements = pageEngagements > 0 ? pageEngagements : (manualEngagements > 0 ? manualEngagements : igEngagements);
 
     return {
       date,
       ...baseMetric,
       impressions,
       reach,
-      engagements: engagements > 0 ? engagements : engagementFallback,
+      engagements,
       likes,
       comments,
       shares,
@@ -415,6 +412,9 @@ export const facebookConnector: Connector = {
     const metricsToTry = META_CONFIG.facebookInsightMetrics;
     console.log(`[facebook] Fetching insights, trying metrics: ${metricsToTry.join(', ')}`);
 
+    const successfulMetrics: string[] = [];
+    const failedMetrics: string[] = [];
+
     for (const metric of metricsToTry) {
       try {
         const metricUrl = buildUrl(`${GRAPH_URL}/${externalAccountId}/insights`, {
@@ -429,19 +429,28 @@ export const facebookConnector: Connector = {
           'facebook',
           metricUrl,
           {},
-          `insights_${metric}`
+          `insights_${metric}`,
+          true // silentErrors - don't log expected 400s when metrics unavailable
         );
 
         if (response.data?.length) {
           insights.push(...response.data);
-          console.log(`[facebook] Got ${response.data.length} data points for ${metric}`);
+          successfulMetrics.push(metric);
+          // Log sample value for debugging
+          const sampleValue = response.data[0]?.values?.[0]?.value;
+          console.log(`[facebook] ✓ ${metric}: ${response.data.length} data points (sample: ${JSON.stringify(sampleValue)})`);
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.warn(`[facebook] Metric ${metric} not available: ${errorMsg}`);
-        // Continue with other metrics
+        failedMetrics.push(metric);
+        // Only warn, don't spam logs
+        if (!errorMsg.includes('100')) {
+          console.warn(`[facebook] ✗ ${metric}: ${errorMsg.slice(0, 100)}`);
+        }
       }
     }
+
+    console.log(`[facebook] Metrics summary: ${successfulMetrics.length} OK (${successfulMetrics.join(', ')}), ${failedMetrics.length} failed`);
 
     if (insights.length > 0) {
       console.log(`[facebook] Successfully fetched ${insights.length} insight data points`);
