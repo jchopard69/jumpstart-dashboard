@@ -6,17 +6,6 @@ import type { Platform } from "@/lib/types";
 
 const CONCURRENCY_LIMIT = 2;
 
-// Safely convert raw API response to valid JSON
-function safeJson(obj: unknown): Record<string, unknown> | null {
-  if (!obj) return null;
-  try {
-    // Stringify and parse to remove any non-serializable values
-    return JSON.parse(JSON.stringify(obj));
-  } catch {
-    return null;
-  }
-}
-
 async function runWithLimit<T>(items: T[], handler: (item: T) => Promise<void>) {
   const queue = [...items];
   const workers = new Array(CONCURRENCY_LIMIT).fill(null).map(async () => {
@@ -130,19 +119,15 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           posts_count: Number(metric.posts_count) || 0,
           raw_json: null
         }));
-        console.log(`[sync] Upserting ${metricsPayload.length} daily metrics for ${account.platform}`);
         const { error: metricsError } = await supabase.from("social_daily_metrics").upsert(metricsPayload, {
           onConflict: "tenant_id,platform,social_account_id,date"
         });
         if (metricsError) {
-          console.error(`[sync] Metrics upsert error:`, metricsError);
           throw new Error(`Failed to upsert metrics: ${metricsError.message}`);
         }
-        console.log(`[sync] Successfully upserted ${metricsPayload.length} daily metrics`);
       }
 
       if (result.posts.length) {
-        console.log(`[sync] Processing ${result.posts.length} posts for ${account.platform}`);
 
         // Insert posts one by one to identify problematic ones
         let successCount = 0;
@@ -177,18 +162,18 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
             });
 
             if (error) {
-              console.error(`[sync] Failed to insert post ${post.external_post_id}:`, error.message);
               failedPosts.push(String(post.external_post_id));
             } else {
               successCount++;
             }
-          } catch (postError: any) {
-            console.error(`[sync] Exception inserting post ${post.external_post_id}:`, postError.message);
+          } catch {
             failedPosts.push(String(post.external_post_id));
           }
         }
 
-        console.log(`[sync] Posts result: ${successCount} success, ${failedPosts.length} failed`);
+        if (failedPosts.length > 0) {
+          console.warn(`[sync] ${account.platform}: ${successCount} posts OK, ${failedPosts.length} failed`);
+        }
 
         if (failedPosts.length > 0 && successCount === 0) {
           throw new Error(`Failed to upsert posts: all ${failedPosts.length} posts failed`);

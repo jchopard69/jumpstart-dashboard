@@ -157,16 +157,6 @@ export async function fetchDashboardData(params: {
   const postsCount = postsCountResult.count;
   const prevPostsCount = prevPostsCountResult.count;
 
-  // Debug logging
-  console.log("[dashboard] Posts query:", {
-    tenantId,
-    rangeStart: range.start.toISOString(),
-    rangeEnd: range.end.toISOString(),
-    postsCount,
-    prevPostsCount,
-    error: postsCountResult.error?.message
-  });
-
   const deltaRaw = {
     followers: followersCurrent - followersPrev,
     impressions: totalsSafe.impressions - prevTotalsSafe.impressions,
