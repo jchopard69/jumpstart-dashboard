@@ -79,8 +79,8 @@ export async function fetchDashboardData(params: {
     posts_count: number;
   }>;
 
-  const normalizedMetrics = normalizeMetrics(metrics);
-  const normalizedPrevMetrics = normalizeMetrics(prevMetrics);
+  const normalizedMetrics = normalizeMetrics(metrics ?? undefined);
+  const normalizedPrevMetrics = normalizeMetrics(prevMetrics ?? undefined);
 
   const sumLatestFollowers = (rows?: Array<{ social_account_id?: string | null; date?: string | null; followers?: number | null }>) => {
     if (!rows?.length) return 0;
