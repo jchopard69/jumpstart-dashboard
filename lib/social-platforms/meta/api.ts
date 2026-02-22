@@ -398,51 +398,43 @@ export const facebookConnector: Connector = {
     let insights: MetaInsight[] = [];
     let insightsError: string | null = null;
 
-    console.log(`[facebook] Fetching insights with metrics: ${META_CONFIG.facebookInsightMetrics.join(', ')}`);
+    // Try each metric individually to handle unavailable metrics gracefully
+    const metricsToTry = META_CONFIG.facebookInsightMetrics;
+    console.log(`[facebook] Fetching insights, trying metrics: ${metricsToTry.join(', ')}`);
 
-    try {
-      let nextUrl: string | undefined = buildUrl(`${GRAPH_URL}/${externalAccountId}/insights`, {
-        metric: META_CONFIG.facebookInsightMetrics.join(','),
-        period: 'day',
-        since: since,
-        until: until,
-        access_token: accessToken,
-      });
+    for (const metric of metricsToTry) {
+      try {
+        const metricUrl = buildUrl(`${GRAPH_URL}/${externalAccountId}/insights`, {
+          metric: metric,
+          period: 'day',
+          since: since,
+          until: until,
+          access_token: accessToken,
+        });
 
-      let pageCount = 0;
-      while (nextUrl) {
-        pageCount++;
-        const insightsResponse: MetaInsightsResponse = await apiRequest<MetaInsightsResponse>(
+        const response: MetaInsightsResponse = await apiRequest<MetaInsightsResponse>(
           'facebook',
-          nextUrl,
+          metricUrl,
           {},
-          'insights'
+          `insights_${metric}`
         );
-        if (insightsResponse.data?.length) {
-          insights.push(...insightsResponse.data);
+
+        if (response.data?.length) {
+          insights.push(...response.data);
+          console.log(`[facebook] Got ${response.data.length} data points for ${metric}`);
         }
-        nextUrl = insightsResponse.paging?.next;
-
-        // Safety limit to prevent infinite loops
-        if (pageCount > 10) {
-          console.warn(`[facebook] Stopping pagination after ${pageCount} pages`);
-          break;
-        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.warn(`[facebook] Metric ${metric} not available: ${errorMsg}`);
+        // Continue with other metrics
       }
+    }
 
-      console.log(`[facebook] Fetched ${insights.length} insight metrics for page ${externalAccountId}`);
-    } catch (error) {
-      // Log detailed error for debugging
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      insightsError = errorMsg;
-      console.error(`[facebook] FAILED to fetch insights for page ${externalAccountId}:`, errorMsg);
-
-      // Check for common error patterns
-      if (errorMsg.includes('190') || errorMsg.includes('invalid') || errorMsg.includes('expired')) {
-        console.error(`[facebook] Token appears invalid or expired. Account needs reconnection.`);
-      } else if (errorMsg.includes('100') || errorMsg.includes('permission') || errorMsg.includes('Unsupported')) {
-        console.error(`[facebook] Missing read_insights permission. Account needs reconnection with proper scopes.`);
-      }
+    if (insights.length > 0) {
+      console.log(`[facebook] Successfully fetched ${insights.length} insight data points`);
+    } else {
+      insightsError = 'No insights metrics available for this page';
+      console.warn(`[facebook] No insights data available for page ${externalAccountId}`);
     }
 
     // Build daily metrics
