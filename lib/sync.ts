@@ -142,41 +142,57 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
       }
 
       if (result.posts.length) {
-        const postsPayload = result.posts.map((post) => {
-          // Extract only numeric values from metrics
-          const likes = Number(post.metrics?.likes) || 0;
-          const comments = Number(post.metrics?.comments) || 0;
-          const shares = Number(post.metrics?.shares) || 0;
-          const views = Number(post.metrics?.views) || 0;
-          const engagements = Number(post.metrics?.engagements) || 0;
-          const impressions = Number(post.metrics?.impressions) || 0;
+        console.log(`[sync] Processing ${result.posts.length} posts for ${account.platform}`);
 
-          return {
-            tenant_id: tenantId,
-            platform: account.platform,
-            social_account_id: account.id,
-            external_post_id: String(post.external_post_id || ''),
-            posted_at: post.posted_at,
-            url: post.url ? String(post.url).slice(0, 500) : null,
-            caption: post.caption ? String(post.caption).slice(0, 500) : null,
-            media_type: post.media_type ? String(post.media_type) : null,
-            thumbnail_url: post.thumbnail_url ? String(post.thumbnail_url).slice(0, 500) : null,
-            media_url: post.media_url ? String(post.media_url).slice(0, 500) : null,
-            metrics: { likes, comments, shares, views, engagements, impressions },
-            raw_json: null
-          };
-        });
+        // Insert posts one by one to identify problematic ones
+        let successCount = 0;
+        let failedPosts: string[] = [];
 
-        console.log(`[sync] Upserting ${postsPayload.length} posts for ${account.platform}`);
+        for (const post of result.posts) {
+          try {
+            const likes = Number(post.metrics?.likes) || 0;
+            const comments = Number(post.metrics?.comments) || 0;
+            const shares = Number(post.metrics?.shares) || 0;
+            const views = Number(post.metrics?.views) || 0;
+            const engagements = Number(post.metrics?.engagements) || 0;
+            const impressions = Number(post.metrics?.impressions) || 0;
 
-        const { error: postsError } = await supabase.from("social_posts").upsert(postsPayload, {
-          onConflict: "tenant_id,platform,social_account_id,external_post_id"
-        });
-        if (postsError) {
-          console.error(`[sync] Posts upsert error:`, postsError);
-          throw new Error(`Failed to upsert posts: ${postsError.message}`);
+            const postPayload = {
+              tenant_id: tenantId,
+              platform: account.platform,
+              social_account_id: account.id,
+              external_post_id: String(post.external_post_id || `unknown_${Date.now()}`),
+              posted_at: post.posted_at || new Date().toISOString(),
+              url: post.url ? String(post.url).slice(0, 500) : null,
+              caption: post.caption ? String(post.caption).replace(/\u0000/g, '').slice(0, 500) : null,
+              media_type: post.media_type ? String(post.media_type).slice(0, 50) : null,
+              thumbnail_url: post.thumbnail_url ? String(post.thumbnail_url).slice(0, 500) : null,
+              media_url: post.media_url ? String(post.media_url).slice(0, 500) : null,
+              metrics: { likes, comments, shares, views, engagements, impressions },
+              raw_json: null
+            };
+
+            const { error } = await supabase.from("social_posts").upsert(postPayload, {
+              onConflict: "tenant_id,platform,social_account_id,external_post_id"
+            });
+
+            if (error) {
+              console.error(`[sync] Failed to insert post ${post.external_post_id}:`, error.message);
+              failedPosts.push(String(post.external_post_id));
+            } else {
+              successCount++;
+            }
+          } catch (postError: any) {
+            console.error(`[sync] Exception inserting post ${post.external_post_id}:`, postError.message);
+            failedPosts.push(String(post.external_post_id));
+          }
         }
-        console.log(`[sync] Successfully upserted ${postsPayload.length} posts`);
+
+        console.log(`[sync] Posts result: ${successCount} success, ${failedPosts.length} failed`);
+
+        if (failedPosts.length > 0 && successCount === 0) {
+          throw new Error(`Failed to upsert posts: all ${failedPosts.length} posts failed`);
+        }
       }
 
       const { error: accountUpdateError } = await supabase
