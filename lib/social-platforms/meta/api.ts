@@ -494,21 +494,39 @@ export const facebookConnector: Connector = {
     // Fetch recent posts with engagement metrics (with pagination)
     console.log(`[facebook] Fetching posts...`);
     const allFbPosts: MetaPostItem[] = [];
-    let nextPostsUrl: string | null = buildUrl(`${GRAPH_URL}/${externalAccountId}/posts`, {
-      fields: 'id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count),comments.summary(total_count),insights.metric(post_impressions,post_impressions_unique,post_engaged_users,post_video_views)',
+    const buildPostsUrl = (fields: string) => buildUrl(`${GRAPH_URL}/${externalAccountId}/posts`, {
+      fields,
       limit: 50,
       access_token: accessToken,
     });
 
+    const postsFieldsBase = 'id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count),comments.summary(total_count)';
+    const postsFieldsWithInsights = `${postsFieldsBase},insights.metric(post_impressions,post_impressions_unique,post_engaged_users,post_video_views)`;
+
+    let nextPostsUrl: string | null = buildPostsUrl(postsFieldsWithInsights);
+    let postsFallbackToBase = false;
+
     // Paginate to get more posts (max 2 pages = 100 posts)
     let postPages = 0;
     while (nextPostsUrl && postPages < 2) {
-      const fbPageResponse: MetaPostsResponse = await apiRequest<MetaPostsResponse>(
-        'facebook',
-        nextPostsUrl,
-        {},
-        'posts'
-      );
+      let fbPageResponse: MetaPostsResponse;
+      try {
+        fbPageResponse = await apiRequest<MetaPostsResponse>(
+          'facebook',
+          nextPostsUrl,
+          {},
+          'posts'
+        );
+      } catch (error: any) {
+        const status = error?.status ?? error?.response?.status;
+        if (!postsFallbackToBase && status === 400) {
+          console.warn('[facebook] Posts insights not available, retrying without insights fields');
+          postsFallbackToBase = true;
+          nextPostsUrl = buildPostsUrl(postsFieldsBase);
+          continue;
+        }
+        throw error;
+      }
       if (fbPageResponse.data?.length) {
         allFbPosts.push(...fbPageResponse.data);
       }
