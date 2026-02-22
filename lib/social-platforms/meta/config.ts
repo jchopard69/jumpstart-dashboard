@@ -57,14 +57,14 @@ export const META_CONFIG = {
     'content_views',
   ],
 
-  // Fields for Facebook page insights (core metrics only)
-  // See: https://developers.facebook.com/docs/graph-api/reference/insights
-  // Note: Only use universally available metrics to avoid API errors
+  // Fields for Facebook page insights
+  // See: https://developers.facebook.com/docs/graph-api/reference/page/insights
+  // These are fetched individually to handle unavailable metrics gracefully
   facebookInsightMetrics: [
-    'page_impressions',           // Total impressions
-    'page_impressions_unique',    // Reach (unique users)
-    'page_engaged_users',         // Engaged users
-    'page_post_engagements',      // Post engagements (likes, comments, shares)
+    'page_fans',                   // Total page likes (most basic metric)
+    'page_impressions',            // Total impressions
+    'page_impressions_unique',     // Reach (unique users)
+    'page_engaged_users',          // Engaged users
   ],
 };
 
