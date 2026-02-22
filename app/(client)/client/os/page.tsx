@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSessionProfile, requireClientAccess } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { PriorityBoard } from "@/components/os/priority-board";
 import { QuickAddForm } from "@/components/os/quick-add-form";
 import { NextStepsTracker } from "@/components/os/next-steps-tracker";
@@ -17,34 +17,40 @@ export const metadata: Metadata = {
 
 const PIPELINE_KINDS = ["shoot", "edit", "publish"];
 
-export default async function ClientOsPage() {
+export default async function ClientOsPage({
+  searchParams
+}: {
+  searchParams?: { tenantId?: string };
+}) {
   const profile = await getSessionProfile();
   if (profile.role === "agency_admin") {
-    if (!profile.tenant_id) {
+    if (!searchParams?.tenantId && !profile.tenant_id) {
       redirect("/admin");
     }
   } else {
     requireClientAccess(profile);
   }
 
-  const supabase = createSupabaseServerClient();
+  const isAdmin = profile.role === "agency_admin" && !!searchParams?.tenantId;
+  const tenantId = isAdmin ? searchParams?.tenantId : profile.tenant_id;
+  const supabase = isAdmin ? createSupabaseServiceClient() : createSupabaseServerClient();
   const canEdit = profile.role === "agency_admin" || profile.role === "client_manager";
 
   const [{ data: collaboration }, { data: shoots }, { data: items }] = await Promise.all([
     supabase
       .from("collaboration")
       .select("shoot_days_remaining,notes,updated_at")
-      .eq("tenant_id", profile.tenant_id)
+      .eq("tenant_id", tenantId)
       .single(),
     supabase
       .from("upcoming_shoots")
       .select("id,shoot_date,location,notes")
-      .eq("tenant_id", profile.tenant_id)
+      .eq("tenant_id", tenantId)
       .order("shoot_date", { ascending: true }),
     supabase
       .from("collab_items")
       .select("id,title,description,kind,status,priority,due_date,owner,sort_order,created_at")
-      .eq("tenant_id", profile.tenant_id)
+      .eq("tenant_id", tenantId)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false })
   ]);
@@ -66,7 +72,7 @@ export default async function ClientOsPage() {
     if (!title) return;
     const client = createSupabaseServerClient();
     await client.from("collab_items").insert({
-      tenant_id: profile.tenant_id,
+      tenant_id: tenantId,
       title,
       kind,
       priority,
@@ -97,7 +103,7 @@ export default async function ClientOsPage() {
     const client = createSupabaseServerClient();
     await client
       .from("collaboration")
-      .upsert({ tenant_id: profile.tenant_id, notes, updated_at: new Date().toISOString() });
+      .upsert({ tenant_id: tenantId, notes, updated_at: new Date().toISOString() });
     revalidatePath("/client/os");
   }
 
@@ -109,7 +115,7 @@ export default async function ClientOsPage() {
     if (!shootDate) return;
     const client = createSupabaseServerClient();
     await client.from("upcoming_shoots").insert({
-      tenant_id: profile.tenant_id,
+      tenant_id: tenantId,
       shoot_date: shootDate,
       location: location || null,
       notes: notes || null

@@ -139,9 +139,14 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
             const likes = coerceMetric(post.metrics?.likes);
             const comments = coerceMetric(post.metrics?.comments);
             const shares = coerceMetric(post.metrics?.shares);
+            const saves = coerceMetric(post.metrics?.saves);
             const views = coerceMetric(post.metrics?.views);
+            const plays = coerceMetric(post.metrics?.plays);
+            const videoViews = coerceMetric(post.metrics?.video_views);
+            const mediaViews = coerceMetric(post.metrics?.media_views);
             const engagements = coerceMetric(post.metrics?.engagements);
             const impressions = coerceMetric(post.metrics?.impressions);
+            const reach = coerceMetric(post.metrics?.reach);
 
             const postPayload = {
               tenant_id: tenantId,
@@ -154,7 +159,19 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
               media_type: post.media_type ? String(post.media_type).slice(0, 50) : null,
               thumbnail_url: post.thumbnail_url ? String(post.thumbnail_url).slice(0, 500) : null,
               media_url: post.media_url ? String(post.media_url).slice(0, 500) : null,
-              metrics: { likes, comments, shares, views, engagements, impressions },
+              metrics: {
+                likes,
+                comments,
+                shares,
+                saves,
+                views,
+                plays,
+                video_views: videoViews,
+                media_views: mediaViews,
+                engagements,
+                impressions,
+                reach
+              },
               raw_json: null
             };
 

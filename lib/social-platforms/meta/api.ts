@@ -564,6 +564,16 @@ export const facebookConnector: Connector = {
         chunks.push(postIds.slice(i, i + 50));
       }
 
+      const parseInsightValue = (value: unknown) => {
+        if (typeof value === "number") return value;
+        if (value && typeof value === "object") {
+          return Object.values(value as Record<string, unknown>).reduce((sum, entry) => {
+            return sum + (typeof entry === "number" ? entry : 0);
+          }, 0);
+        }
+        return 0;
+      };
+
       for (const chunk of chunks) {
         const batch = chunk.map((postId) => ({
           method: "GET",
@@ -594,8 +604,9 @@ export const facebookConnector: Connector = {
               const byName = new Map<string, number>();
               for (const metric of data) {
                 const value = metric?.values?.[0]?.value;
-                if (typeof value === "number") {
-                  byName.set(metric.name, value);
+                const parsed = parseInsightValue(value);
+                if (parsed > 0) {
+                  byName.set(metric.name, parsed);
                 }
               }
               const postId = chunk[index];
