@@ -224,7 +224,10 @@ type PlatformSummary = {
 type PostSummary = {
   caption: string;
   date: string;
-  impressions: number;
+  visibility: {
+    label: "Impressions" | "Vues" | "Portée";
+    value: number;
+  };
   engagements: number;
 };
 
@@ -378,7 +381,7 @@ export function PdfDocument(props: PdfDocumentProps) {
               <View style={styles.tableHeader}>
                 <Text style={[styles.tableHeaderCell, styles.colWide]}>Publication</Text>
                 <Text style={[styles.tableHeaderCell, styles.colNarrow]}>Date</Text>
-                <Text style={[styles.tableHeaderCell, styles.colMedium]}>Impressions</Text>
+                <Text style={[styles.tableHeaderCell, styles.colMedium]}>Visibilite</Text>
                 <Text style={[styles.tableHeaderCell, styles.colMedium]}>Engagements</Text>
               </View>
               {posts.slice(0, 8).map((post, index) => {
@@ -389,9 +392,11 @@ export function PdfDocument(props: PdfDocumentProps) {
                       {caption.slice(0, 60)}
                       {caption.length > 60 ? "..." : ""}
                     </Text>
-                  <Text style={[styles.tableCell, styles.colNarrow]}>{post.date}</Text>
-                  <Text style={[styles.tableCell, styles.colMedium]}>{formatNumber(post.impressions)}</Text>
-                  <Text style={[styles.tableCell, styles.colMedium]}>{formatNumber(post.engagements)}</Text>
+                    <Text style={[styles.tableCell, styles.colNarrow]}>{post.date}</Text>
+                    <Text style={[styles.tableCell, styles.colMedium]}>
+                      {formatNumber(post.visibility.value)} {post.visibility.label}
+                    </Text>
+                    <Text style={[styles.tableCell, styles.colMedium]}>{formatNumber(post.engagements)}</Text>
                   </View>
                 );
               })}

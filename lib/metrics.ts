@@ -1,7 +1,15 @@
 export function coerceMetric(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
-    const digits = value.replace(/[^\d-]/g, "");
+    const trimmed = value.trim();
+    if (trimmed.includes("/")) {
+      const parts = trimmed.split("/").map((part) => Number(part.replace(/[^\d-]/g, "")));
+      const valid = parts.filter((part) => Number.isFinite(part));
+      if (valid.length) {
+        return Math.max(...valid);
+      }
+    }
+    const digits = trimmed.replace(/[^\d-]/g, "");
     if (!digits || digits === "-") return 0;
     const parsed = Number(digits);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -11,25 +19,58 @@ export function coerceMetric(value: unknown): number {
 
 type MetricRecord = Record<string, unknown> | null | undefined;
 
+function normalizeMetricRecord(metrics: MetricRecord): MetricRecord {
+  if (typeof metrics !== "string") return metrics;
+  try {
+    const parsed = JSON.parse(metrics);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : metrics;
+  } catch {
+    return metrics;
+  }
+}
+
 export function getPostImpressions(metrics: MetricRecord): number {
+  const normalized = normalizeMetricRecord(metrics);
+  if (typeof normalized === "string") {
+    return coerceMetric(normalized);
+  }
   return coerceMetric(
-    metrics?.impressions ??
-    metrics?.views ??
-    metrics?.reach ??
-    metrics?.plays ??
-    metrics?.video_views ??
+    normalized?.impressions ??
+    normalized?.views ??
+    normalized?.reach ??
+    normalized?.plays ??
+    normalized?.video_views ??
     0
   );
 }
 
 export function getPostEngagements(metrics: MetricRecord): number {
-  if (metrics?.engagements != null) {
-    return coerceMetric(metrics.engagements);
+  const normalized = normalizeMetricRecord(metrics);
+  if (typeof normalized === "string") {
+    return 0;
+  }
+  if (normalized?.engagements != null) {
+    return coerceMetric(normalized.engagements);
   }
   return (
-    coerceMetric(metrics?.likes ?? 0) +
-    coerceMetric(metrics?.comments ?? 0) +
-    coerceMetric(metrics?.shares ?? 0) +
-    coerceMetric(metrics?.saves ?? 0)
+    coerceMetric(normalized?.likes ?? 0) +
+    coerceMetric(normalized?.comments ?? 0) +
+    coerceMetric(normalized?.shares ?? 0) +
+    coerceMetric(normalized?.saves ?? 0)
   );
+}
+
+export function getPostVisibility(metrics: MetricRecord): { label: "Impressions" | "Vues" | "Portée"; value: number } {
+  const normalized = normalizeMetricRecord(metrics);
+  if (typeof normalized === "string") {
+    return { label: "Impressions", value: coerceMetric(normalized) };
+  }
+  const impressions = coerceMetric(normalized?.impressions ?? 0);
+  if (impressions > 0) return { label: "Impressions", value: impressions };
+  const views = coerceMetric(
+    normalized?.views ?? normalized?.plays ?? normalized?.video_views ?? 0
+  );
+  if (views > 0) return { label: "Vues", value: views };
+  const reach = coerceMetric(normalized?.reach ?? 0);
+  return { label: "Portée", value: reach };
 }

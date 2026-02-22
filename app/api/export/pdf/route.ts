@@ -2,7 +2,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
 import { resolveDateRange, buildPreviousRange } from "@/lib/date";
-import { coerceMetric, getPostEngagements, getPostImpressions } from "@/lib/metrics";
+import { coerceMetric, getPostEngagements, getPostImpressions, getPostVisibility } from "@/lib/metrics";
 import type { Platform } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -239,15 +239,38 @@ export async function GET(request: Request) {
       const bEng = getPostEngagements(b.metrics);
       return bImp - aImp || bEng - aEng;
     })
+    .filter((post) => {
+      return getPostVisibility(post.metrics).value > 0 || getPostEngagements(post.metrics) > 0;
+    })
     .slice(0, 8)
     .map((post) => ({
       caption: post.caption ?? "Sans titre",
       date: post.posted_at
         ? new Date(post.posted_at).toLocaleDateString("fr-FR")
         : "-",
-      impressions: getPostImpressions(post.metrics),
+      visibility: getPostVisibility(post.metrics),
       engagements: getPostEngagements(post.metrics),
     }));
+
+  const displayPosts = sortedPosts.length
+    ? sortedPosts
+    : (posts ?? [])
+        .sort((a, b) => {
+          const aImp = getPostImpressions(a.metrics);
+          const bImp = getPostImpressions(b.metrics);
+          const aEng = getPostEngagements(a.metrics);
+          const bEng = getPostEngagements(b.metrics);
+          return bImp - aImp || bEng - aEng;
+        })
+        .slice(0, 8)
+        .map((post) => ({
+          caption: post.caption ?? "Sans titre",
+          date: post.posted_at
+            ? new Date(post.posted_at).toLocaleDateString("fr-FR")
+            : "-",
+          visibility: getPostVisibility(post.metrics),
+          engagements: getPostEngagements(post.metrics),
+        }));
 
   // Fetch collaboration data
   const { data: collaboration } = await supabase
@@ -302,7 +325,7 @@ export async function GET(request: Request) {
     generatedAt: new Date().toLocaleString("fr-FR"),
     kpis,
     platforms,
-    posts: sortedPosts,
+    posts: displayPosts,
     shootDays: collaboration?.shoot_days_remaining ?? 0,
     shoots: (shoots ?? []).map((shoot) => ({
       date: new Date(shoot.shoot_date).toLocaleDateString("fr-FR"),
