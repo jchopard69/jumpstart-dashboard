@@ -294,29 +294,34 @@ export const instagramConnector: Connector = {
 
     console.log(`[instagram] Fetched ${allMedia.length} media items`);
 
-    // Fetch all insights for a media item in a single API call
-    // Metrics vary by media type due to Instagram API restrictions:
-    // - IMAGE/CAROUSEL_ALBUM: impressions, reach (no video metrics)
-    // - VIDEO: impressions, reach, video_views
-    // - REEL: reach, plays, saved, shares (impressions always returns 0 for reels)
-    // - STORY: impressions, reach (but stories are ephemeral)
+    // Fetch all insights for a media item in a single API call.
+    // IMPORTANT: each media type only supports specific metrics.
+    // Requesting an unsupported metric causes a 400 error for the ENTIRE call.
+    // Valid metrics per type (Instagram Graph API, as of 2025):
+    //   IMAGE:          impressions, reach, saved
+    //   CAROUSEL_ALBUM: impressions, reach, saved
+    //   VIDEO:          impressions, reach, saved, video_views
+    //   REEL:           reach, plays, saved, shares, total_interactions
+    //   STORY:          impressions, reach
     const fetchMediaInsights = async (mediaId: string, mediaType?: string) => {
       const normalized = (mediaType ?? "").toUpperCase();
 
-      // Build metric list based on media type
+      const result = { impressions: 0, reach: 0, views: 0, engagements: 0 };
+
+      // Build STRICT metric list — only metrics valid for this exact media type
       let metricsToFetch: string;
       if (normalized === "REEL") {
         metricsToFetch = "reach,plays,saved,shares,total_interactions";
       } else if (normalized === "VIDEO") {
-        metricsToFetch = "impressions,reach,video_views,saved,total_interactions";
+        metricsToFetch = "impressions,reach,saved,video_views";
       } else if (normalized === "CAROUSEL_ALBUM") {
-        metricsToFetch = "impressions,reach,saved,total_interactions";
+        metricsToFetch = "impressions,reach,saved";
+      } else if (normalized === "STORY") {
+        metricsToFetch = "impressions,reach";
       } else {
-        // IMAGE or unknown
-        metricsToFetch = "impressions,reach,saved,total_interactions";
+        // IMAGE or unknown — only use universally safe metrics
+        metricsToFetch = "impressions,reach,saved";
       }
-
-      const result = { impressions: 0, reach: 0, views: 0, engagements: 0 };
 
       try {
         const insightsUrl = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
@@ -346,19 +351,26 @@ export const instagramConnector: Connector = {
               result.views = Math.max(result.views, value);
               break;
             case "total_interactions":
-            case "engagement":
               result.engagements = Math.max(result.engagements, value);
               break;
             case "saved":
-              // Add saves to engagement count
               result.engagements += value;
               break;
           }
         }
-      } catch {
-        // If combined call fails, try minimal metrics one by one
-        // This handles cases where some metrics aren't available for this media type
-        for (const metric of ["reach", "impressions", "plays", "video_views"]) {
+      } catch (err) {
+        // Log the first failure to help diagnose permission issues
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[instagram] Media insights failed for ${mediaId} (${normalized}): ${msg.slice(0, 150)}`);
+
+        // Fallback: try each metric individually — only metrics valid for this type
+        const fallbackMetrics = normalized === "REEL"
+          ? ["reach", "plays"]
+          : normalized === "VIDEO"
+            ? ["reach", "impressions", "video_views"]
+            : ["reach", "impressions"];
+
+        for (const metric of fallbackMetrics) {
           try {
             const url = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
               metric,
@@ -612,12 +624,13 @@ export const facebookConnector: Connector = {
       };
 
       for (const chunk of chunks) {
-        // Only use standard post-level insight metrics
-        // post_media_view and post_total_media_view_unique are PAGE-level metrics
-        // and cause the entire batch item to fail with error code when requested at post level
+        // IMPORTANT: Only request metrics valid for ALL post types.
+        // post_video_views is ONLY valid for video posts — requesting it for
+        // image/link posts returns error 400 for that batch item.
+        // post_impressions and post_impressions_unique work for all post types.
         const batch = chunk.map((postId) => ({
           method: "GET",
-          relative_url: `${postId}/insights?metric=post_impressions,post_impressions_unique,post_video_views&period=lifetime`,
+          relative_url: `${postId}/insights?metric=post_impressions,post_impressions_unique&period=lifetime`,
         }));
 
         try {
@@ -661,7 +674,7 @@ export const facebookConnector: Connector = {
               result.set(postId, {
                 impressions: byName.get("post_impressions") ?? 0,
                 reach: byName.get("post_impressions_unique") ?? 0,
-                views: byName.get("post_video_views") ?? 0,
+                views: 0, // video views fetched separately only for video posts
               });
             } catch {
               return;
