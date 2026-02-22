@@ -373,8 +373,10 @@ export const facebookConnector: Connector = {
       throw new Error('Missing Meta access token for Facebook');
     }
 
-    // Calculate date range (last 365 days)
-    const since = Math.floor((Date.now() - 365 * 24 * 60 * 60 * 1000) / 1000);
+    console.log(`[facebook] Starting sync for page ${externalAccountId}`);
+
+    // Calculate date range (last 90 days for better API reliability)
+    const since = Math.floor((Date.now() - 90 * 24 * 60 * 60 * 1000) / 1000);
     const until = Math.floor(Date.now() / 1000);
 
     // Fetch page info
@@ -383,15 +385,21 @@ export const facebookConnector: Connector = {
       access_token: accessToken,
     });
 
+    console.log(`[facebook] Fetching page info...`);
     const pageInfo = await apiRequest<MetaAccountInfo>(
       'facebook',
       pageInfoUrl,
       {},
       'page_info'
     );
+    console.log(`[facebook] Page info: followers=${pageInfo.followers_count ?? pageInfo.fan_count ?? 0}`);
 
     // Fetch page insights with pagination
     let insights: MetaInsight[] = [];
+    let insightsError: string | null = null;
+
+    console.log(`[facebook] Fetching insights with metrics: ${META_CONFIG.facebookInsightMetrics.join(', ')}`);
+
     try {
       let nextUrl: string | undefined = buildUrl(`${GRAPH_URL}/${externalAccountId}/insights`, {
         metric: META_CONFIG.facebookInsightMetrics.join(','),
@@ -401,7 +409,9 @@ export const facebookConnector: Connector = {
         access_token: accessToken,
       });
 
+      let pageCount = 0;
       while (nextUrl) {
+        pageCount++;
         const insightsResponse: MetaInsightsResponse = await apiRequest<MetaInsightsResponse>(
           'facebook',
           nextUrl,
@@ -412,36 +422,54 @@ export const facebookConnector: Connector = {
           insights.push(...insightsResponse.data);
         }
         nextUrl = insightsResponse.paging?.next;
+
+        // Safety limit to prevent infinite loops
+        if (pageCount > 10) {
+          console.warn(`[facebook] Stopping pagination after ${pageCount} pages`);
+          break;
+        }
       }
 
       console.log(`[facebook] Fetched ${insights.length} insight metrics for page ${externalAccountId}`);
     } catch (error) {
       // Log detailed error for debugging
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.warn(`[facebook] Failed to fetch insights for page ${externalAccountId}:`, errorMsg);
-      // Note: This often fails due to missing read_insights permission
-      // The client needs to reconnect with updated permissions
+      insightsError = errorMsg;
+      console.error(`[facebook] FAILED to fetch insights for page ${externalAccountId}:`, errorMsg);
+
+      // Check for common error patterns
+      if (errorMsg.includes('190') || errorMsg.includes('invalid') || errorMsg.includes('expired')) {
+        console.error(`[facebook] Token appears invalid or expired. Account needs reconnection.`);
+      } else if (errorMsg.includes('100') || errorMsg.includes('permission') || errorMsg.includes('Unsupported')) {
+        console.error(`[facebook] Missing read_insights permission. Account needs reconnection with proper scopes.`);
+      }
     }
 
     // Build daily metrics
     const followers = pageInfo.followers_count ?? pageInfo.fan_count ?? 0;
     const dailyMetrics = mapInsightsToDaily(insights, { followers });
 
-    // If no insights data, create a single metric for today
+    // If no insights data, create a single metric for today with error flag
     if (dailyMetrics.length === 0) {
+      console.warn(`[facebook] No insights data available. Creating placeholder metric.`);
+      if (insightsError) {
+        console.warn(`[facebook] Insights error was: ${insightsError}`);
+      }
       dailyMetrics.push({
         date: new Date().toISOString().slice(0, 10),
         followers,
         impressions: 0,
         reach: 0,
         engagements: 0,
+        raw_json: insightsError ? { _error: insightsError } : undefined,
       });
     }
 
-    // Fetch recent posts
+    // Fetch recent posts with engagement metrics
+    console.log(`[facebook] Fetching posts...`);
     const postsUrl = buildUrl(`${GRAPH_URL}/${externalAccountId}/posts`, {
-      fields: 'id,message,created_time,permalink_url,full_picture',
-      limit: 10,
+      fields: 'id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count),comments.summary(total_count)',
+      limit: 50,
       access_token: accessToken,
     });
 
@@ -452,18 +480,65 @@ export const facebookConnector: Connector = {
       'posts'
     );
 
-    const posts: PostMetric[] = (postsResponse.data || []).map((post) => ({
-      external_post_id: post.id,
-      posted_at: post.created_time || new Date().toISOString(),
-      url: post.permalink_url,
-      caption: post.message?.slice(0, 500),
-      media_type: post.full_picture ? 'image' : 'text',
-      thumbnail_url: post.full_picture,
-      media_url: post.full_picture,
-      metrics: {},
-      raw_json: post as unknown as Record<string, unknown>,
-    }));
+    console.log(`[facebook] Fetched ${postsResponse.data?.length ?? 0} posts`);
 
+    const posts: PostMetric[] = (postsResponse.data || []).map((post: any) => {
+      const reactions = post.reactions?.summary?.total_count ?? 0;
+      const comments = post.comments?.summary?.total_count ?? 0;
+      const shares = post.shares?.count ?? 0;
+
+      return {
+        external_post_id: post.id,
+        posted_at: post.created_time || new Date().toISOString(),
+        url: post.permalink_url,
+        caption: post.message?.slice(0, 500),
+        media_type: post.full_picture ? 'image' : 'text',
+        thumbnail_url: post.full_picture,
+        media_url: post.full_picture,
+        metrics: {
+          likes: reactions,
+          comments: comments,
+          shares: shares,
+          engagements: reactions + comments + shares,
+        },
+        raw_json: post as unknown as Record<string, unknown>,
+      };
+    });
+
+    // If page insights failed but we have posts, aggregate post metrics into daily
+    if (insights.length === 0 && posts.length > 0) {
+      console.log(`[facebook] No page insights, aggregating from ${posts.length} posts`);
+      const dailyMap = new Map<string, DailyMetric>();
+
+      for (const post of posts) {
+        if (!post.posted_at) continue;
+        const date = post.posted_at.slice(0, 10);
+        const existing = dailyMap.get(date) ?? {
+          date,
+          followers,
+          impressions: 0,
+          reach: 0,
+          engagements: 0,
+          posts_count: 0,
+        };
+
+        existing.posts_count = (existing.posts_count ?? 0) + 1;
+        existing.engagements = (existing.engagements ?? 0) +
+          (post.metrics?.likes ?? 0) +
+          (post.metrics?.comments ?? 0) +
+          (post.metrics?.shares ?? 0);
+
+        dailyMap.set(date, existing);
+      }
+
+      // Replace placeholder with aggregated data
+      if (dailyMap.size > 0) {
+        dailyMetrics.splice(0, dailyMetrics.length, ...dailyMap.values());
+        console.log(`[facebook] Created ${dailyMetrics.length} daily metrics from posts`);
+      }
+    }
+
+    console.log(`[facebook] Sync complete: ${dailyMetrics.length} daily metrics, ${posts.length} posts`);
     return { dailyMetrics, posts };
   },
 };
