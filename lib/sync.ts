@@ -117,60 +117,66 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           platform: account.platform,
           social_account_id: account.id,
           date: metric.date,
-          followers: metric.followers ?? 0,
-          impressions: metric.impressions ?? 0,
-          reach: metric.reach ?? 0,
-          engagements: metric.engagements ?? 0,
-          likes: metric.likes ?? 0,
-          comments: metric.comments ?? 0,
-          shares: metric.shares ?? 0,
-          saves: metric.saves ?? 0,
-          views: metric.views ?? 0,
-          watch_time: metric.watch_time ?? 0,
-          posts_count: metric.posts_count ?? 0,
-          raw_json: safeJson(metric.raw_json)
+          followers: Number(metric.followers) || 0,
+          impressions: Number(metric.impressions) || 0,
+          reach: Number(metric.reach) || 0,
+          engagements: Number(metric.engagements) || 0,
+          likes: Number(metric.likes) || 0,
+          comments: Number(metric.comments) || 0,
+          shares: Number(metric.shares) || 0,
+          saves: Number(metric.saves) || 0,
+          views: Number(metric.views) || 0,
+          watch_time: Number(metric.watch_time) || 0,
+          posts_count: Number(metric.posts_count) || 0,
+          raw_json: null
         }));
+        console.log(`[sync] Upserting ${metricsPayload.length} daily metrics for ${account.platform}`);
         const { error: metricsError } = await supabase.from("social_daily_metrics").upsert(metricsPayload, {
           onConflict: "tenant_id,platform,social_account_id,date"
         });
         if (metricsError) {
+          console.error(`[sync] Metrics upsert error:`, metricsError);
           throw new Error(`Failed to upsert metrics: ${metricsError.message}`);
         }
+        console.log(`[sync] Successfully upserted ${metricsPayload.length} daily metrics`);
       }
 
       if (result.posts.length) {
         const postsPayload = result.posts.map((post) => {
-          // Sanitize metrics - ensure it's a simple object
-          let metrics: Record<string, number> = {};
-          if (post.metrics && typeof post.metrics === 'object') {
-            for (const [key, val] of Object.entries(post.metrics)) {
-              if (typeof val === 'number') {
-                metrics[key] = val;
-              }
-            }
-          }
+          // Extract only numeric values from metrics
+          const likes = Number(post.metrics?.likes) || 0;
+          const comments = Number(post.metrics?.comments) || 0;
+          const shares = Number(post.metrics?.shares) || 0;
+          const views = Number(post.metrics?.views) || 0;
+          const engagements = Number(post.metrics?.engagements) || 0;
+          const impressions = Number(post.metrics?.impressions) || 0;
 
           return {
             tenant_id: tenantId,
             platform: account.platform,
             social_account_id: account.id,
-            external_post_id: post.external_post_id,
+            external_post_id: String(post.external_post_id || ''),
             posted_at: post.posted_at,
-            url: post.url?.slice(0, 500),
-            caption: post.caption?.slice(0, 500),
-            media_type: post.media_type,
-            thumbnail_url: post.thumbnail_url?.slice(0, 500),
-            media_url: post.media_url?.slice(0, 500),
-            metrics,
-            raw_json: null // Skip raw_json to avoid JSON serialization issues
+            url: post.url ? String(post.url).slice(0, 500) : null,
+            caption: post.caption ? String(post.caption).slice(0, 500) : null,
+            media_type: post.media_type ? String(post.media_type) : null,
+            thumbnail_url: post.thumbnail_url ? String(post.thumbnail_url).slice(0, 500) : null,
+            media_url: post.media_url ? String(post.media_url).slice(0, 500) : null,
+            metrics: { likes, comments, shares, views, engagements, impressions },
+            raw_json: null
           };
         });
+
+        console.log(`[sync] Upserting ${postsPayload.length} posts for ${account.platform}`);
+
         const { error: postsError } = await supabase.from("social_posts").upsert(postsPayload, {
           onConflict: "tenant_id,platform,social_account_id,external_post_id"
         });
         if (postsError) {
+          console.error(`[sync] Posts upsert error:`, postsError);
           throw new Error(`Failed to upsert posts: ${postsError.message}`);
         }
+        console.log(`[sync] Successfully upserted ${postsPayload.length} posts`);
       }
 
       const { error: accountUpdateError } = await supabase
