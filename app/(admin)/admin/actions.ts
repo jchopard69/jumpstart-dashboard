@@ -28,19 +28,71 @@ export async function deactivateTenant(formData: FormData) {
 export async function inviteUser(formData: FormData) {
   const profile = await getSessionProfile();
   requireAdmin(profile);
-  const email = String(formData.get("email") ?? "");
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const fullName = String(formData.get("full_name") ?? "");
   const role = String(formData.get("role") ?? "client_user") as UserRole;
   const tenantId = String(formData.get("tenant_id") ?? "");
 
+  if (!email) {
+    throw new Error("Email requis");
+  }
+
   const supabase = createSupabaseServiceClient();
+
+  // Check if user already exists
+  const { data: existingUsers } = await supabase.auth.admin.listUsers();
+  const existingUser = existingUsers?.users?.find((u) => u.email === email);
+
+  if (existingUser) {
+    // User exists in auth, check if profile exists
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id,tenant_id")
+      .eq("id", existingUser.id)
+      .single();
+
+    if (existingProfile) {
+      if (existingProfile.tenant_id === tenantId) {
+        throw new Error("Cet utilisateur est déjà membre de ce workspace");
+      }
+      // User exists with different tenant - suggest adding multi-tenant access
+      throw new Error(
+        "Cet utilisateur existe déjà dans un autre workspace. Utilisez la section 'Accès multi-tenant' pour lui donner accès à ce workspace."
+      );
+    }
+
+    // User in auth but no profile - create profile
+    await supabase.from("profiles").insert({
+      id: existingUser.id,
+      email,
+      full_name: fullName,
+      role,
+      tenant_id: role === "agency_admin" ? null : tenantId
+    });
+    revalidatePath(`/admin/clients/${tenantId}`);
+    return;
+  }
+
+  // New user - send invite
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${siteUrl}/auth/callback?type=invite`
   });
 
-  if (error || !data?.user) {
-    throw new Error(error?.message ?? "Unable to invite user");
+  if (error) {
+    if (error.message.includes("rate limit")) {
+      throw new Error("Trop de demandes. Réessayez dans quelques minutes.");
+    }
+    if (error.message.includes("SMTP") || error.message.includes("email")) {
+      throw new Error(
+        "Impossible d'envoyer l'email. Vérifiez la configuration SMTP dans Supabase Dashboard."
+      );
+    }
+    throw new Error(`Erreur d'invitation: ${error.message}`);
+  }
+
+  if (!data?.user) {
+    throw new Error("Erreur lors de la création de l'utilisateur");
   }
 
   await supabase.from("profiles").insert({
@@ -219,6 +271,41 @@ export async function resetLinkedInData(formData: FormData) {
       }
     });
   }
+
+  revalidatePath(`/admin/clients/${tenantId}`);
+}
+
+export async function addTenantAccess(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const userId = String(formData.get("user_id") ?? "");
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const supabase = createSupabaseServiceClient();
+
+  const { error } = await supabase.from("user_tenant_access").insert({
+    user_id: userId,
+    tenant_id: tenantId
+  });
+
+  if (error && error.code !== "23505") {
+    throw new Error(error.message);
+  }
+
+  revalidatePath(`/admin/clients/${tenantId}`);
+}
+
+export async function removeTenantAccess(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const userId = String(formData.get("user_id") ?? "");
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const supabase = createSupabaseServiceClient();
+
+  await supabase
+    .from("user_tenant_access")
+    .delete()
+    .eq("user_id", userId)
+    .eq("tenant_id", tenantId);
 
   revalidatePath(`/admin/clients/${tenantId}`);
 }

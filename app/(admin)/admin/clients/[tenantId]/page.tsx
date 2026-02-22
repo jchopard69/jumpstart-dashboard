@@ -13,10 +13,13 @@ import {
   uploadDocumentMetadata,
   triggerTenantSync,
   deleteSocialAccount,
-  resetLinkedInData
+  resetLinkedInData,
+  addTenantAccess,
+  removeTenantAccess
 } from "@/app/(admin)/admin/actions";
 import { DocumentManager } from "@/components/admin/document-manager";
 import { SocialAccountsSection } from "@/components/admin/social-accounts-section";
+import { MultiTenantAccess } from "@/components/admin/multi-tenant-access";
 import type { Platform } from "@/lib/types";
 
 export default async function ClientDetailPage({ params }: { params: { tenantId: string } }) {
@@ -56,6 +59,27 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
     .eq("tenant_id", params.tenantId)
     .order("started_at", { ascending: false })
     .limit(10);
+
+  const { data: allUsers } = await supabase
+    .from("profiles")
+    .select("id,email,full_name,tenant_id")
+    .neq("tenant_id", params.tenantId)
+    .neq("role", "agency_admin")
+    .order("email");
+
+  const { data: tenantAccess } = await supabase
+    .from("user_tenant_access")
+    .select("user_id")
+    .eq("tenant_id", params.tenantId);
+
+  const accessUserIds = new Set((tenantAccess ?? []).map((a) => a.user_id));
+
+  const usersWithAccess = (allUsers ?? []).map((user) => ({
+    id: user.id,
+    email: user.email,
+    full_name: user.full_name,
+    hasAccess: accessUserIds.has(user.id)
+  }));
 
   return (
     <div className="space-y-8 fade-in">
@@ -211,6 +235,14 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
           </Table>
         </div>
       </Card>
+
+      <MultiTenantAccess
+        tenantId={params.tenantId}
+        tenantName={tenant?.name ?? ""}
+        usersWithAccess={usersWithAccess}
+        addAction={addTenantAccess}
+        removeAction={removeTenantAccess}
+      />
 
       <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Logs de synchronisation</h2>

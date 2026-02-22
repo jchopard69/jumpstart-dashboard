@@ -10,6 +10,12 @@ export type Profile = {
   tenant_id: string | null;
 };
 
+export type AccessibleTenant = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 export async function getSessionProfile() {
   const supabase = createSupabaseServerClient();
   const {
@@ -56,4 +62,42 @@ export function assertTenant(profile: Profile) {
     throw new Error("Tenant missing for user profile");
   }
   return profile.tenant_id;
+}
+
+export async function getUserTenants(userId: string): Promise<AccessibleTenant[]> {
+  const supabase = createSupabaseServerClient();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("tenant_id")
+    .eq("id", userId)
+    .single();
+
+  const { data: additionalAccess } = await supabase
+    .from("user_tenant_access")
+    .select("tenant_id")
+    .eq("user_id", userId);
+
+  const tenantIds = new Set<string>();
+  if (profile?.tenant_id) {
+    tenantIds.add(profile.tenant_id);
+  }
+  if (additionalAccess) {
+    for (const access of additionalAccess) {
+      tenantIds.add(access.tenant_id);
+    }
+  }
+
+  if (tenantIds.size === 0) {
+    return [];
+  }
+
+  const { data: tenants } = await supabase
+    .from("tenants")
+    .select("id,name,slug")
+    .in("id", Array.from(tenantIds))
+    .eq("is_active", true)
+    .order("name");
+
+  return (tenants ?? []) as AccessibleTenant[];
 }

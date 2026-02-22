@@ -1,10 +1,14 @@
 import Image from "next/image";
-import { getSessionProfile, requireClientAccess } from "@/lib/auth";
+import { getSessionProfile, requireClientAccess, getUserTenants } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavLink } from "@/components/layout/nav-link";
+import { TenantSwitcher } from "@/components/layout/tenant-switcher";
+import { cookies } from "next/headers";
+
+const TENANT_COOKIE = "active_tenant_id";
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   const profile = await getSessionProfile();
@@ -19,6 +23,13 @@ export default async function ClientLayout({ children }: { children: React.React
   }
 
   const isAdmin = profile.role === "agency_admin";
+
+  const tenants = isAdmin ? [] : await getUserTenants(profile.id);
+  const cookieStore = cookies();
+  const cookieTenantId = cookieStore.get(TENANT_COOKIE)?.value;
+  const currentTenantId = cookieTenantId && tenants.some((t) => t.id === cookieTenantId)
+    ? cookieTenantId
+    : profile.tenant_id ?? tenants[0]?.id ?? "";
 
   return (
     <Toaster>
@@ -42,6 +53,11 @@ export default async function ClientLayout({ children }: { children: React.React
                     </span>
                   </div>
                   <p className="mt-3 text-xs uppercase tracking-[0.3em] text-muted-foreground">Social Pulse</p>
+                  {tenants.length > 1 && (
+                    <div className="mt-4">
+                      <TenantSwitcher tenants={tenants} currentTenantId={currentTenantId} />
+                    </div>
+                  )}
                   <nav className="mt-6 flex flex-col gap-2 text-sm">
                     <NavLink href="/client/dashboard">Tableau de bord</NavLink>
                     <NavLink href="/client/os">JumpStart OS</NavLink>
@@ -65,9 +81,14 @@ export default async function ClientLayout({ children }: { children: React.React
                     <MobileNav isAdmin={isAdmin} signOutAction={signOut} />
                     <Image src="/jumpstart-logo.png" alt="JumpStart Studio" width={100} height={24} priority />
                   </div>
-                  <span className="rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
-                    Client
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {tenants.length > 1 && (
+                      <TenantSwitcher tenants={tenants} currentTenantId={currentTenantId} />
+                    )}
+                    <span className="rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
+                      Client
+                    </span>
+                  </div>
                 </div>
               </header>
 

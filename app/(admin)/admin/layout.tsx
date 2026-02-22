@@ -43,6 +43,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                     <Link className="nav-pill" href="/admin/clients">
                       Clients
                     </Link>
+                    <Link className="nav-pill" href="/admin/users">
+                      Utilisateurs
+                    </Link>
                     <Link className="nav-pill" href="/admin/health">
                       Santé
                     </Link>
@@ -74,6 +77,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                     </Link>
                     <Link className="nav-pill" href="/admin/clients">
                       Clients
+                    </Link>
+                    <Link className="nav-pill" href="/admin/users">
+                      Utilisateurs
                     </Link>
                     <Link className="nav-pill" href="/admin/health">
                       Santé
