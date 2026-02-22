@@ -50,6 +50,9 @@ export async function fetchDashboardData(params: {
   ]);
 
   const normalizeMetrics = <T extends {
+    date?: string | null;
+    platform?: Platform | null;
+    social_account_id?: string | null;
     followers?: number | string | null;
     impressions?: number | string | null;
     reach?: number | string | null;
@@ -66,10 +69,18 @@ export async function fetchDashboardData(params: {
     views: coerceMetric(row.views),
     watch_time: coerceMetric(row.watch_time),
     posts_count: coerceMetric(row.posts_count)
-  }));
+  })) as Array<T & {
+    followers: number;
+    impressions: number;
+    reach: number;
+    engagements: number;
+    views: number;
+    watch_time: number;
+    posts_count: number;
+  }>;
 
-  const normalizedMetrics = normalizeMetrics(metrics as any);
-  const normalizedPrevMetrics = normalizeMetrics(prevMetrics as any);
+  const normalizedMetrics = normalizeMetrics(metrics);
+  const normalizedPrevMetrics = normalizeMetrics(prevMetrics);
 
   const sumLatestFollowers = (rows?: Array<{ social_account_id?: string | null; date?: string | null; followers?: number | null }>) => {
     if (!rows?.length) return 0;
