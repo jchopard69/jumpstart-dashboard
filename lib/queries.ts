@@ -149,10 +149,23 @@ export async function fetchDashboardData(params: {
     prevPostsCountQuery = prevPostsCountQuery.eq("social_account_id", params.socialAccountId);
   }
 
-  const [{ count: postsCount }, { count: prevPostsCount }] = await Promise.all([
+  const [postsCountResult, prevPostsCountResult] = await Promise.all([
     postsCountQuery,
     prevPostsCountQuery
   ]);
+
+  const postsCount = postsCountResult.count;
+  const prevPostsCount = prevPostsCountResult.count;
+
+  // Debug logging
+  console.log("[dashboard] Posts query:", {
+    tenantId,
+    rangeStart: range.start.toISOString(),
+    rangeEnd: range.end.toISOString(),
+    postsCount,
+    prevPostsCount,
+    error: postsCountResult.error?.message
+  });
 
   const deltaRaw = {
     followers: followersCurrent - followersPrev,

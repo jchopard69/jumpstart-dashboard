@@ -41,15 +41,21 @@ export async function GET(request: Request) {
     .order("started_at", { ascending: false })
     .limit(10);
 
-  // Get all posts (last 90 days)
-  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  // Get ALL posts (no date filter to debug)
   const { data: posts, count: postCount } = await serviceClient
     .from("social_posts")
     .select("id,platform,posted_at,caption,external_post_id", { count: "exact" })
     .eq("tenant_id", tenantId)
-    .gte("posted_at", since)
     .order("posted_at", { ascending: false })
     .limit(50);
+
+  // Also check with date filter (last 30 days)
+  const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { count: last30DaysCount } = await serviceClient
+    .from("social_posts")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .gte("posted_at", since30);
 
   // Group posts by platform
   const postsByPlatform: Record<string, number> = {};
@@ -63,7 +69,8 @@ export async function GET(request: Request) {
     accounts: accounts ?? [],
     syncLogs: syncLogs ?? [],
     postsSummary: {
-      total: postCount ?? 0,
+      totalAllTime: postCount ?? 0,
+      last30Days: last30DaysCount ?? 0,
       byPlatform: postsByPlatform,
       recent: (posts ?? []).slice(0, 10).map(p => ({
         id: p.id,
