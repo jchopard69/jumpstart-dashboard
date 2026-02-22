@@ -34,8 +34,9 @@ export async function inviteUser(formData: FormData) {
   const tenantId = String(formData.get("tenant_id") ?? "");
 
   const supabase = createSupabaseServiceClient();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/login`
+    redirectTo: `${siteUrl}/auth/callback?type=invite`
   });
 
   if (error || !data?.user) {
