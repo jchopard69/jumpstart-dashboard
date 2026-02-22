@@ -564,10 +564,10 @@ export const facebookConnector: Connector = {
         chunks.push(postIds.slice(i, i + 50));
       }
 
-      const parseInsightValue = (value: unknown) => {
+      const parseInsightValue = (value: unknown): number => {
         if (typeof value === "number") return value;
         if (value && typeof value === "object") {
-          return Object.values(value as Record<string, unknown>).reduce((sum, entry) => {
+          return Object.values(value as Record<string, unknown>).reduce((sum: number, entry) => {
             return sum + (typeof entry === "number" ? entry : 0);
           }, 0);
         }
