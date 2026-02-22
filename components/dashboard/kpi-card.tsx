@@ -12,7 +12,9 @@ type KpiCardProps = {
 export function KpiCard({ label, value, delta, suffix, className }: KpiCardProps) {
   const trend = delta >= 0 ? "up" : "down";
   const formatted = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(value);
-  const deltaValue = `${delta >= 0 ? "+" : ""}${Math.round(delta)}%`;
+  // Cap display at ±999% to prevent overflow
+  const cappedDelta = Math.abs(delta) > 999 ? (delta > 0 ? 999 : -999) : Math.round(delta);
+  const deltaValue = `${cappedDelta >= 0 ? "+" : ""}${cappedDelta}%`;
 
   return (
     <Card className={cn("card-surface relative overflow-hidden p-4 fade-in-up", className)}>
