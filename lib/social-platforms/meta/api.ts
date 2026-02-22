@@ -133,16 +133,29 @@ function mapInsightsToDaily(
     const comments = values.comments ?? 0;
     const shares = values.shares ?? 0;
     const saves = values.saves ?? 0;
-    const impressions = values.page_impressions ?? values.impressions ?? 0;
+
+    // Impressions: combine organic + viral, or use direct value
+    const organicImpressions = values.page_impressions_organic ?? 0;
+    const viralImpressions = values.page_impressions_viral ?? 0;
+    const combinedImpressions = organicImpressions + viralImpressions;
+    const impressions = combinedImpressions > 0 ? combinedImpressions : (values.page_impressions ?? values.impressions ?? 0);
+
+    // Reach
     const reach = values.reach ?? values.page_impressions_unique ?? 0;
-    const views = values.views ?? values.content_views ?? values.video_views ?? values.page_video_views ?? values.page_views_total ?? 0;
+
+    // Views: use impressions as fallback if no direct views
+    const directViews = values.views ?? values.content_views ?? values.video_views ?? values.page_video_views ?? values.page_views_total ?? 0;
+    const views = directViews > 0 ? directViews : impressions;
+
+    // Engagement: combine all engagement metrics
+    const pageConsumptions = values.page_consumptions ?? 0;
+    const pageReactions = values.page_actions_post_reactions_total ?? 0;
     const engagementFallback =
-      values.page_post_engagements ??
-      values.accounts_engaged ??
-      values.total_interactions ??
-      values.engagement ??
-      values.page_engaged_users ??
-      0;
+      pageConsumptions + pageReactions +
+      (values.page_post_engagements ?? 0) +
+      (values.accounts_engaged ?? 0) +
+      (values.total_interactions ?? 0) +
+      (values.page_engaged_users ?? 0);
     const engagements = likes + comments + shares + saves;
 
     return {

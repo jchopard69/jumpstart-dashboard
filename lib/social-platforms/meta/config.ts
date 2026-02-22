@@ -60,11 +60,14 @@ export const META_CONFIG = {
   // Fields for Facebook page insights
   // See: https://developers.facebook.com/docs/graph-api/reference/page/insights
   // These are fetched individually to handle unavailable metrics gracefully
+  // Note: Available metrics vary by page type and activity level
   facebookInsightMetrics: [
-    'page_fans',                   // Total page likes (most basic metric)
-    'page_impressions',            // Total impressions
-    'page_impressions_unique',     // Reach (unique users)
+    'page_impressions_unique',     // Reach (unique users) - most reliable
+    'page_impressions_organic',    // Organic impressions
+    'page_impressions_viral',      // Viral impressions
+    'page_consumptions',           // Total clicks on page content
     'page_engaged_users',          // Engaged users
+    'page_actions_post_reactions_total', // Total reactions
   ],
 };
 
