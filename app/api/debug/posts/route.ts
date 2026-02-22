@@ -64,10 +64,40 @@ export async function GET(request: Request) {
     postsByPlatform[platform] = (postsByPlatform[platform] ?? 0) + 1;
   }
 
+  // Try to insert a test post to diagnose the JSON issue
+  let testInsertResult = null;
+  try {
+    const testPost = {
+      tenant_id: tenantId,
+      platform: 'test',
+      social_account_id: accounts?.[0]?.id || 'test',
+      external_post_id: `test_${Date.now()}`,
+      posted_at: new Date().toISOString(),
+      url: null,
+      caption: 'Test caption with emoji 🎉',
+      media_type: 'image',
+      thumbnail_url: null,
+      media_url: null,
+      metrics: { likes: 1, comments: 2 },
+      raw_json: null
+    };
+    const { error } = await serviceClient.from("social_posts").insert(testPost);
+    if (error) {
+      testInsertResult = { success: false, error: error.message, code: error.code };
+    } else {
+      testInsertResult = { success: true };
+      // Clean up test post
+      await serviceClient.from("social_posts").delete().eq("external_post_id", testPost.external_post_id);
+    }
+  } catch (e: any) {
+    testInsertResult = { success: false, error: e.message };
+  }
+
   return NextResponse.json({
     tenantId,
     accounts: accounts ?? [],
     syncLogs: syncLogs ?? [],
+    testInsertResult,
     postsSummary: {
       totalAllTime: postCount ?? 0,
       last30Days: last30DaysCount ?? 0,
