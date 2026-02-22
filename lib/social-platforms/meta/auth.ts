@@ -259,12 +259,21 @@ export async function handleMetaOAuthCallback(
   const grantedScopes = debugInfo.data.scopes || [];
   console.log(`[meta-auth] Granted scopes: ${grantedScopes.join(', ')}`);
 
-  // Check for critical scope
+  // Check for critical scopes
   if (!grantedScopes.includes('pages_show_list')) {
     throw new Error(
       'PERMISSION_ERROR: pages_show_list permission not granted. ' +
       'Please ensure this permission is approved in your Meta App Review.'
     );
+  }
+
+  // Warn about read_insights - required for page impressions/reach
+  if (!grantedScopes.includes('read_insights')) {
+    console.warn('[meta-auth] WARNING: read_insights permission NOT granted!');
+    console.warn('[meta-auth] Page insights (impressions, reach) will not be available.');
+    console.warn('[meta-auth] Make sure read_insights is approved in Meta App Review.');
+  } else {
+    console.log('[meta-auth] read_insights permission confirmed ✓');
   }
 
   // 5. Fetch all pages
