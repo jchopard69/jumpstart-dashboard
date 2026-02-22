@@ -6,6 +6,17 @@ import type { Platform } from "@/lib/types";
 
 const CONCURRENCY_LIMIT = 2;
 
+// Safely convert raw API response to valid JSON
+function safeJson(obj: unknown): Record<string, unknown> | null {
+  if (!obj) return null;
+  try {
+    // Stringify and parse to remove any non-serializable values
+    return JSON.parse(JSON.stringify(obj));
+  } catch {
+    return null;
+  }
+}
+
 async function runWithLimit<T>(items: T[], handler: (item: T) => Promise<void>) {
   const queue = [...items];
   const workers = new Array(CONCURRENCY_LIMIT).fill(null).map(async () => {
@@ -117,7 +128,7 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           views: metric.views ?? 0,
           watch_time: metric.watch_time ?? 0,
           posts_count: metric.posts_count ?? 0,
-          raw_json: metric.raw_json ?? null
+          raw_json: safeJson(metric.raw_json)
         }));
         const { error: metricsError } = await supabase.from("social_daily_metrics").upsert(metricsPayload, {
           onConflict: "tenant_id,platform,social_account_id,date"
@@ -139,8 +150,8 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           media_type: post.media_type,
           thumbnail_url: post.thumbnail_url,
           media_url: post.media_url,
-          metrics: post.metrics ?? {},
-          raw_json: post.raw_json ?? null
+          metrics: safeJson(post.metrics) ?? {},
+          raw_json: safeJson(post.raw_json)
         }));
         const { error: postsError } = await supabase.from("social_posts").upsert(postsPayload, {
           onConflict: "tenant_id,platform,social_account_id,external_post_id"
