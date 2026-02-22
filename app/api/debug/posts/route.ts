@@ -1,18 +1,25 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getPostVisibility, getPostImpressions, getPostEngagements } from "@/lib/metrics";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const supabase = createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const authClient = createSupabaseServerClient();
+  const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Use service client to bypass RLS (avoids stack depth limit)
+  const supabase = createSupabaseServiceClient();
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("tenant_id,role")
     .eq("id", user.id)
     .single();
+
+  if (profile?.role !== "agency_admin" && !profile?.tenant_id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const tenantId = searchParams.get("tenantId") || profile?.tenant_id;
   if (!tenantId) return NextResponse.json({ error: "No tenant" }, { status: 400 });
