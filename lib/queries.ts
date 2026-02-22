@@ -181,11 +181,15 @@ export async function fetchDashboardData(params: {
     .gte("posted_at", range.start.toISOString())
     .lte("posted_at", range.end.toISOString());
 
+  if (params.platform && params.platform !== "all") {
+    postsQuery = postsQuery.eq("platform", params.platform);
+  }
+
   if (params.socialAccountId) {
     postsQuery = postsQuery.eq("social_account_id", params.socialAccountId);
   }
 
-  const { data: posts } = await postsQuery.order("posted_at", { ascending: false }).limit(50);
+  const { data: posts } = await postsQuery.order("posted_at", { ascending: false }).limit(100);
 
   const resolveAdsPlatform = () => {
     if (!params.platform || params.platform === "all") return null;

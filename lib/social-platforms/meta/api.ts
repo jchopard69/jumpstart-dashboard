@@ -268,19 +268,31 @@ export const instagramConnector: Connector = {
       });
     }
 
-    // Fetch recent media
-    const mediaUrl = buildUrl(`${GRAPH_URL}/${externalAccountId}/media`, {
+    // Fetch recent media with pagination (up to 100 posts)
+    const allMedia: MetaMediaItem[] = [];
+    let nextMediaUrl: string | null = buildUrl(`${GRAPH_URL}/${externalAccountId}/media`, {
       fields: 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count',
       limit: 50,
       access_token: accessToken,
     });
 
-    const mediaResponse = await apiRequest<MetaMediaResponse>(
-      'instagram',
-      mediaUrl,
-      {},
-      'media'
-    );
+    // Paginate to get more posts (max 2 pages = 100 posts)
+    let mediaPages = 0;
+    while (nextMediaUrl && mediaPages < 2) {
+      const mediaResponse = await apiRequest<MetaMediaResponse>(
+        'instagram',
+        nextMediaUrl,
+        {},
+        'media'
+      );
+      if (mediaResponse.data?.length) {
+        allMedia.push(...mediaResponse.data);
+      }
+      nextMediaUrl = mediaResponse.paging?.next || null;
+      mediaPages++;
+    }
+
+    console.log(`[instagram] Fetched ${allMedia.length} media items`);
 
     const fetchMediaViews = async (mediaId: string, mediaType?: string) => {
       const normalized = (mediaType ?? "").toUpperCase();
@@ -318,7 +330,7 @@ export const instagramConnector: Connector = {
     };
 
     const posts: PostMetric[] = [];
-    for (const item of mediaResponse.data || []) {
+    for (const item of allMedia) {
       posts.push({
         external_post_id: item.id,
         posted_at: item.timestamp || new Date().toISOString(),
@@ -479,24 +491,34 @@ export const facebookConnector: Connector = {
       });
     }
 
-    // Fetch recent posts with engagement metrics
+    // Fetch recent posts with engagement metrics (with pagination)
     console.log(`[facebook] Fetching posts...`);
-    const postsUrl = buildUrl(`${GRAPH_URL}/${externalAccountId}/posts`, {
+    const allFbPosts: MetaPostItem[] = [];
+    let nextPostsUrl: string | null = buildUrl(`${GRAPH_URL}/${externalAccountId}/posts`, {
       fields: 'id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count),comments.summary(total_count)',
       limit: 50,
       access_token: accessToken,
     });
 
-    const postsResponse = await apiRequest<MetaPostsResponse>(
-      'facebook',
-      postsUrl,
-      {},
-      'posts'
-    );
+    // Paginate to get more posts (max 2 pages = 100 posts)
+    let postPages = 0;
+    while (nextPostsUrl && postPages < 2) {
+      const postsResponse = await apiRequest<MetaPostsResponse>(
+        'facebook',
+        nextPostsUrl,
+        {},
+        'posts'
+      );
+      if (postsResponse.data?.length) {
+        allFbPosts.push(...postsResponse.data);
+      }
+      nextPostsUrl = postsResponse.paging?.next || null;
+      postPages++;
+    }
 
-    console.log(`[facebook] Fetched ${postsResponse.data?.length ?? 0} posts`);
+    console.log(`[facebook] Fetched ${allFbPosts.length} posts`);
 
-    const posts: PostMetric[] = (postsResponse.data || []).map((post: any) => {
+    const posts: PostMetric[] = allFbPosts.map((post: any) => {
       const reactions = post.reactions?.summary?.total_count ?? 0;
       const comments = post.comments?.summary?.total_count ?? 0;
       const shares = post.shares?.count ?? 0;
