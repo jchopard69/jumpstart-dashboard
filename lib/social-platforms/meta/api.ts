@@ -506,7 +506,7 @@ export const facebookConnector: Connector = {
     // Paginate to get more posts (max 2 pages = 100 posts)
     let postPages = 0;
     while (nextPostsUrl && postPages < 2) {
-      const fbPageResponse = await apiRequest<MetaPostsResponse>(
+      const fbPageResponse: MetaPostsResponse = await apiRequest<MetaPostsResponse>(
         'facebook',
         nextPostsUrl,
         {},
