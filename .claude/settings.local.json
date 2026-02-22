@@ -29,7 +29,19 @@
       "Bash(__NEW_LINE_2e37e08eef526af4__ curl -s \"$SUPABASE_URL/rest/v1/social_daily_metrics?tenant_id=eq.$TENANT_ID&platform=eq.instagram&select=date,followers,impressions,reach,engagements,views,posts_count&order=date.desc&limit=30\" -H \"apikey: $SUPABASE_KEY\" -H \"Authorization: Bearer $SUPABASE_KEY\")",
       "Bash(python3 -m json.tool:*)",
       "Bash(python3:*)",
-      "Bash(git revert:*)"
+      "Bash(git revert:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx tsx:*)",
+      "Bash(source:*)",
+      "Bash(node:*)",
+      "Bash(vercel env pull:*)",
+      "Bash(npx vercel:*)",
+      "WebSearch",
+      "WebFetch(domain:developers.facebook.com)",
+      "WebFetch(domain:support.agorapulse.com)",
+      "WebFetch(domain:docs.supermetrics.com)",
+      "WebFetch(domain:glama.ai)",
+      "Bash(find:*)"
     ]
   }
 }

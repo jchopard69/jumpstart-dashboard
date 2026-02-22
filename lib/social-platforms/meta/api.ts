@@ -279,16 +279,16 @@ export const instagramConnector: Connector = {
     // Paginate to get more posts (max 2 pages = 100 posts)
     let mediaPages = 0;
     while (nextMediaUrl && mediaPages < 2) {
-      const mediaResponse = await apiRequest<MetaMediaResponse>(
+      const pageResponse: MetaMediaResponse = await apiRequest<MetaMediaResponse>(
         'instagram',
         nextMediaUrl,
         {},
         'media'
       );
-      if (mediaResponse.data?.length) {
-        allMedia.push(...mediaResponse.data);
+      if (pageResponse.data?.length) {
+        allMedia.push(...pageResponse.data);
       }
-      nextMediaUrl = mediaResponse.paging?.next || null;
+      nextMediaUrl = pageResponse.paging?.next || null;
       mediaPages++;
     }
 
@@ -503,16 +503,16 @@ export const facebookConnector: Connector = {
     // Paginate to get more posts (max 2 pages = 100 posts)
     let postPages = 0;
     while (nextPostsUrl && postPages < 2) {
-      const postsResponse = await apiRequest<MetaPostsResponse>(
+      const fbPageResponse: MetaPostsResponse = await apiRequest<MetaPostsResponse>(
         'facebook',
         nextPostsUrl,
         {},
         'posts'
       );
-      if (postsResponse.data?.length) {
-        allFbPosts.push(...postsResponse.data);
+      if (fbPageResponse.data?.length) {
+        allFbPosts.push(...fbPageResponse.data);
       }
-      nextPostsUrl = postsResponse.paging?.next || null;
+      nextPostsUrl = fbPageResponse.paging?.next || null;
       postPages++;
     }
 

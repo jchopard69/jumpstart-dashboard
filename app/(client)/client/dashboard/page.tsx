@@ -9,11 +9,9 @@ import { ChartsSection } from "@/components/dashboard/charts-section";
 import { PlatformTable } from "@/components/dashboard/platform-table";
 import { TopPosts } from "@/components/dashboard/top-posts";
 import { CollaborationCard } from "@/components/dashboard/collaboration-card";
-import { AdsSummary } from "@/components/dashboard/ads-summary";
 import { SyncStatus } from "@/components/dashboard/sync-status";
 import { DailyMetricsTable } from "@/components/dashboard/daily-metrics-table";
 import { InsightCard, generateInsights } from "@/components/dashboard/insight-card";
-import { Badge } from "@/components/ui/badge";
 
 export default async function ClientDashboardPage({
   searchParams
@@ -23,7 +21,6 @@ export default async function ClientDashboardPage({
     from?: string;
     to?: string;
     platform?: string;
-    view?: string;
     tenantId?: string;
     accountId?: string;
   };
@@ -54,7 +51,6 @@ export default async function ClientDashboardPage({
   if (searchParams.from) queryParams.set("from", searchParams.from);
   if (searchParams.to) queryParams.set("to", searchParams.to);
   if (searchParams.platform) queryParams.set("platform", searchParams.platform);
-  if (searchParams.view) queryParams.set("view", searchParams.view);
   if (searchParams.tenantId) queryParams.set("tenantId", searchParams.tenantId);
   if (searchParams.accountId) queryParams.set("accountId", searchParams.accountId);
   const queryString = queryParams.toString();
@@ -130,9 +126,6 @@ export default async function ClientDashboardPage({
   const showEngagements = data.perPlatform.some((item) => item.available.engagements);
   const insights = generateInsights({ totals: data.totals, delta: data.delta });
   const showComparison = Boolean(offsetDays && (data.prevMetrics?.length ?? 0) > 0);
-  const view = searchParams.view ?? "all";
-  const showOrganic = view !== "ads";
-  const showAds = view !== "organic";
 
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
@@ -146,11 +139,11 @@ export default async function ClientDashboardPage({
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Rapport social media</p>
             <h1 className="page-heading">Performance</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Synthèse multi-plateformes sur la période sélectionnée.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Synthese multi-plateformes sur la periode selectionnee.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <RefreshButton tenantId={searchParams.tenantId} />
-            {showOrganic && <ExportButtons query={queryString} />}
+            <ExportButtons query={queryString} />
           </div>
         </div>
         <div className="mt-6">
@@ -159,106 +152,76 @@ export default async function ClientDashboardPage({
             from={searchParams.from}
             to={searchParams.to}
             platform={searchParams.platform}
-            view={searchParams.view}
             accountId={searchParams.accountId}
             accounts={accounts}
           />
         </div>
       </section>
 
-      {showOrganic && (
-        <>
-          <section className="flex items-center gap-3">
-            <Badge variant="secondary">Organique</Badge>
-            <p className="text-sm text-muted-foreground">Performance des contenus non sponsorisés.</p>
-          </section>
-
-          {showMissingDataWarning && (
-            <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <div className="flex items-start gap-3">
-                <svg className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-amber-800">Données d&apos;insights manquantes</p>
-                  <p className="text-sm text-amber-700 mt-1">
-                    Le compte est connecté mais les métriques de portée, vues et engagements ne sont pas disponibles.
-                    Cela peut être dû à des permissions manquantes. Essayez de reconnecter le compte dans les paramètres admin.
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
-
-          <KpiSection
-            totals={data.totals}
-            delta={data.delta}
-            showViews={showViews}
-            showReach={showReach}
-            showEngagements={showEngagements}
-          />
-
-          <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <InsightCard insights={insights} />
-            <CollaborationCard
-              collaboration={data.collaboration}
-              shoots={data.shoots}
-              documents={data.documents}
-            />
-          </section>
-
-          <ChartsSection
-            trendFollowers={trendFollowers}
-            trendViews={trendViews}
-            trendEngagements={trendEngagements}
-            trendReach={trendReach}
-            showViews={showViews}
-            showReach={showReach}
-            showEngagements={showEngagements}
-            showComparison={showComparison}
-          />
-
-          <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <TopPosts posts={data.posts} />
-            <div className="lg:col-span-2 space-y-4">
-              <PlatformTable
-                perPlatform={data.perPlatform}
-                showViews={showViews}
-                showReach={showReach}
-                showEngagements={showEngagements}
-              />
-              <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
+      {showMissingDataWarning && (
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <svg className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-amber-800">Donnees d&apos;insights manquantes</p>
+              <p className="text-sm text-amber-700 mt-1">
+                Le compte est connecte mais les metriques de portee, vues et engagements ne sont pas disponibles.
+                Cela peut etre du a des permissions manquantes. Essayez de reconnecter le compte dans les parametres admin.
+              </p>
             </div>
-          </section>
+          </div>
+        </section>
+      )}
 
-          <DailyMetricsTable
-            metrics={aggregatedMetricsArray}
+      <KpiSection
+        totals={data.totals}
+        delta={data.delta}
+        showViews={showViews}
+        showReach={showReach}
+        showEngagements={showEngagements}
+      />
+
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <InsightCard insights={insights} />
+        <CollaborationCard
+          collaboration={data.collaboration}
+          shoots={data.shoots}
+          documents={data.documents}
+        />
+      </section>
+
+      <ChartsSection
+        trendFollowers={trendFollowers}
+        trendViews={trendViews}
+        trendEngagements={trendEngagements}
+        trendReach={trendReach}
+        showViews={showViews}
+        showReach={showReach}
+        showEngagements={showEngagements}
+        showComparison={showComparison}
+      />
+
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <TopPosts posts={data.posts.slice(0, 10)} />
+        <div className="lg:col-span-2 space-y-4">
+          <PlatformTable
+            perPlatform={data.perPlatform}
             showViews={showViews}
             showReach={showReach}
             showEngagements={showEngagements}
           />
+          <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
+        </div>
+      </section>
 
-          {showAds && (
-            <>
-              <section className="flex items-center gap-3">
-                <Badge variant="secondary">Ads</Badge>
-                <p className="text-sm text-muted-foreground">Performances sponsorisées sur la période.</p>
-              </section>
-              <AdsSummary ads={data.ads} />
-            </>
-          )}
-        </>
-      )}
-
-      {!showOrganic && showAds && (
-        <>
-          <section className="flex items-center gap-3">
-            <Badge variant="secondary">Ads</Badge>
-            <p className="text-sm text-muted-foreground">Résultats sponsorisés uniquement.</p>
-          </section>
-          <AdsSummary ads={data.ads} />
-        </>
-      )}
+      <DailyMetricsTable
+        metrics={aggregatedMetricsArray}
+        showViews={showViews}
+        showReach={showReach}
+        showEngagements={showEngagements}
+      />
     </div>
   );
 }

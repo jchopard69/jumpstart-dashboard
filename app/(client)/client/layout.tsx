@@ -45,7 +45,6 @@ export default async function ClientLayout({ children }: { children: React.React
                   <nav className="mt-6 flex flex-col gap-2 text-sm">
                     <NavLink href="/client/dashboard">Tableau de bord</NavLink>
                     <NavLink href="/client/os">JumpStart OS</NavLink>
-                    <NavLink href="/client/ads">Ads</NavLink>
                     <NavLink href="/client/documents">Documents</NavLink>
                     {isAdmin && <NavLink href="/admin">Admin</NavLink>}
                   </nav>
