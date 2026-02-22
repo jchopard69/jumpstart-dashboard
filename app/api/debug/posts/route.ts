@@ -66,31 +66,38 @@ export async function GET(request: Request) {
 
   // Try to insert a test post to diagnose the JSON issue
   let testInsertResult = null;
-  try {
-    const testPost = {
-      tenant_id: tenantId,
-      platform: 'test',
-      social_account_id: accounts?.[0]?.id || 'test',
-      external_post_id: `test_${Date.now()}`,
-      posted_at: new Date().toISOString(),
-      url: null,
-      caption: 'Test caption with emoji 🎉',
-      media_type: 'image',
-      thumbnail_url: null,
-      media_url: null,
-      metrics: { likes: 1, comments: 2 },
-      raw_json: null
-    };
-    const { error } = await serviceClient.from("social_posts").insert(testPost);
-    if (error) {
-      testInsertResult = { success: false, error: error.message, code: error.code };
-    } else {
-      testInsertResult = { success: true };
-      // Clean up test post
-      await serviceClient.from("social_posts").delete().eq("external_post_id", testPost.external_post_id);
+  const testAccountId = accounts?.[0]?.id;
+  const testPlatform = accounts?.[0]?.platform || 'instagram';
+
+  if (testAccountId) {
+    try {
+      const testPost = {
+        tenant_id: tenantId,
+        platform: testPlatform,
+        social_account_id: testAccountId,
+        external_post_id: `test_${Date.now()}`,
+        posted_at: new Date().toISOString(),
+        url: 'https://example.com/test',
+        caption: 'Test caption with emoji 🎉 and special chars: "quotes" & ampersand',
+        media_type: 'image',
+        thumbnail_url: null,
+        media_url: null,
+        metrics: { likes: 1, comments: 2, shares: 0, views: 0, engagements: 3, impressions: 0 },
+        raw_json: null
+      };
+      const { error } = await serviceClient.from("social_posts").insert(testPost);
+      if (error) {
+        testInsertResult = { success: false, error: error.message, code: error.code, testPost };
+      } else {
+        testInsertResult = { success: true, message: "Test post inserted successfully" };
+        // Clean up test post
+        await serviceClient.from("social_posts").delete().eq("external_post_id", testPost.external_post_id);
+      }
+    } catch (e: any) {
+      testInsertResult = { success: false, error: e.message };
     }
-  } catch (e: any) {
-    testInsertResult = { success: false, error: e.message };
+  } else {
+    testInsertResult = { skipped: true, reason: "No accounts found" };
   }
 
   return NextResponse.json({
