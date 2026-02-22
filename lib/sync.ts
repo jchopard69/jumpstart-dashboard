@@ -139,20 +139,32 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
       }
 
       if (result.posts.length) {
-        const postsPayload = result.posts.map((post) => ({
-          tenant_id: tenantId,
-          platform: account.platform,
-          social_account_id: account.id,
-          external_post_id: post.external_post_id,
-          posted_at: post.posted_at,
-          url: post.url,
-          caption: post.caption,
-          media_type: post.media_type,
-          thumbnail_url: post.thumbnail_url,
-          media_url: post.media_url,
-          metrics: safeJson(post.metrics) ?? {},
-          raw_json: safeJson(post.raw_json)
-        }));
+        const postsPayload = result.posts.map((post) => {
+          // Sanitize metrics - ensure it's a simple object
+          let metrics: Record<string, number> = {};
+          if (post.metrics && typeof post.metrics === 'object') {
+            for (const [key, val] of Object.entries(post.metrics)) {
+              if (typeof val === 'number') {
+                metrics[key] = val;
+              }
+            }
+          }
+
+          return {
+            tenant_id: tenantId,
+            platform: account.platform,
+            social_account_id: account.id,
+            external_post_id: post.external_post_id,
+            posted_at: post.posted_at,
+            url: post.url?.slice(0, 500),
+            caption: post.caption?.slice(0, 500),
+            media_type: post.media_type,
+            thumbnail_url: post.thumbnail_url?.slice(0, 500),
+            media_url: post.media_url?.slice(0, 500),
+            metrics,
+            raw_json: null // Skip raw_json to avoid JSON serialization issues
+          };
+        });
         const { error: postsError } = await supabase.from("social_posts").upsert(postsPayload, {
           onConflict: "tenant_id,platform,social_account_id,external_post_id"
         });
