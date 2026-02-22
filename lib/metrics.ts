@@ -38,6 +38,7 @@ export function getPostImpressions(metrics: MetricRecord): number {
     normalized?.impressions ??
     normalized?.views ??
     normalized?.reach ??
+    normalized?.media_views ??
     normalized?.plays ??
     normalized?.video_views ??
     0
@@ -68,7 +69,11 @@ export function getPostVisibility(metrics: MetricRecord): { label: "Impressions"
   const impressions = coerceMetric(normalized?.impressions ?? 0);
   if (impressions > 0) return { label: "Impressions", value: impressions };
   const views = coerceMetric(
-    normalized?.views ?? normalized?.plays ?? normalized?.video_views ?? 0
+    normalized?.views ??
+    normalized?.media_views ??
+    normalized?.plays ??
+    normalized?.video_views ??
+    0
   );
   if (views > 0) return { label: "Vues", value: views };
   const reach = coerceMetric(normalized?.reach ?? 0);

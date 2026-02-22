@@ -533,7 +533,7 @@ export const facebookConnector: Connector = {
       for (const chunk of chunks) {
         const batch = chunk.map((postId) => ({
           method: "GET",
-          relative_url: `${postId}/insights?metric=post_impressions,post_impressions_unique,post_video_views&period=lifetime`,
+          relative_url: `${postId}/insights?metric=post_impressions,post_impressions_unique,post_media_view,post_total_media_view_unique,post_video_views&period=lifetime`,
         }));
 
         try {
@@ -566,9 +566,18 @@ export const facebookConnector: Connector = {
               }
               const postId = chunk[index];
               result.set(postId, {
-                impressions: byName.get("post_impressions") ?? 0,
-                reach: byName.get("post_impressions_unique") ?? 0,
-                views: byName.get("post_video_views") ?? 0,
+                impressions:
+                  byName.get("post_impressions") ??
+                  byName.get("post_media_view") ??
+                  0,
+                reach:
+                  byName.get("post_impressions_unique") ??
+                  byName.get("post_total_media_view_unique") ??
+                  0,
+                views:
+                  byName.get("post_video_views") ??
+                  byName.get("post_media_view") ??
+                  0,
               });
             } catch {
               return;
@@ -606,6 +615,7 @@ export const facebookConnector: Connector = {
           impressions: insights.impressions,
           reach: insights.reach,
           views: insights.views,
+          media_views: insights.impressions,
           engagements: reactions + comments + shares,
         },
         raw_json: post as unknown as Record<string, unknown>,
