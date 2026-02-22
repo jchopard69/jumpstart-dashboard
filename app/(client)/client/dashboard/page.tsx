@@ -63,7 +63,23 @@ export default async function ClientDashboardPage({
   const offsetDays = data.range && data.prevRange
     ? Math.round((data.range.start.getTime() - data.prevRange.start.getTime()) / msDay)
     : null;
-  const prevMap = new Map((data.prevMetrics ?? []).map((row) => [row.date, row]));
+
+  // Aggregate metrics by date (sum across platforms)
+  const aggregateByDate = (metrics: typeof data.metrics) => {
+    const byDate = new Map<string, { followers: number; views: number; engagements: number; reach: number }>();
+    for (const row of metrics) {
+      const existing = byDate.get(row.date) ?? { followers: 0, views: 0, engagements: 0, reach: 0 };
+      existing.followers += row.followers ?? 0;
+      existing.views += row.views ?? 0;
+      existing.engagements += row.engagements ?? 0;
+      existing.reach += row.reach ?? 0;
+      byDate.set(row.date, existing);
+    }
+    return byDate;
+  };
+
+  const aggregatedMetrics = aggregateByDate(data.metrics);
+  const aggregatedPrevMetrics = aggregateByDate(data.prevMetrics ?? []);
 
   const shiftDate = (dateStr: string, days: number) => {
     const date = new Date(dateStr);
@@ -74,28 +90,39 @@ export default async function ClientDashboardPage({
   const withPrev = (date: string, key: "followers" | "views" | "engagements" | "reach") => {
     if (!offsetDays) return undefined;
     const prevDate = shiftDate(date, offsetDays);
-    return prevMap.get(prevDate)?.[key] ?? 0;
+    return aggregatedPrevMetrics.get(prevDate)?.[key] ?? 0;
   };
 
-  const trendFollowers = data.metrics.map((item) => ({
-    date: item.date,
-    value: item.followers ?? 0,
-    previousValue: withPrev(item.date, "followers")
+  // Build trend data from aggregated metrics (sorted by date)
+  const sortedDates = Array.from(aggregatedMetrics.keys()).sort();
+  const trendFollowers = sortedDates.map((date) => ({
+    date,
+    value: aggregatedMetrics.get(date)?.followers ?? 0,
+    previousValue: withPrev(date, "followers")
   }));
-  const trendViews = data.metrics.map((item) => ({
-    date: item.date,
-    value: item.views ?? 0,
-    previousValue: withPrev(item.date, "views")
+  const trendViews = sortedDates.map((date) => ({
+    date,
+    value: aggregatedMetrics.get(date)?.views ?? 0,
+    previousValue: withPrev(date, "views")
   }));
-  const trendEngagements = data.metrics.map((item) => ({
-    date: item.date,
-    value: item.engagements ?? 0,
-    previousValue: withPrev(item.date, "engagements")
+  const trendEngagements = sortedDates.map((date) => ({
+    date,
+    value: aggregatedMetrics.get(date)?.engagements ?? 0,
+    previousValue: withPrev(date, "engagements")
   }));
-  const trendReach = data.metrics.map((item) => ({
-    date: item.date,
-    value: item.reach ?? 0,
-    previousValue: withPrev(item.date, "reach")
+  const trendReach = sortedDates.map((date) => ({
+    date,
+    value: aggregatedMetrics.get(date)?.reach ?? 0,
+    previousValue: withPrev(date, "reach")
+  }));
+
+  // Build aggregated metrics array for the daily table
+  const aggregatedMetricsArray = sortedDates.map((date) => ({
+    date,
+    followers: aggregatedMetrics.get(date)?.followers ?? 0,
+    views: aggregatedMetrics.get(date)?.views ?? 0,
+    reach: aggregatedMetrics.get(date)?.reach ?? 0,
+    engagements: aggregatedMetrics.get(date)?.engagements ?? 0,
   }));
 
   const showViews = data.perPlatform.some((item) => item.available.views);
@@ -205,7 +232,7 @@ export default async function ClientDashboardPage({
           </section>
 
           <DailyMetricsTable
-            metrics={data.metrics}
+            metrics={aggregatedMetricsArray}
             showViews={showViews}
             showReach={showReach}
             showEngagements={showEngagements}
