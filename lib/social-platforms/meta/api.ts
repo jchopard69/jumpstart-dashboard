@@ -495,7 +495,7 @@ export const facebookConnector: Connector = {
     console.log(`[facebook] Fetching posts...`);
     const allFbPosts: MetaPostItem[] = [];
     let nextPostsUrl: string | null = buildUrl(`${GRAPH_URL}/${externalAccountId}/posts`, {
-      fields: 'id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count),comments.summary(total_count)',
+      fields: 'id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count),comments.summary(total_count),insights.metric(post_impressions,post_impressions_unique,post_engaged_users,post_video_views)',
       limit: 50,
       access_token: accessToken,
     });
@@ -518,10 +518,21 @@ export const facebookConnector: Connector = {
 
     console.log(`[facebook] Fetched ${allFbPosts.length} posts`);
 
+    const extractInsightValue = (post: any, key: string) => {
+      const insights = post?.insights?.data;
+      if (!Array.isArray(insights)) return 0;
+      const metric = insights.find((item: any) => item?.name === key);
+      const value = metric?.values?.[0]?.value;
+      return typeof value === "number" ? value : 0;
+    };
+
     const posts: PostMetric[] = allFbPosts.map((post: any) => {
       const reactions = post.reactions?.summary?.total_count ?? 0;
       const comments = post.comments?.summary?.total_count ?? 0;
       const shares = post.shares?.count ?? 0;
+      const impressions = extractInsightValue(post, "post_impressions");
+      const reach = extractInsightValue(post, "post_impressions_unique");
+      const views = extractInsightValue(post, "post_video_views");
 
       return {
         external_post_id: post.id,
@@ -535,6 +546,9 @@ export const facebookConnector: Connector = {
           likes: reactions,
           comments: comments,
           shares: shares,
+          impressions,
+          reach,
+          views,
           engagements: reactions + comments + shares,
         },
         raw_json: post as unknown as Record<string, unknown>,
