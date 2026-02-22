@@ -9,22 +9,34 @@ type KpiCardProps = {
   className?: string;
 };
 
+function formatDelta(delta: number): string {
+  const sign = delta >= 0 ? "+" : "";
+  const abs = Math.abs(delta);
+
+  if (abs >= 10000) {
+    // 10000+ → +10K%
+    return `${sign}${Math.round(abs / 1000)}K%`;
+  } else if (abs >= 1000) {
+    // 1000-9999 → +1.2K%
+    return `${sign}${(abs / 1000).toFixed(1).replace(".0", "")}K%`;
+  }
+  return `${sign}${Math.round(delta)}%`;
+}
+
 export function KpiCard({ label, value, delta, suffix, className }: KpiCardProps) {
   const trend = delta >= 0 ? "up" : "down";
   const formatted = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(value);
-  // Cap display at ±999% to prevent overflow
-  const cappedDelta = Math.abs(delta) > 999 ? (delta > 0 ? 999 : -999) : Math.round(delta);
-  const deltaValue = `${cappedDelta >= 0 ? "+" : ""}${cappedDelta}%`;
+  const deltaValue = formatDelta(delta);
 
   return (
     <Card className={cn("card-surface relative overflow-hidden p-4 fade-in-up", className)}>
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400" />
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">{label}</p>
+      <div className="flex items-center justify-between gap-1">
+        <p className="min-w-0 truncate text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
         {delta !== 0 && (
           <span
             className={cn(
-              "shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide",
+              "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
               trend === "up"
                 ? "bg-emerald-500/10 text-emerald-600"
                 : "bg-rose-500/10 text-rose-600"
