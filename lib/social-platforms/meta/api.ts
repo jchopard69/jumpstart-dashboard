@@ -294,77 +294,29 @@ export const instagramConnector: Connector = {
 
     console.log(`[instagram] Fetched ${allMedia.length} media items`);
 
-    const fetchMediaViews = async (mediaId: string, mediaType?: string) => {
+    // Fetch all insights for a media item in a single API call
+    // Metrics vary by media type due to Instagram API restrictions:
+    // - IMAGE/CAROUSEL_ALBUM: impressions, reach (no video metrics)
+    // - VIDEO: impressions, reach, video_views
+    // - REEL: reach, plays, saved, shares (impressions always returns 0 for reels)
+    // - STORY: impressions, reach (but stories are ephemeral)
+    const fetchMediaInsights = async (mediaId: string, mediaType?: string) => {
       const normalized = (mediaType ?? "").toUpperCase();
-      const metrics =
-        normalized === "REEL"
-          ? ["plays", "views", "video_views"]
-          : normalized === "VIDEO"
-            ? ["video_views", "views"]
-            : [];
-      if (!metrics.length) return 0;
 
-      for (const metric of metrics) {
-        try {
-          const insightsUrl = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
-            metric,
-            access_token: accessToken,
-          });
-          const response = await apiRequest<{ data?: Array<{ values?: Array<{ value?: number }> }> }>(
-            "instagram",
-            insightsUrl,
-            {},
-            "media_views",
-            true  // silentErrors - don't log expected 400s when trying different metrics
-          );
-          const value = response.data?.[0]?.values?.[0]?.value;
-          if (typeof value === "number") {
-            return value;
-          }
-        } catch {
-          continue;
-        }
+      // Build metric list based on media type
+      let metricsToFetch: string;
+      if (normalized === "REEL") {
+        metricsToFetch = "reach,plays,saved,shares,total_interactions";
+      } else if (normalized === "VIDEO") {
+        metricsToFetch = "impressions,reach,video_views,saved,total_interactions";
+      } else if (normalized === "CAROUSEL_ALBUM") {
+        metricsToFetch = "impressions,reach,saved,total_interactions";
+      } else {
+        // IMAGE or unknown
+        metricsToFetch = "impressions,reach,saved,total_interactions";
       }
 
-      return 0;
-    };
-
-    const fetchMediaEngagements = async (mediaId: string) => {
-      try {
-        const insightsUrl = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
-          metric: "engagement,total_interactions,saved",
-          access_token: accessToken,
-        });
-        const response = await apiRequest<{ data?: Array<{ name?: string; values?: Array<{ value?: number }> }> }>(
-          "instagram",
-          insightsUrl,
-          {},
-          "media_engagements",
-          true
-        );
-        let best = 0;
-        for (const metric of response.data ?? []) {
-          const value = metric?.values?.[0]?.value;
-          if (typeof value === "number" && value > best) {
-            best = value;
-          }
-        }
-        return best;
-      } catch {
-        return 0;
-      }
-    };
-
-    const fetchMediaReachImpressions = async (mediaId: string, mediaType?: string) => {
-      const normalized = (mediaType ?? "").toUpperCase();
-      // Instagram media insights: impressions and reach are available for IMAGE, VIDEO, CAROUSEL_ALBUM, REEL
-      // For REEL, use "reach" and "impressions" (supported since v18+)
-      // For STORY, these metrics have different names but stories are ephemeral
-      const metricsToFetch = normalized === "REEL"
-        ? "impressions,reach"
-        : normalized === "STORY"
-          ? "impressions,reach"
-          : "impressions,reach";
+      const result = { impressions: 0, reach: 0, views: 0, engagements: 0 };
 
       try {
         const insightsUrl = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
@@ -375,34 +327,72 @@ export const instagramConnector: Connector = {
           "instagram",
           insightsUrl,
           {},
-          "media_reach_impressions",
+          "media_insights",
           true
         );
-        let impressions = 0;
-        let reach = 0;
+
         for (const metric of response.data ?? []) {
           const value = metric?.values?.[0]?.value;
-          if (typeof value === "number") {
-            if (metric.name === "impressions") impressions = value;
-            if (metric.name === "reach") reach = value;
+          if (typeof value !== "number") continue;
+          switch (metric.name) {
+            case "impressions":
+              result.impressions = value;
+              break;
+            case "reach":
+              result.reach = value;
+              break;
+            case "plays":
+            case "video_views":
+              result.views = Math.max(result.views, value);
+              break;
+            case "total_interactions":
+            case "engagement":
+              result.engagements = Math.max(result.engagements, value);
+              break;
+            case "saved":
+              // Add saves to engagement count
+              result.engagements += value;
+              break;
           }
         }
-        return { impressions, reach };
       } catch {
-        return { impressions: 0, reach: 0 };
+        // If combined call fails, try minimal metrics one by one
+        // This handles cases where some metrics aren't available for this media type
+        for (const metric of ["reach", "impressions", "plays", "video_views"]) {
+          try {
+            const url = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
+              metric,
+              access_token: accessToken,
+            });
+            const resp = await apiRequest<{ data?: Array<{ name?: string; values?: Array<{ value?: number }> }> }>(
+              "instagram", url, {}, "media_insights_fallback", true
+            );
+            const value = resp.data?.[0]?.values?.[0]?.value;
+            if (typeof value === "number" && value > 0) {
+              if (metric === "reach") result.reach = value;
+              else if (metric === "impressions") result.impressions = value;
+              else result.views = Math.max(result.views, value);
+            }
+          } catch {
+            continue;
+          }
+        }
       }
+
+      return result;
     };
 
     const posts: PostMetric[] = [];
     for (const item of allMedia) {
       const likes = item.like_count || 0;
       const comments = item.comments_count || 0;
-      const baseEngagements = likes + comments;
-      const engagements = baseEngagements > 0
-        ? baseEngagements
-        : await fetchMediaEngagements(item.id);
 
-      const { impressions, reach } = await fetchMediaReachImpressions(item.id, item.media_type);
+      // Single API call per post to get all insights
+      const insights = await fetchMediaInsights(item.id, item.media_type);
+
+      const baseEngagements = likes + comments;
+      // Use API engagements if our base count is 0 (some posts hide like_count)
+      const engagements = baseEngagements > 0 ? baseEngagements : Math.max(baseEngagements, insights.engagements);
 
       posts.push({
         external_post_id: item.id,
@@ -416,16 +406,18 @@ export const instagramConnector: Connector = {
           likes,
           comments,
           engagements,
-          impressions,
-          reach,
-          views: await fetchMediaViews(item.id, item.media_type),
+          impressions: insights.impressions,
+          reach: insights.reach,
+          views: insights.views,
         },
         raw_json: item as unknown as Record<string, unknown>,
       });
     }
 
-    const postsWithReach = posts.filter(p => (p.metrics?.impressions ?? 0) > 0 || (p.metrics?.reach ?? 0) > 0);
-    console.log(`[instagram] Post insights: ${posts.length} total, ${postsWithReach.length} with reach/impressions data`);
+    const postsWithVisibility = posts.filter(p =>
+      (p.metrics?.impressions ?? 0) > 0 || (p.metrics?.reach ?? 0) > 0 || (p.metrics?.views ?? 0) > 0
+    );
+    console.log(`[instagram] Post insights: ${posts.length} total, ${postsWithVisibility.length} with visibility data`);
 
     if (posts.length) {
       const dailyMap = new Map<string, DailyMetric>();
@@ -649,7 +641,8 @@ export const facebookConnector: Connector = {
             if (!item || item.code !== 200) {
               batchErrors++;
               if (batchErrors <= 2) {
-                console.warn(`[facebook] Batch insights item ${index} failed: code=${item?.code}`);
+                const errorBody = item?.body ? JSON.stringify(item.body).slice(0, 200) : 'no body';
+                console.warn(`[facebook] Batch insights item ${index} failed: code=${item?.code} body=${errorBody}`);
               }
               return;
             }

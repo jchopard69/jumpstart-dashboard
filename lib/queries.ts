@@ -1,7 +1,7 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { assertTenant } from "@/lib/auth";
 import { buildPreviousRange, resolveDateRange } from "@/lib/date";
-import { coerceMetric, getPostEngagements, getPostImpressions } from "@/lib/metrics";
+import { coerceMetric, getPostEngagements, getPostImpressions, getPostVisibility } from "@/lib/metrics";
 import type { Platform } from "@/lib/types";
 
 export async function fetchDashboardData(params: {
@@ -254,6 +254,19 @@ export async function fetchDashboardData(params: {
     .order("started_at", { ascending: false })
     .limit(1)
     .single();
+
+  // Diagnostic: log sample post metrics to debug visibility issues
+  if (posts?.length) {
+    const sample = posts.slice(0, 3).map(p => ({
+      id: p.id?.slice(0, 8),
+      platform: p.platform,
+      metrics: p.metrics,
+      visibility: getPostVisibility(p.metrics as any),
+      impressions: getPostImpressions(p.metrics as any),
+      engagements: getPostEngagements(p.metrics as any),
+    }));
+    console.log(`[queries] Post metrics sample (${posts.length} total):`, JSON.stringify(sample, null, 2));
+  }
 
   const sortedPosts = (posts ?? []).sort((a, b) => {
     const aImp = getPostImpressions(a.metrics);
