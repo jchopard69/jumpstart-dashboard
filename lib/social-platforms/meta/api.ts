@@ -297,8 +297,8 @@ export const instagramConnector: Connector = {
 
     console.log(`[instagram] Fetched ${allMedia.length} media items`);
 
-    // Fetch media insights with per-metric probes so we keep real values
-    // (impressions/views) when available and stop retrying unsupported metrics.
+    // Fetch media insights with a batched request per media item for speed.
+    // Fallback to per-metric probes only when Meta rejects a metric for that media type.
     const unsupportedMetricsByType = new Map<string, Set<string>>();
 
     const fetchMediaMetric = async (mediaId: string, mediaType: string, metric: string) => {
@@ -334,22 +334,83 @@ export const instagramConnector: Connector = {
       }
     };
 
+    const metricsForMediaType = (mediaType: string): string[] => {
+      if (mediaType === "REEL" || mediaType === "VIDEO") {
+        return ["impressions", "reach", "views", "total_interactions", "saved"];
+      }
+      if (mediaType === "STORY") {
+        return ["impressions", "reach", "views", "total_interactions"];
+      }
+      // IMAGE / CAROUSEL / unknown
+      return ["impressions", "reach", "total_interactions", "saved"];
+    };
+
     const fetchMediaInsights = async (mediaId: string, mediaType?: string) => {
       const normalized = (mediaType ?? "").toUpperCase();
       const mediaTypeKey = normalized || "UNKNOWN";
+      const unsupported = unsupportedMetricsByType.get(mediaTypeKey) ?? new Set<string>();
+      const metricsToFetch = metricsForMediaType(mediaTypeKey).filter((metric) => !unsupported.has(metric));
 
       const result = { impressions: 0, reach: 0, views: 0, engagements: 0 };
-      const impressions = await fetchMediaMetric(mediaId, mediaTypeKey, "impressions");
-      const reach = await fetchMediaMetric(mediaId, mediaTypeKey, "reach");
-      const views = await fetchMediaMetric(mediaId, mediaTypeKey, "views");
-      const totalInteractions = await fetchMediaMetric(mediaId, mediaTypeKey, "total_interactions");
-      const saved = await fetchMediaMetric(mediaId, mediaTypeKey, "saved");
+      if (!metricsToFetch.length) return result;
 
-      if (typeof impressions === "number") result.impressions = impressions;
-      if (typeof reach === "number") result.reach = reach;
-      if (typeof views === "number") result.views = views;
-      if (typeof totalInteractions === "number") result.engagements = Math.max(result.engagements, totalInteractions);
-      if (typeof saved === "number") result.engagements += saved;
+      try {
+        const batchUrl = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
+          metric: metricsToFetch.join(","),
+          access_token: accessToken,
+        });
+        const response = await apiRequest<{ data?: Array<{ name?: string; values?: Array<{ value?: number }> }> }>(
+          "instagram",
+          batchUrl,
+          {},
+          "media_insights",
+          true
+        );
+        for (const metricData of response.data ?? []) {
+          const value = metricData?.values?.[0]?.value;
+          if (typeof value !== "number") continue;
+          switch (metricData.name) {
+            case "impressions":
+              result.impressions = value;
+              break;
+            case "reach":
+              result.reach = value;
+              break;
+            case "views":
+              result.views = value;
+              break;
+            case "total_interactions":
+              result.engagements = Math.max(result.engagements, value);
+              break;
+            case "saved":
+              result.engagements += value;
+              break;
+          }
+        }
+      } catch (err) {
+        // Probe per metric only when one of the requested metrics is unsupported.
+        // This avoids expensive per-metric traffic on the happy path.
+        const message = err instanceof Error ? err.message : String(err);
+        const unsupportedMetric =
+          message.includes("valid insights metric") ||
+          message.includes("no longer supported");
+        if (!unsupportedMetric) {
+          console.warn(`[instagram] media_insights failed for ${mediaId} (${mediaTypeKey}): ${message.slice(0, 120)}`);
+          return result;
+        }
+
+        const impressions = await fetchMediaMetric(mediaId, mediaTypeKey, "impressions");
+        const reach = await fetchMediaMetric(mediaId, mediaTypeKey, "reach");
+        const views = await fetchMediaMetric(mediaId, mediaTypeKey, "views");
+        const totalInteractions = await fetchMediaMetric(mediaId, mediaTypeKey, "total_interactions");
+        const saved = await fetchMediaMetric(mediaId, mediaTypeKey, "saved");
+
+        if (typeof impressions === "number") result.impressions = impressions;
+        if (typeof reach === "number") result.reach = reach;
+        if (typeof views === "number") result.views = views;
+        if (typeof totalInteractions === "number") result.engagements = Math.max(result.engagements, totalInteractions);
+        if (typeof saved === "number") result.engagements += saved;
+      }
 
       return result;
     };
