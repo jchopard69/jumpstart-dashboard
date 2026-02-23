@@ -297,67 +297,59 @@ export const instagramConnector: Connector = {
 
     console.log(`[instagram] Fetched ${allMedia.length} media items`);
 
-    // Fetch all insights for a media item in a single API call.
-    // IMPORTANT: Meta deprecated `impressions` and `video_views` starting v22.0+.
-    // Even on v21.0, the API now rejects these metrics for most media types.
-    // Instagram also treats all VIDEO as REEL internally.
-    // Safe metrics (as of Feb 2026):
-    //   IMAGE/CAROUSEL_ALBUM: reach, saved
-    //   VIDEO/REEL:           reach, saved, shares, total_interactions
-    //   STORY:                reach
-    // NO FALLBACK: individual retries per media item caused 300s timeouts on Vercel.
-    const fetchMediaInsights = async (mediaId: string, mediaType?: string) => {
-      const normalized = (mediaType ?? "").toUpperCase();
+    // Fetch media insights with per-metric probes so we keep real values
+    // (impressions/views) when available and stop retrying unsupported metrics.
+    const unsupportedMetricsByType = new Map<string, Set<string>>();
 
-      const result = { impressions: 0, reach: 0, views: 0, engagements: 0 };
-
-      // Build STRICT metric list — NO impressions, NO video_views (both deprecated)
-      let metricsToFetch: string;
-      if (normalized === "REEL" || normalized === "VIDEO") {
-        // "plays" is no longer supported on recent Meta API versions for many videos.
-        metricsToFetch = "reach,saved,shares,total_interactions";
-      } else if (normalized === "STORY") {
-        metricsToFetch = "reach";
-      } else {
-        // IMAGE, CAROUSEL_ALBUM, or unknown
-        metricsToFetch = "reach,saved";
-      }
+    const fetchMediaMetric = async (mediaId: string, mediaType: string, metric: string) => {
+      const unsupported = unsupportedMetricsByType.get(mediaType) ?? new Set<string>();
+      if (unsupported.has(metric)) return null;
 
       try {
-        const insightsUrl = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
-          metric: metricsToFetch,
+        const metricUrl = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
+          metric,
           access_token: accessToken,
         });
-        const response = await apiRequest<{ data?: Array<{ name?: string; values?: Array<{ value?: number }> }> }>(
+        const response = await apiRequest<{ data?: Array<{ values?: Array<{ value?: number }> }> }>(
           "instagram",
-          insightsUrl,
+          metricUrl,
           {},
-          "media_insights",
+          `media_insights_${metric}`,
           true
         );
-
-        for (const metric of response.data ?? []) {
-          const value = metric?.values?.[0]?.value;
-          if (typeof value !== "number") continue;
-          switch (metric.name) {
-            case "reach":
-              result.reach = value;
-              // Use reach as impressions substitute since impressions is deprecated
-              result.impressions = value;
-              break;
-            case "total_interactions":
-              result.engagements = Math.max(result.engagements, value);
-              break;
-            case "saved":
-              result.engagements += value;
-              break;
-          }
-        }
+        const value = response.data?.[0]?.values?.[0]?.value;
+        return typeof value === "number" ? value : 0;
       } catch (err) {
-        // Log failure but do NOT retry individually — too slow for 100+ items
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn(`[instagram] Media insights failed for ${mediaId} (${normalized}): ${msg.slice(0, 150)}`);
+        const message = err instanceof Error ? err.message : String(err);
+        const unsupportedMetric =
+          message.includes("valid insights metric") ||
+          message.includes("no longer supported");
+        if (unsupportedMetric) {
+          unsupported.add(metric);
+          unsupportedMetricsByType.set(mediaType, unsupported);
+        } else {
+          console.warn(`[instagram] media_insights_${metric} failed for ${mediaId} (${mediaType}): ${message.slice(0, 120)}`);
+        }
+        return null;
       }
+    };
+
+    const fetchMediaInsights = async (mediaId: string, mediaType?: string) => {
+      const normalized = (mediaType ?? "").toUpperCase();
+      const mediaTypeKey = normalized || "UNKNOWN";
+
+      const result = { impressions: 0, reach: 0, views: 0, engagements: 0 };
+      const impressions = await fetchMediaMetric(mediaId, mediaTypeKey, "impressions");
+      const reach = await fetchMediaMetric(mediaId, mediaTypeKey, "reach");
+      const views = await fetchMediaMetric(mediaId, mediaTypeKey, "views");
+      const totalInteractions = await fetchMediaMetric(mediaId, mediaTypeKey, "total_interactions");
+      const saved = await fetchMediaMetric(mediaId, mediaTypeKey, "saved");
+
+      if (typeof impressions === "number") result.impressions = impressions;
+      if (typeof reach === "number") result.reach = reach;
+      if (typeof views === "number") result.views = views;
+      if (typeof totalInteractions === "number") result.engagements = Math.max(result.engagements, totalInteractions);
+      if (typeof saved === "number") result.engagements += saved;
 
       return result;
     };
@@ -435,15 +427,6 @@ export const instagramConnector: Connector = {
       }
 
       dailyMetrics.splice(0, dailyMetrics.length, ...dailyMap.values());
-    }
-
-    for (const metric of dailyMetrics) {
-      if ((metric.impressions ?? 0) === 0 && (metric.reach ?? 0) > 0) {
-        metric.impressions = metric.reach ?? 0;
-      }
-      if ((metric.views ?? 0) === 0) {
-        metric.views = metric.impressions ?? metric.reach ?? 0;
-      }
     }
 
     return { dailyMetrics, posts };
