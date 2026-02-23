@@ -104,7 +104,7 @@ export function TopPosts({ posts }: TopPostsProps) {
   };
 
   return (
-    <Card className="card-surface p-6 lg:col-span-2 fade-in-up">
+    <Card className="card-surface p-6 fade-in-up">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="section-title">Contenus phares</h2>

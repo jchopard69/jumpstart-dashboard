@@ -118,7 +118,6 @@ function AnimatedNumber({ value, suffix }: { value: number; suffix?: string }) {
 }
 
 export function KpiCard({ label, value, delta, suffix, description, className, index = 0 }: KpiCardProps) {
-  const [showTooltip, setShowTooltip] = useState(false);
   const trend = delta >= 0 ? "up" : "down";
   const deltaValue = formatDelta(delta);
   const tooltipText = description || KPI_DESCRIPTIONS[label];
@@ -131,33 +130,8 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
       {/* Gradient accent bar */}
       <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400 opacity-80 transition-opacity group-hover:opacity-100" />
 
-      <div className="flex items-center justify-between gap-1">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <p className="min-w-0 truncate text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
-          {tooltipText && (
-            <div className="relative">
-              <button
-                type="button"
-                className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-                onMouseEnter={() => setShowTooltip(true)}
-                onMouseLeave={() => setShowTooltip(false)}
-                onFocus={() => setShowTooltip(true)}
-                onBlur={() => setShowTooltip(false)}
-                aria-label={`Info: ${label}`}
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-                </svg>
-              </button>
-              {showTooltip && (
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-48 rounded-lg border border-border/60 bg-white px-3 py-2 text-xs text-muted-foreground shadow-lg">
-                  {tooltipText}
-                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 rotate-45 bg-white border-r border-b border-border/60" />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-medium text-muted-foreground leading-tight">{label}</p>
         {delta !== 0 && (
           <span
             className={cn(
@@ -178,6 +152,10 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
           </span>
         )}
       </div>
+
+      {tooltipText && (
+        <p className="text-[11px] text-muted-foreground/60 leading-snug mt-0.5">{tooltipText}</p>
+      )}
 
       <div className="mt-3">
         <AnimatedNumber value={value} suffix={suffix} />

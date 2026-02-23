@@ -389,28 +389,28 @@ export default async function ClientDashboardPage({
         showComparison={showComparison}
       />
 
-      {/* Top Posts + Platform breakdown */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <TopPosts posts={data.posts.slice(0, 10)} />
-        <PlatformTable
-          perPlatform={data.perPlatform}
-          showViews={showViews}
-          showReach={showReach}
-          showEngagements={showEngagements}
-        />
-      </section>
+      {/* Top Posts — full width */}
+      <TopPosts posts={data.posts.slice(0, 10)} />
 
-      {/* Collaboration + Sync */}
+      {/* Platform breakdown + Sync */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <CollaborationCard
-            collaboration={data.collaboration}
-            shoots={data.shoots}
-            documents={data.documents}
+          <PlatformTable
+            perPlatform={data.perPlatform}
+            showViews={showViews}
+            showReach={showReach}
+            showEngagements={showEngagements}
           />
         </div>
         <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
       </section>
+
+      {/* Collaboration — full width */}
+      <CollaborationCard
+        collaboration={data.collaboration}
+        shoots={data.shoots}
+        documents={data.documents}
+      />
 
       <DailyMetricsTable
         metrics={aggregatedMetricsArray}
