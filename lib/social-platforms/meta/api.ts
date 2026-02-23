@@ -8,7 +8,7 @@ import type { Connector, ConnectorSyncResult } from '@/lib/connectors/types';
 import type { DailyMetric, PostMetric } from '../core/types';
 
 const GRAPH_URL = META_CONFIG.graphUrl;
-const INSTAGRAM_POST_INSIGHTS_LIMIT = Number(process.env.INSTAGRAM_POST_INSIGHTS_LIMIT ?? 40);
+const INSTAGRAM_POST_INSIGHTS_LIMIT = Number(process.env.INSTAGRAM_POST_INSIGHTS_LIMIT ?? 100);
 const FACEBOOK_POST_INSIGHTS_LIMIT = Number(process.env.FACEBOOK_POST_INSIGHTS_LIMIT ?? 40);
 const INSTAGRAM_POST_INSIGHTS_CONCURRENCY = Number(process.env.INSTAGRAM_POST_INSIGHTS_CONCURRENCY ?? 6);
 
@@ -416,7 +416,8 @@ export const instagramConnector: Connector = {
     };
 
     const posts: PostMetric[] = [];
-    const mediaForInsights = allMedia.slice(0, Math.max(1, INSTAGRAM_POST_INSIGHTS_LIMIT));
+    const mediaForInsights = allMedia.slice(0, Math.max(1, Math.min(INSTAGRAM_POST_INSIGHTS_LIMIT, allMedia.length)));
+    console.log(`[instagram] Fetching post insights for ${mediaForInsights.length}/${allMedia.length} media`);
     const insightsByMedia = new Map<string, { impressions: number; reach: number; views: number; engagements: number }>();
 
     for (let i = 0; i < mediaForInsights.length; i += Math.max(1, INSTAGRAM_POST_INSIGHTS_CONCURRENCY)) {
@@ -436,11 +437,22 @@ export const instagramConnector: Connector = {
       const likes = item.like_count || 0;
       const comments = item.comments_count || 0;
 
-      const insights = insightsByMedia.get(item.id) ?? { impressions: 0, reach: 0, views: 0, engagements: 0 };
+      const insights = insightsByMedia.get(item.id);
 
       const baseEngagements = likes + comments;
       // Use API engagements if our base count is 0 (some posts hide like_count)
-      const engagements = baseEngagements > 0 ? baseEngagements : Math.max(baseEngagements, insights.engagements);
+      const engagements = baseEngagements > 0 ? baseEngagements : Math.max(baseEngagements, insights?.engagements ?? 0);
+
+      const metrics: Record<string, number> = {
+        likes,
+        comments,
+        engagements,
+      };
+      if (insights) {
+        metrics.impressions = insights.impressions;
+        metrics.reach = insights.reach;
+        metrics.views = insights.views;
+      }
 
       posts.push({
         external_post_id: item.id,
@@ -450,14 +462,7 @@ export const instagramConnector: Connector = {
         media_type: item.media_type?.toLowerCase(),
         thumbnail_url: item.thumbnail_url || item.media_url,
         media_url: item.media_url,
-        metrics: {
-          likes,
-          comments,
-          engagements,
-          impressions: insights.impressions,
-          reach: insights.reach,
-          views: insights.views,
-        },
+        metrics,
         raw_json: item as unknown as Record<string, unknown>,
       });
     }
