@@ -288,7 +288,7 @@ export async function fetchDashboardData(params: {
 
   let postsQuery = supabase
     .from("social_posts")
-    .select("id,external_post_id,social_account_id,created_at,caption,thumbnail_url,posted_at,metrics,url,platform")
+    .select("id,external_post_id,social_account_id,created_at,caption,thumbnail_url,posted_at,metrics,url,platform,media_type")
     .eq("tenant_id", tenantId)
     .gte("posted_at", range.start.toISOString())
     .lte("posted_at", range.end.toISOString());
@@ -360,8 +360,9 @@ export async function fetchDashboardData(params: {
     const sample = posts.slice(0, 3).map(p => ({
       id: p.id?.slice(0, 8),
       platform: p.platform,
+      media_type: p.media_type,
       metrics: p.metrics,
-      visibility: getPostVisibility(p.metrics as any),
+      visibility: getPostVisibility(p.metrics as any, p.media_type),
       impressions: getPostImpressions(p.metrics as any),
       engagements: getPostEngagements(p.metrics as any),
     }));
@@ -379,8 +380,8 @@ export async function fetchDashboardData(params: {
         continue;
       }
 
-      const postVisibility = getPostVisibility(post.metrics as any).value;
-      const existingVisibility = getPostVisibility((existing as any).metrics as any).value;
+      const postVisibility = getPostVisibility(post.metrics as any, (post as any).media_type).value;
+      const existingVisibility = getPostVisibility((existing as any).metrics as any, (existing as any).media_type).value;
       const postImpressions = getPostImpressions(post.metrics as any);
       const existingImpressions = getPostImpressions((existing as any).metrics as any);
       const postEngagements = getPostEngagements(post.metrics as any);
@@ -403,8 +404,8 @@ export async function fetchDashboardData(params: {
   })();
 
   const sortedPosts = dedupedPosts.sort((a, b) => {
-    const aImp = getPostImpressions(a.metrics);
-    const bImp = getPostImpressions(b.metrics);
+    const aImp = getPostVisibility(a.metrics, (a as any).media_type).value;
+    const bImp = getPostVisibility(b.metrics, (b as any).media_type).value;
     const aEng = getPostEngagements(a.metrics);
     const bEng = getPostEngagements(b.metrics);
     return bImp - aImp || bEng - aEng;

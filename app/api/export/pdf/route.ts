@@ -2,7 +2,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
 import { resolveDateRange, buildPreviousRange } from "@/lib/date";
-import { coerceMetric, getPostEngagements, getPostImpressions, getPostVisibility } from "@/lib/metrics";
+import { coerceMetric, getPostEngagements, getPostVisibility } from "@/lib/metrics";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
 import { generateStrategicInsights, generateKeyTakeaways, generateExecutiveSummary, type InsightsInput } from "@/lib/insights";
 import type { Platform } from "@/lib/types";
@@ -226,7 +226,7 @@ export async function GET(request: Request) {
   // Fetch top posts
   const { data: posts } = await supabase
     .from("social_posts")
-    .select("caption,posted_at,metrics")
+    .select("caption,posted_at,metrics,media_type")
     .eq("tenant_id", tenantId)
     .gte("posted_at", range.start.toISOString())
     .lte("posted_at", range.end.toISOString())
@@ -235,14 +235,14 @@ export async function GET(request: Request) {
 
   const sortedPosts = (posts ?? [])
     .sort((a, b) => {
-      const aImp = getPostImpressions(a.metrics);
-      const bImp = getPostImpressions(b.metrics);
+      const aImp = getPostVisibility(a.metrics, a.media_type).value;
+      const bImp = getPostVisibility(b.metrics, b.media_type).value;
       const aEng = getPostEngagements(a.metrics);
       const bEng = getPostEngagements(b.metrics);
       return bImp - aImp || bEng - aEng;
     })
     .filter((post) => {
-      return getPostVisibility(post.metrics).value > 0 || getPostEngagements(post.metrics) > 0;
+      return getPostVisibility(post.metrics, post.media_type).value > 0 || getPostEngagements(post.metrics) > 0;
     })
     .slice(0, 8)
     .map((post) => ({
@@ -250,7 +250,7 @@ export async function GET(request: Request) {
       date: post.posted_at
         ? new Date(post.posted_at).toLocaleDateString("fr-FR")
         : "-",
-      visibility: getPostVisibility(post.metrics),
+      visibility: getPostVisibility(post.metrics, post.media_type),
       engagements: getPostEngagements(post.metrics),
     }));
 
@@ -258,8 +258,8 @@ export async function GET(request: Request) {
     ? sortedPosts
     : (posts ?? [])
         .sort((a, b) => {
-          const aImp = getPostImpressions(a.metrics);
-          const bImp = getPostImpressions(b.metrics);
+          const aImp = getPostVisibility(a.metrics, a.media_type).value;
+          const bImp = getPostVisibility(b.metrics, b.media_type).value;
           const aEng = getPostEngagements(a.metrics);
           const bEng = getPostEngagements(b.metrics);
           return bImp - aImp || bEng - aEng;
@@ -270,7 +270,7 @@ export async function GET(request: Request) {
           date: post.posted_at
             ? new Date(post.posted_at).toLocaleDateString("fr-FR")
             : "-",
-          visibility: getPostVisibility(post.metrics),
+          visibility: getPostVisibility(post.metrics, post.media_type),
           engagements: getPostEngagements(post.metrics),
         }));
 

@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyPosts } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { PLATFORM_ICONS, PLATFORM_LABELS, type Platform } from "@/lib/types";
-import { getPostEngagements, getPostVisibility, getPostImpressions } from "@/lib/metrics";
+import { getPostEngagements, getPostVisibility } from "@/lib/metrics";
 import { computeContentScore } from "@/lib/scoring";
 import { cn } from "@/lib/utils";
 import type { PostData } from "@/lib/types/dashboard";
@@ -53,12 +53,12 @@ const tierLabels: Record<string, string> = {
 
 export function TopPosts({ posts }: TopPostsProps) {
   const filteredPosts = posts.filter((post) => {
-    return getPostVisibility(post.metrics).value > 0 || getPostEngagements(post.metrics) > 0;
+    return getPostVisibility(post.metrics, post.media_type).value > 0 || getPostEngagements(post.metrics) > 0;
   });
   const displayPosts = filteredPosts.length ? filteredPosts : posts;
 
   // Compute cohort stats for Content Impact Score
-  const cohortImpressions = displayPosts.map(p => getPostImpressions(p.metrics));
+  const cohortImpressions = displayPosts.map((p) => getPostVisibility(p.metrics, p.media_type).value);
   const cohortEngagements = displayPosts.map(p => getPostEngagements(p.metrics));
   const cohort = {
     maxImpressions: Math.max(0, ...cohortImpressions),
@@ -81,11 +81,11 @@ export function TopPosts({ posts }: TopPostsProps) {
           <EmptyPosts />
         ) : (
           displayPosts.map((post) => {
-            const visibility = getPostVisibility(post.metrics);
+            const visibility = getPostVisibility(post.metrics, post.media_type);
             const engagements = getPostEngagements(post.metrics);
-            const impressions = getPostImpressions(post.metrics);
+            const visibilityValue = visibility.value;
             const contentScore = computeContentScore(
-              { impressions, engagements, views: impressions },
+              { impressions: visibilityValue, engagements, views: visibilityValue },
               cohort
             );
             return (

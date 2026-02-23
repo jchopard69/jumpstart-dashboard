@@ -43,6 +43,7 @@ export type PlatformData = {
 export type PostData = {
   id: string;
   platform?: Platform;
+  media_type?: string | null;
   thumbnail_url: string | null;
   caption: string | null;
   posted_at: string | null;

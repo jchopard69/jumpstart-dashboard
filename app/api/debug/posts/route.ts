@@ -198,7 +198,7 @@ export async function GET(request: Request) {
     posted_at: p.posted_at,
     raw_metrics: p.metrics,
     computed: {
-      visibility: getPostVisibility(p.metrics as any),
+      visibility: getPostVisibility(p.metrics as any, p.media_type),
       impressions: getPostImpressions(p.metrics as any),
       engagements: getPostEngagements(p.metrics as any),
     }

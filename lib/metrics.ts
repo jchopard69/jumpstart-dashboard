@@ -29,6 +29,12 @@ function normalizeMetricRecord(metrics: MetricRecord): MetricRecord {
   }
 }
 
+function isReelMediaType(mediaType: unknown): boolean {
+  if (typeof mediaType !== "string") return false;
+  const normalized = mediaType.trim().toLowerCase();
+  return normalized === "reel" || normalized.includes("reel");
+}
+
 export function getPostImpressions(metrics: MetricRecord): number {
   const normalized = normalizeMetricRecord(metrics);
   if (typeof normalized === "string") {
@@ -61,13 +67,15 @@ export function getPostEngagements(metrics: MetricRecord): number {
   );
 }
 
-export function getPostVisibility(metrics: MetricRecord): { label: "Impressions" | "Vues" | "Portée"; value: number } {
+export function getPostVisibility(
+  metrics: MetricRecord,
+  mediaType?: unknown
+): { label: "Impressions" | "Vues" | "Portée"; value: number } {
   const normalized = normalizeMetricRecord(metrics);
   if (typeof normalized === "string") {
     return { label: "Impressions", value: coerceMetric(normalized) };
   }
   const impressions = coerceMetric(normalized?.impressions ?? 0);
-  if (impressions > 0) return { label: "Impressions", value: impressions };
   const views = coerceMetric(
     normalized?.views ??
     normalized?.media_views ??
@@ -75,6 +83,10 @@ export function getPostVisibility(metrics: MetricRecord): { label: "Impressions"
     normalized?.video_views ??
     0
   );
+  if (isReelMediaType(mediaType) && views > 0) {
+    return { label: "Vues", value: views };
+  }
+  if (impressions > 0) return { label: "Impressions", value: impressions };
   if (views > 0) return { label: "Vues", value: views };
   const reach = coerceMetric(normalized?.reach ?? 0);
   return { label: "Portée", value: reach };
