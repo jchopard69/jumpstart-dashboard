@@ -8,6 +8,9 @@ import type { Connector, ConnectorSyncResult } from '@/lib/connectors/types';
 import type { DailyMetric, PostMetric } from '../core/types';
 
 const GRAPH_URL = META_CONFIG.graphUrl;
+const INSTAGRAM_POST_INSIGHTS_LIMIT = Number(process.env.INSTAGRAM_POST_INSIGHTS_LIMIT ?? 40);
+const FACEBOOK_POST_INSIGHTS_LIMIT = Number(process.env.FACEBOOK_POST_INSIGHTS_LIMIT ?? 40);
+const INSTAGRAM_POST_INSIGHTS_CONCURRENCY = Number(process.env.INSTAGRAM_POST_INSIGHTS_CONCURRENCY ?? 6);
 
 interface MetaInsightValue {
   value: number | { [key: string]: number };
@@ -300,7 +303,7 @@ export const instagramConnector: Connector = {
     // Instagram also treats all VIDEO as REEL internally.
     // Safe metrics (as of Feb 2026):
     //   IMAGE/CAROUSEL_ALBUM: reach, saved
-    //   VIDEO/REEL:           reach, plays, saved, shares, total_interactions
+    //   VIDEO/REEL:           reach, saved, shares, total_interactions
     //   STORY:                reach
     // NO FALLBACK: individual retries per media item caused 300s timeouts on Vercel.
     const fetchMediaInsights = async (mediaId: string, mediaType?: string) => {
@@ -311,8 +314,8 @@ export const instagramConnector: Connector = {
       // Build STRICT metric list — NO impressions, NO video_views (both deprecated)
       let metricsToFetch: string;
       if (normalized === "REEL" || normalized === "VIDEO") {
-        // Instagram treats all videos as reels now
-        metricsToFetch = "reach,plays,saved,shares,total_interactions";
+        // "plays" is no longer supported on recent Meta API versions for many videos.
+        metricsToFetch = "reach,saved,shares,total_interactions";
       } else if (normalized === "STORY") {
         metricsToFetch = "reach";
       } else {
@@ -342,9 +345,6 @@ export const instagramConnector: Connector = {
               // Use reach as impressions substitute since impressions is deprecated
               result.impressions = value;
               break;
-            case "plays":
-              result.views = Math.max(result.views, value);
-              break;
             case "total_interactions":
               result.engagements = Math.max(result.engagements, value);
               break;
@@ -363,12 +363,27 @@ export const instagramConnector: Connector = {
     };
 
     const posts: PostMetric[] = [];
+    const mediaForInsights = allMedia.slice(0, Math.max(1, INSTAGRAM_POST_INSIGHTS_LIMIT));
+    const insightsByMedia = new Map<string, { impressions: number; reach: number; views: number; engagements: number }>();
+
+    for (let i = 0; i < mediaForInsights.length; i += Math.max(1, INSTAGRAM_POST_INSIGHTS_CONCURRENCY)) {
+      const chunk = mediaForInsights.slice(i, i + Math.max(1, INSTAGRAM_POST_INSIGHTS_CONCURRENCY));
+      const chunkResults = await Promise.all(
+        chunk.map(async (item) => ({
+          id: item.id,
+          insights: await fetchMediaInsights(item.id, item.media_type)
+        }))
+      );
+      for (const result of chunkResults) {
+        insightsByMedia.set(result.id, result.insights);
+      }
+    }
+
     for (const item of allMedia) {
       const likes = item.like_count || 0;
       const comments = item.comments_count || 0;
 
-      // Single API call per post to get all insights
-      const insights = await fetchMediaInsights(item.id, item.media_type);
+      const insights = insightsByMedia.get(item.id) ?? { impressions: 0, reach: 0, views: 0, engagements: 0 };
 
       const baseEngagements = likes + comments;
       // Use API engagements if our base count is 0 (some posts hide like_count)
@@ -691,7 +706,8 @@ export const facebookConnector: Connector = {
       return result;
     };
 
-    const postInsightsById = await fetchPostInsights(allFbPosts.map((post: any) => post.id));
+    const postsForInsights = allFbPosts.slice(0, Math.max(1, FACEBOOK_POST_INSIGHTS_LIMIT));
+    const postInsightsById = await fetchPostInsights(postsForInsights.map((post: any) => post.id));
     const postsWithInsights = Array.from(postInsightsById.values()).filter(v => v.reach > 0 || v.impressions > 0);
     console.log(`[facebook] Post insights: ${postInsightsById.size} fetched, ${postsWithInsights.length} with reach/impressions data`);
 

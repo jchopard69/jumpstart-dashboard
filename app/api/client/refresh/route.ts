@@ -28,6 +28,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Accès tenant indisponible." }, { status: 403 });
   }
 
+  const { data: runningSync } = await supabase
+    .from("sync_logs")
+    .select("id,started_at,status")
+    .eq("tenant_id", tenantId)
+    .eq("status", "running")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (runningSync?.id) {
+    return NextResponse.json({
+      message: "Une synchronisation est déjà en cours. Merci d'attendre la fin du traitement."
+    });
+  }
+
   const { data: accounts } = await supabase
     .from("social_accounts")
     .select("last_sync_at")
