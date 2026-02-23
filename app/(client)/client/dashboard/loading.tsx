@@ -29,8 +29,9 @@ export default function DashboardLoading() {
         </div>
       </section>
 
-      {/* Score Card */}
-      <section>
+      {/* Score Card + Pulse */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <CardSkeleton className="lg:col-span-2 h-56" />
         <CardSkeleton className="h-56" />
       </section>
 
@@ -41,59 +42,27 @@ export default function DashboardLoading() {
         ))}
       </section>
 
-      {/* Insights + Collaboration */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <CardSkeleton className="lg:col-span-2" />
-        <CardSkeleton />
-      </section>
-
-      {/* Charts */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <TrendChartSkeleton key={i} />
-        ))}
-      </section>
-
-      {/* Top posts + Platform table + Sync */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="card-surface rounded-2xl border border-border/60 p-6 lg:col-span-2">
-          <Skeleton className="h-5 w-32 mb-1.5" />
-          <Skeleton className="h-3.5 w-56 mb-5" />
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <PostSkeleton key={i} />
-            ))}
-          </div>
+      {/* Tabs skeleton */}
+      <div>
+        <div className="inline-flex h-11 items-center gap-1 rounded-xl bg-muted/50 p-1.5">
+          <Skeleton className="h-8 w-24 rounded-lg" />
+          <Skeleton className="h-8 w-28 rounded-lg" />
+          <Skeleton className="h-8 w-24 rounded-lg" />
         </div>
-        <div className="space-y-4">
-          <div className="card-surface rounded-2xl border border-border/60 p-6">
-            <Skeleton className="h-5 w-40 mb-1.5" />
-            <Skeleton className="h-3.5 w-56 mb-4" />
-            <TableSkeleton rows={4} cols={4} />
-          </div>
-          <div className="card-surface rounded-2xl border border-border/60 p-6">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <Skeleton className="h-5 w-36 mb-1.5" />
-                <Skeleton className="h-3.5 w-48" />
-              </div>
-              <Skeleton className="h-6 w-20 rounded-full" />
-            </div>
-            <Skeleton className="h-1.5 w-full rounded-full" />
-          </div>
-        </div>
-      </section>
 
-      {/* Daily metrics */}
-      <section>
-        <div className="card-surface rounded-2xl border border-border/60 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <Skeleton className="h-5 w-36" />
-            <Skeleton className="h-3.5 w-16" />
-          </div>
-          <TableSkeleton rows={7} cols={5} />
+        {/* Default tab: Insights */}
+        <div className="mt-6 space-y-4">
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <CardSkeleton className="lg:col-span-2" />
+            <CardSkeleton />
+          </section>
+
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <CardSkeleton />
+            <CardSkeleton />
+          </section>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

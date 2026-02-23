@@ -19,6 +19,7 @@ import { ScoreCard } from "@/components/dashboard/score-card";
 import { PulseCard } from "@/components/dashboard/pulse-card";
 import { ContentDnaCard } from "@/components/dashboard/content-dna-card";
 import { PlaybookCard } from "@/components/dashboard/playbook-card";
+import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
 import { EmptyState } from "@/components/ui/empty-state";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
 import { generateStrategicInsights, generateKeyTakeaways, generateExecutiveSummary, type InsightsInput } from "@/lib/insights";
@@ -418,56 +419,63 @@ export default async function ClientDashboardPage({
         showEngagements={showEngagements}
       />
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <InsightCard insights={strategicInsights.map(i => ({
-          type: i.type === "opportunity" || i.type === "recommendation" ? "positive" : i.type as any,
-          title: i.title,
-          description: i.description,
-        }))} />
-        <CollaborationCard
-          collaboration={data.collaboration}
-          shoots={data.shoots}
-          documents={data.documents}
-        />
-      </section>
+      <DashboardTabs
+        insightsTab={
+          <>
+            <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <InsightCard insights={strategicInsights.map(i => ({
+                type: i.type === "opportunity" || i.type === "recommendation" ? "positive" : i.type as any,
+                title: i.title,
+                description: i.description,
+              }))} />
+              <CollaborationCard
+                collaboration={data.collaboration}
+                shoots={data.shoots}
+                documents={data.documents}
+              />
+            </section>
 
-      {/* Playbook + Content DNA */}
-      {(playbook.length > 0 || contentDna.patterns.length > 0) && (
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <PlaybookCard actions={playbook} planAction={planPlaybookAction} />
-          <ContentDnaCard dna={contentDna} />
-        </section>
-      )}
+            {(playbook.length > 0 || contentDna.patterns.length > 0) && (
+              <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <PlaybookCard actions={playbook} planAction={planPlaybookAction} />
+                <ContentDnaCard dna={contentDna} />
+              </section>
+            )}
+          </>
+        }
+        performanceTab={
+          <>
+            <ChartsSection
+              trendFollowers={trendFollowers}
+              trendViews={trendViews}
+              trendEngagements={trendEngagements}
+              trendReach={trendReach}
+              showViews={showViews}
+              showReach={showReach}
+              showEngagements={showEngagements}
+              showComparison={showComparison}
+            />
 
-      <ChartsSection
-        trendFollowers={trendFollowers}
-        trendViews={trendViews}
-        trendEngagements={trendEngagements}
-        trendReach={trendReach}
-        showViews={showViews}
-        showReach={showReach}
-        showEngagements={showEngagements}
-        showComparison={showComparison}
-      />
+            <PlatformTable
+              perPlatform={data.perPlatform}
+              showViews={showViews}
+              showReach={showReach}
+              showEngagements={showEngagements}
+            />
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <TopPosts posts={data.posts.slice(0, 10)} />
-        <div className="lg:col-span-2 space-y-4">
-          <PlatformTable
-            perPlatform={data.perPlatform}
-            showViews={showViews}
-            showReach={showReach}
-            showEngagements={showEngagements}
-          />
-          <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
-        </div>
-      </section>
+            <DailyMetricsTable
+              metrics={aggregatedMetricsArray}
+              showViews={showViews}
+              showReach={showReach}
+              showEngagements={showEngagements}
+            />
 
-      <DailyMetricsTable
-        metrics={aggregatedMetricsArray}
-        showViews={showViews}
-        showReach={showReach}
-        showEngagements={showEngagements}
+            <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
+          </>
+        }
+        contentsTab={
+          <TopPosts posts={data.posts.slice(0, 10)} />
+        }
       />
     </div>
   );

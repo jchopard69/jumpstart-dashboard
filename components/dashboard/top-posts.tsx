@@ -19,7 +19,7 @@ function PostThumbnail({ url, platform }: { url?: string; platform?: string }) {
 
   if (!url || failed) {
     return (
-      <div className="h-16 w-16 rounded-xl bg-muted/60 flex items-center justify-center text-xl text-muted-foreground">
+      <div className="h-20 w-20 rounded-xl bg-muted/60 flex items-center justify-center text-xl text-muted-foreground">
         {platform ? PLATFORM_ICONS[platform as Platform] ?? "📄" : "📄"}
       </div>
     );
@@ -29,9 +29,46 @@ function PostThumbnail({ url, platform }: { url?: string; platform?: string }) {
     <img
       src={url}
       alt="thumbnail"
-      className="h-16 w-16 rounded-xl object-cover ring-1 ring-border/40"
+      className="h-20 w-20 rounded-xl object-cover ring-1 ring-border/40"
       onError={() => setFailed(true)}
     />
+  );
+}
+
+const tierRingColors: Record<string, string> = {
+  top: "#10b981",
+  strong: "#3b82f6",
+  average: "#94a3b8",
+  weak: "#cbd5e1",
+};
+
+function ScoreRing({ score, tier }: { score: number; tier: string }) {
+  const color = tierRingColors[tier] ?? tierRingColors.average;
+  const radius = 11;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.min(score, 100) / 100;
+  const dashOffset = circumference * (1 - progress);
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: 30, height: 30 }}>
+      <svg width={30} height={30} className="absolute inset-0 -rotate-90">
+        <circle cx={15} cy={15} r={radius} fill="white" stroke="#e2e8f0" strokeWidth={2.5} />
+        <circle
+          cx={15}
+          cy={15}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={2.5}
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="relative text-[10px] font-bold leading-none" style={{ color }}>
+        {score}
+      </span>
+    </div>
   );
 }
 
@@ -67,7 +104,7 @@ export function TopPosts({ posts }: TopPostsProps) {
   };
 
   return (
-    <Card className="card-surface p-6 lg:col-span-2 fade-in-up">
+    <Card className="card-surface p-6 fade-in-up">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="section-title">Contenus phares</h2>
@@ -108,12 +145,9 @@ export function TopPosts({ posts }: TopPostsProps) {
                 {/* Thumbnail */}
                 <div className="relative shrink-0">
                   <PostThumbnail url={post.thumbnail_url ?? undefined} platform={post.platform ?? undefined} />
-                  <span className={cn(
-                    "absolute -top-1 -right-1 rounded-full border px-1.5 py-0.5 text-[9px] font-bold leading-none",
-                    tier.bg
-                  )}>
-                    {contentScore.score}
-                  </span>
+                  <div className="absolute -top-2 -right-2">
+                    <ScoreRing score={contentScore.score} tier={contentScore.tier} />
+                  </div>
                 </div>
 
                 {/* Content */}
@@ -131,7 +165,7 @@ export function TopPosts({ posts }: TopPostsProps) {
                       </Badge>
                     )}
                     <span className={cn(
-                      "rounded-full border px-1.5 py-0 text-[10px] font-medium",
+                      "rounded-full border px-2 py-0.5 text-xs font-medium",
                       tier.bg
                     )}>
                       {tier.label}
