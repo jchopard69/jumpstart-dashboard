@@ -288,7 +288,7 @@ export async function fetchDashboardData(params: {
 
   let postsQuery = supabase
     .from("social_posts")
-    .select("id,caption,thumbnail_url,posted_at,metrics,url,platform")
+    .select("id,external_post_id,social_account_id,created_at,caption,thumbnail_url,posted_at,metrics,url,platform")
     .eq("tenant_id", tenantId)
     .gte("posted_at", range.start.toISOString())
     .lte("posted_at", range.end.toISOString());
@@ -368,7 +368,41 @@ export async function fetchDashboardData(params: {
     console.log(`[queries] Post metrics sample (${posts.length} total):`, JSON.stringify(sample, null, 2));
   }
 
-  const sortedPosts = (posts ?? []).sort((a, b) => {
+  const dedupedPosts = (() => {
+    type PostRow = NonNullable<typeof posts>[number];
+    const byExternalId = new Map<string, PostRow>();
+    for (const post of (posts ?? []) as PostRow[]) {
+      const key = `${post.platform}:${post.external_post_id ?? post.id}`;
+      const existing = byExternalId.get(key);
+      if (!existing) {
+        byExternalId.set(key, post);
+        continue;
+      }
+
+      const postVisibility = getPostVisibility(post.metrics as any).value;
+      const existingVisibility = getPostVisibility((existing as any).metrics as any).value;
+      const postImpressions = getPostImpressions(post.metrics as any);
+      const existingImpressions = getPostImpressions((existing as any).metrics as any);
+      const postEngagements = getPostEngagements(post.metrics as any);
+      const existingEngagements = getPostEngagements((existing as any).metrics as any);
+
+      const postCreatedAt = post.created_at ? new Date(post.created_at).getTime() : 0;
+      const existingCreatedAt = (existing as any).created_at ? new Date((existing as any).created_at).getTime() : 0;
+
+      const shouldReplace =
+        postVisibility > existingVisibility ||
+        (postVisibility === existingVisibility && postImpressions > existingImpressions) ||
+        (postVisibility === existingVisibility && postImpressions === existingImpressions && postEngagements > existingEngagements) ||
+        (postVisibility === existingVisibility && postImpressions === existingImpressions && postEngagements === existingEngagements && postCreatedAt > existingCreatedAt);
+
+      if (shouldReplace) {
+        byExternalId.set(key, post);
+      }
+    }
+    return Array.from(byExternalId.values());
+  })();
+
+  const sortedPosts = dedupedPosts.sort((a, b) => {
     const aImp = getPostImpressions(a.metrics);
     const bImp = getPostImpressions(b.metrics);
     const aEng = getPostEngagements(a.metrics);
