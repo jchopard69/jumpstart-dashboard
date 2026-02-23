@@ -661,17 +661,23 @@ export const facebookConnector: Connector = {
                   "facebook",
                   metricUrl,
                   {},
-                  "post_insights_metric",
+                  `post_insights_${spec.metric}`,
                   true
                 );
                 const value = response?.data?.[0]?.values?.[0]?.value;
                 const parsedValue = parseInsightValue(value);
                 if (spec.target === "impressions") {
-                  existing.impressions = parsedValue;
+                  if (existing.impressions === 0 && parsedValue > 0) {
+                    existing.impressions = parsedValue;
+                  }
                 } else if (spec.target === "reach") {
-                  existing.reach = parsedValue;
+                  if (existing.reach === 0 && parsedValue > 0) {
+                    existing.reach = parsedValue;
+                  }
                 } else {
-                  existing.views = parsedValue;
+                  if (existing.views === 0 && parsedValue > 0) {
+                    existing.views = parsedValue;
+                  }
                 }
               } catch {
                 // Keep best effort behavior: one metric failure should not discard the post.
