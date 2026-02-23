@@ -24,11 +24,22 @@ function formatDelta(delta: number): string {
   return `${sign}${Math.round(delta)}%`;
 }
 
+function formatCompact(value: number): string {
+  if (value >= 1_000_000) {
+    const m = value / 1_000_000;
+    return `${m >= 10 ? Math.round(m) : m.toFixed(1).replace(".0", "")}M`;
+  }
+  if (value >= 100_000) {
+    return `${Math.round(value / 1000)}K`;
+  }
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 })
+    .format(value)
+    .replace(/[\u00A0\u202F]/g, "\u2009");
+}
+
 export function KpiCard({ label, value, delta, suffix, className, index = 0 }: KpiCardProps) {
   const trend = delta >= 0 ? "up" : "down";
-  const formatted = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 })
-    .format(value)
-    .replace(/[\u00A0\u202F]/g, "\u2009"); // Use thin space for cleaner display
+  const formatted = formatCompact(value);
   const deltaValue = formatDelta(delta);
 
   return (
