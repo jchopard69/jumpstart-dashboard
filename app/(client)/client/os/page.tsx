@@ -158,7 +158,7 @@ export default async function ClientOsPage({
       <KanbanBoard items={pipelineItems} canEdit={canEditAll} updateStatusAction={updateItemStatus} />
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ShootCalendar shoots={shoots ?? []} canEdit={canEdit} addShootAction={addShoot} />
+        <ShootCalendar shoots={shoots ?? []} canEdit={canEditAll} addShootAction={addShoot} />
         <NotesEditor
           notes={collaboration?.notes ?? null}
           updatedAt={collaboration?.updated_at ?? null}
