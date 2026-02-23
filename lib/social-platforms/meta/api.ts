@@ -716,6 +716,12 @@ export const facebookConnector: Connector = {
       const comments = post.comments?.summary?.total_count ?? 0;
       const shares = post.shares?.count ?? 0;
       const insights = postInsightsById.get(post.id) ?? { impressions: 0, reach: 0, views: 0 };
+      const bestImpressions = (insights.impressions ?? 0) > 0
+        ? (insights.impressions ?? 0)
+        : (insights.views ?? 0);
+      const bestReach = (insights.reach ?? 0) > 0
+        ? (insights.reach ?? 0)
+        : (insights.views ?? 0);
 
       return {
         external_post_id: post.id,
@@ -729,10 +735,10 @@ export const facebookConnector: Connector = {
           likes: reactions,
           comments: comments,
           shares: shares,
-          impressions: insights.impressions,
-          reach: insights.reach,
+          impressions: bestImpressions,
+          reach: bestReach,
           views: insights.views,
-          media_views: insights.impressions,
+          media_views: bestImpressions,
           engagements: reactions + comments + shares,
         },
         raw_json: post as unknown as Record<string, unknown>,
