@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { getSessionProfile } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
 import { RefreshButton } from "@/components/dashboard/refresh-button";
 import { ExportButtons } from "@/components/dashboard/export-buttons";
@@ -14,9 +16,15 @@ import { SyncStatus } from "@/components/dashboard/sync-status";
 import { DailyMetricsTable } from "@/components/dashboard/daily-metrics-table";
 import { InsightCard } from "@/components/dashboard/insight-card";
 import { ScoreCard } from "@/components/dashboard/score-card";
+import { PulseCard } from "@/components/dashboard/pulse-card";
+import { ContentDnaCard } from "@/components/dashboard/content-dna-card";
+import { PlaybookCard } from "@/components/dashboard/playbook-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
 import { generateStrategicInsights, generateKeyTakeaways, generateExecutiveSummary, type InsightsInput } from "@/lib/insights";
+import { generatePlaybook, type PlaybookInput } from "@/lib/playbook";
+import { analyzeContentDna, type ContentDnaInput } from "@/lib/content-dna";
+import { generatePulse, type PulseInput } from "@/lib/pulse";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -225,6 +233,58 @@ export default async function ClientDashboardPage({
   const keyTakeaways = generateKeyTakeaways(insightsInput);
   const executiveSummary = generateExecutiveSummary(insightsInput);
 
+  // Generate Playbook, Content DNA, Pulse
+  const playbookInput: PlaybookInput = { ...insightsInput, score: jumpStartScore };
+  const playbook = generatePlaybook(playbookInput);
+
+  const contentDnaInput: ContentDnaInput = {
+    posts: data.posts.map(p => ({
+      platform: p.platform as any,
+      media_type: (p as any).media_type,
+      posted_at: p.posted_at,
+      caption: p.caption,
+      metrics: p.metrics as any,
+    })),
+  };
+  const contentDna = analyzeContentDna(contentDnaInput);
+
+  const pulseInput: PulseInput = {
+    totals: insightsInput.totals,
+    prevTotals: insightsInput.prevTotals,
+    platforms: insightsInput.platforms,
+    score: jumpStartScore,
+    prevScore: null,
+    periodDays,
+  };
+  const pulse = generatePulse(pulseInput);
+
+  // Server action: plan a playbook action into the OS
+  async function planPlaybookAction(taskData: string): Promise<{ success: boolean; error?: string }> {
+    "use server";
+    try {
+      const task = JSON.parse(taskData);
+      const supabase = createSupabaseServerClient();
+      const sessionProfile = await getSessionProfile();
+      const tid = searchParams.tenantId ?? sessionProfile.tenant_id;
+      if (!tid) return { success: false, error: "Aucun tenant trouvé." };
+
+      const { error } = await supabase.from("collab_items").insert({
+        tenant_id: tid,
+        title: task.title,
+        kind: task.kind ?? "monthly_priority",
+        priority: task.priority ?? "high",
+        status: "planned",
+        description: task.description ?? null,
+      });
+
+      if (error) return { success: false, error: error.message };
+      revalidatePath("/client/os");
+      return { success: true };
+    } catch {
+      return { success: false, error: "Données invalides." };
+    }
+  }
+
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
   const hasInsightsData = (data.totals?.views ?? 0) > 0 || (data.totals?.reach ?? 0) > 0 || (data.totals?.engagements ?? 0) > 0;
@@ -236,11 +296,11 @@ export default async function ClientDashboardPage({
         <section className="surface-panel p-8">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Social Intelligence</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground font-medium">Social Intelligence</p>
               <h1 className="page-heading">Vue d&apos;ensemble</h1>
-              <p className="mt-2 text-sm text-muted-foreground">Analyse consolidee de votre presence digitale.</p>
+              <p className="mt-1.5 text-sm text-muted-foreground">Analyse consolidée de votre présence digitale.</p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <RefreshButton tenantId={searchParams.tenantId} />
               <ExportButtons query={queryString} />
             </div>
@@ -257,13 +317,13 @@ export default async function ClientDashboardPage({
           </div>
         </section>
 
-        <section className="surface-panel p-8">
+        <section className="surface-panel p-12">
           <EmptyState
-            title={!hasAccounts ? "Aucun compte connecte" : "Aucune donnee sur la periode"}
+            title={!hasAccounts ? "Aucun compte connecté" : "Aucune donnée sur la période"}
             description={
               !hasAccounts
-                ? "Aucun compte social n'est relie a ce workspace. Connectez un compte pour commencer a voir vos statistiques."
-                : "Les donnees n'ont pas ete trouvees pour la periode selectionnee. Essayez d'elargir la periode ou relancez la synchronisation."
+                ? "Connectez un compte social pour voir apparaître vos statistiques. L'analyse de vos performances commencera immédiatement."
+                : "Essayez d'élargir la période sélectionnée ou relancez la synchronisation pour mettre à jour les données."
             }
             action={emptyStateAction}
           />
@@ -272,16 +332,37 @@ export default async function ClientDashboardPage({
     );
   }
 
+  // Build period label for context
+  const periodLabel = (() => {
+    const labels: Record<string, string> = {
+      last_7_days: "7 derniers jours",
+      last_30_days: "30 derniers jours",
+      last_90_days: "90 derniers jours",
+      last_365_days: "12 derniers mois",
+      this_month: "ce mois-ci",
+      last_month: "le mois dernier",
+    };
+    if (preset === "custom" && data.range) {
+      return `du ${data.range.start.toLocaleDateString("fr-FR")} au ${data.range.end.toLocaleDateString("fr-FR")}`;
+    }
+    return labels[preset] ?? "30 derniers jours";
+  })();
+
   return (
     <div className="space-y-8 fade-in">
       <section className="surface-panel p-8">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Social Intelligence</p>
-            <h1 className="page-heading">Vue d'ensemble</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Analyse consolidee de votre presence digitale.</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground font-medium">Social Intelligence</p>
+            <h1 className="page-heading">Vue d&apos;ensemble</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Analyse consolidee — <span className="font-medium text-foreground/70">{periodLabel}</span>
+              {platformList.length > 0 && (
+                <span> · {platformList.length} plateforme{platformList.length > 1 ? "s" : ""}</span>
+              )}
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <RefreshButton tenantId={searchParams.tenantId} />
             <ExportButtons query={queryString} />
           </div>
@@ -299,29 +380,34 @@ export default async function ClientDashboardPage({
       </section>
 
       {showMissingDataWarning && (
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <section className="rounded-2xl border border-amber-200/60 bg-amber-50/80 p-4">
           <div className="flex items-start gap-3">
-            <svg className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-            </svg>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+              <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
             <div>
-              <p className="text-sm font-medium text-amber-800">Donnees d&apos;insights manquantes</p>
-              <p className="text-sm text-amber-700 mt-1">
-                Le compte est connecte mais les metriques de portee, vues et engagements ne sont pas disponibles.
-                Cela peut etre du a des permissions manquantes. Essayez de reconnecter le compte dans les parametres admin.
+              <p className="text-sm font-medium text-amber-800">Données d&apos;insights manquantes</p>
+              <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                Le compte est connecté mais les métriques de portée, vues et engagements ne sont pas disponibles.
+                Essayez de reconnecter le compte dans les paramètres admin.
               </p>
             </div>
           </div>
         </section>
       )}
 
-      {/* JumpStart Score + Strategic Summary */}
-      <section className="grid grid-cols-1 gap-4">
-        <ScoreCard
-          score={jumpStartScore}
-          takeaways={keyTakeaways}
-          executiveSummary={executiveSummary}
-        />
+      {/* JumpStart Score + Pulse */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <ScoreCard
+            score={jumpStartScore}
+            takeaways={keyTakeaways}
+            executiveSummary={executiveSummary}
+          />
+        </div>
+        <PulseCard pulse={pulse} />
       </section>
 
       <KpiSection
@@ -344,6 +430,14 @@ export default async function ClientDashboardPage({
           documents={data.documents}
         />
       </section>
+
+      {/* Playbook + Content DNA */}
+      {(playbook.length > 0 || contentDna.patterns.length > 0) && (
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <PlaybookCard actions={playbook} planAction={planPlaybookAction} />
+          <ContentDnaCard dna={contentDna} />
+        </section>
+      )}
 
       <ChartsSection
         trendFollowers={trendFollowers}

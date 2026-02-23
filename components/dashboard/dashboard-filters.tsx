@@ -9,10 +9,10 @@ import { PLATFORM_LABELS, PLATFORM_ICONS, type Platform } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const presets = [
-  { value: "last_7_days", label: "7 jours" },
-  { value: "last_30_days", label: "30 jours" },
-  { value: "last_90_days", label: "90 jours" },
-  { value: "last_365_days", label: "365 jours" },
+  { value: "last_7_days", label: "7j" },
+  { value: "last_30_days", label: "30j" },
+  { value: "last_90_days", label: "90j" },
+  { value: "last_365_days", label: "1 an" },
   { value: "this_month", label: "Ce mois" },
   { value: "last_month", label: "Mois dernier" }
 ];
@@ -50,73 +50,121 @@ export function DashboardFilters({
     });
   };
 
+  const hasActiveFilters = (platform && platform !== "all") || accountId || preset === "custom";
+
+  const resetFilters = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("platform");
+    params.delete("accountId");
+    params.delete("from");
+    params.delete("to");
+    params.set("preset", "last_30_days");
+    startTransition(() => {
+      router.push(`/client/dashboard?${params.toString()}`);
+    });
+  };
+
   return (
-    <div className={cn(
-      "flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-white/70 p-3 transition-opacity duration-200",
-      isPending && "opacity-60 pointer-events-none"
-    )}>
-      <div className="flex flex-wrap gap-2">
-        {presets.map((item) => (
-          <Button
-            key={item.value}
-            variant={preset === item.value ? "default" : "outline"}
-            size="sm"
-            onClick={() => updateParams({ preset: item.value, from: undefined, to: undefined })}
+    <div
+      className={cn(
+        "transition-content",
+        isPending && "opacity-55 pointer-events-none"
+      )}
+      data-pending={isPending}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Period segmented control */}
+        <div className="segmented-control">
+          {presets.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              data-active={preset === item.value}
+              onClick={() => updateParams({ preset: item.value, from: undefined, to: undefined })}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Custom date range */}
+        <div className="flex items-center gap-1.5">
+          <Input
+            type="date"
+            className="h-8 w-[130px] text-xs"
+            value={from ?? ""}
+            onChange={(event) => updateParams({ preset: "custom", from: event.target.value })}
+          />
+          <span className="text-xs text-muted-foreground">-</span>
+          <Input
+            type="date"
+            className="h-8 w-[130px] text-xs"
+            value={to ?? ""}
+            onChange={(event) => updateParams({ preset: "custom", to: event.target.value })}
+          />
+        </div>
+
+        <div className="h-5 w-px bg-border/60 hidden sm:block" />
+
+        {/* Platform filter */}
+        <Select
+          value={platform ?? "all"}
+          onValueChange={(value) => updateParams({ platform: value === "all" ? undefined : value })}
+        >
+          <SelectTrigger className="h-8 w-[160px] text-xs">
+            <SelectValue placeholder="Toutes les plateformes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Toutes les plateformes</SelectItem>
+            {Object.entries(PLATFORM_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                <span className="inline-flex items-center gap-2">
+                  <span>{PLATFORM_ICONS[value as Platform]}</span>
+                  {label}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Account filter */}
+        {accounts.length > 1 && (
+          <Select
+            value={accountId ?? "all"}
+            onValueChange={(value) => updateParams({ accountId: value === "all" ? undefined : value })}
           >
-            {item.label}
+            <SelectTrigger className="h-8 w-[200px] text-xs">
+              <SelectValue placeholder="Tous les comptes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les comptes</SelectItem>
+              {accounts.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  <span className="inline-flex items-center gap-2">
+                    <span>{PLATFORM_ICONS[account.platform]}</span>
+                    {account.account_name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Reset filters */}
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs text-muted-foreground hover:text-foreground gap-1"
+            onClick={resetFilters}
+          >
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Réinitialiser
           </Button>
-        ))}
+        )}
       </div>
-      <div className="flex items-center gap-2">
-        <Input
-          type="date"
-          value={from ?? ""}
-          onChange={(event) => updateParams({ preset: "custom", from: event.target.value })}
-        />
-        <Input
-          type="date"
-          value={to ?? ""}
-          onChange={(event) => updateParams({ preset: "custom", to: event.target.value })}
-        />
-      </div>
-      <Select
-        value={platform ?? "all"}
-        onValueChange={(value) => updateParams({ platform: value === "all" ? undefined : value })}
-      >
-      <SelectTrigger className="w-[180px]">
-        <SelectValue placeholder="Toutes les plateformes" />
-      </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Toutes les plateformes</SelectItem>
-          {Object.entries(PLATFORM_LABELS).map(([value, label]) => (
-            <SelectItem key={value} value={value}>
-              <span className="inline-flex items-center gap-2">
-                <span>{PLATFORM_ICONS[value as Platform]}</span>
-                {label}
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select
-        value={accountId ?? "all"}
-        onValueChange={(value) => updateParams({ accountId: value === "all" ? undefined : value })}
-      >
-        <SelectTrigger className="w-[240px]">
-          <SelectValue placeholder="Tous les comptes" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Tous les comptes</SelectItem>
-          {accounts.map((account) => (
-            <SelectItem key={account.id} value={account.id}>
-              <span className="inline-flex items-center gap-2">
-                <span>{PLATFORM_ICONS[account.platform]}</span>
-                {account.account_name}
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
     </div>
   );
 }

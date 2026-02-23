@@ -51,18 +51,29 @@ export function SyncStatus({ lastSync, range, metrics = [] }: SyncStatusProps) {
       <Card className="card-surface p-6 fade-in-up">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="section-title">Flux de donnees</h2>
-            <p className="text-sm text-muted-foreground">Etat de la synchronisation automatique.</p>
+            <h2 className="section-title">Flux de données</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Etat de la synchronisation automatique.</p>
           </div>
           {getStatusBadge(lastSync?.status ?? null)}
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Dernière synchro {getRelativeTime(lastSync?.finished_at ?? null)}
+        <p className="mt-3 text-sm text-muted-foreground">
+          Dernière synchro <span className="font-medium text-foreground">{getRelativeTime(lastSync?.finished_at ?? null)}</span>
         </p>
         {coverage && (
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-            <span>Couverture données: {coverage.percent}%</span>
-            <span>Jours couverts: {coverage.uniqueDays}/{coverage.totalDays}</span>
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Couverture données</span>
+              <span className="font-medium tabular-nums text-foreground">{coverage.percent}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-muted/30 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-purple-500 to-violet-400 transition-all duration-700 ease-out"
+                style={{ width: `${Math.min(100, coverage.percent)}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground tabular-nums">
+              {coverage.uniqueDays} jours couverts sur {coverage.totalDays}
+            </p>
           </div>
         )}
       </Card>

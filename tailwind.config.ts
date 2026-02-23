@@ -32,7 +32,19 @@ const config: Config = {
       },
       boxShadow: {
         soft: "0 20px 60px rgba(15, 23, 42, 0.12)",
-        card: "0 10px 30px rgba(15, 23, 42, 0.08)"
+        card: "0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06)"
+      },
+      transitionTimingFunction: {
+        "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)"
+      },
+      keyframes: {
+        "count-up": {
+          from: { opacity: "0", transform: "translateY(6px)" },
+          to: { opacity: "1", transform: "translateY(0)" }
+        }
+      },
+      animation: {
+        "count-up": "count-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards"
       }
     }
   },

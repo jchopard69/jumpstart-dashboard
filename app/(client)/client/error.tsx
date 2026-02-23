@@ -17,37 +17,37 @@ export default function ClientError({
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center fade-in">
-      <Card className="card-surface max-w-md p-8 text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-rose-100">
+      <Card className="card-surface max-w-md p-10 text-center">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50">
           <svg
-            className="h-8 w-8 text-rose-600"
+            className="h-7 w-7 text-rose-500"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
-            strokeWidth={2}
+            strokeWidth={1.5}
           >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
             />
           </svg>
         </div>
-        <h2 className="text-xl font-semibold text-foreground">Une erreur est survenue</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Nous n&apos;avons pas pu charger cette page. Veuillez réessayer.
+        <h2 className="text-lg font-semibold font-display text-foreground">Une erreur est survenue</h2>
+        <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+          Nous n&apos;avons pas pu charger cette page. Veuillez réessayer ou revenir au tableau de bord.
         </p>
         {error.digest && (
-          <p className="mt-2 text-xs text-muted-foreground/60">
-            Code erreur: {error.digest}
+          <p className="mt-3 rounded-lg bg-muted/30 px-3 py-1.5 text-[11px] text-muted-foreground/60 tabular-nums">
+            Réf. : {error.digest}
           </p>
         )}
         <div className="mt-6 flex justify-center gap-3">
-          <Button onClick={() => reset()} variant="default">
+          <Button onClick={() => reset()} variant="default" size="sm">
             Réessayer
           </Button>
-          <Button onClick={() => window.location.href = "/client/dashboard"} variant="outline">
-            Retour au dashboard
+          <Button onClick={() => window.location.href = "/client/dashboard"} variant="outline" size="sm">
+            Tableau de bord
           </Button>
         </div>
       </Card>

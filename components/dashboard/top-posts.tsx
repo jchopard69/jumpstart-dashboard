@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { EmptyPosts } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +15,11 @@ type TopPostsProps = {
 };
 
 function PostThumbnail({ url, platform }: { url?: string; platform?: string }) {
-  if (!url) {
+  const [failed, setFailed] = useState(false);
+
+  if (!url || failed) {
     return (
-      <div className="h-20 w-20 rounded-lg bg-muted flex items-center justify-center text-2xl text-muted-foreground">
+      <div className="h-16 w-16 rounded-xl bg-muted/60 flex items-center justify-center text-xl text-muted-foreground">
         {platform ? PLATFORM_ICONS[platform as Platform] ?? "📄" : "📄"}
       </div>
     );
@@ -26,30 +29,25 @@ function PostThumbnail({ url, platform }: { url?: string; platform?: string }) {
     <img
       src={url}
       alt="thumbnail"
-      className="h-20 w-20 rounded-lg object-cover"
-      onError={(e) => {
-        // Replace broken image with platform icon placeholder
-        const target = e.currentTarget;
-        target.style.display = 'none';
-        const placeholder = document.createElement('div');
-        placeholder.className = 'h-20 w-20 rounded-lg bg-muted flex items-center justify-center text-2xl text-muted-foreground';
-        placeholder.textContent = platform ? PLATFORM_ICONS[platform as Platform] ?? "📄" : "📄";
-        target.parentNode?.insertBefore(placeholder, target);
-      }}
+      className="h-16 w-16 rounded-xl object-cover ring-1 ring-border/40"
+      onError={() => setFailed(true)}
     />
   );
 }
 
-const tierColors: Record<string, string> = {
-  top: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
-  strong: "bg-blue-500/10 text-blue-700 border-blue-200",
-  average: "bg-slate-500/10 text-slate-600 border-slate-200",
-  weak: "bg-slate-100 text-slate-500 border-slate-200",
+const tierStyles: Record<string, { bg: string; label: string }> = {
+  top: { bg: "bg-emerald-500/10 text-emerald-700 border-emerald-200", label: "Top" },
+  strong: { bg: "bg-blue-500/10 text-blue-700 border-blue-200", label: "Fort" },
+  average: { bg: "bg-slate-500/10 text-slate-600 border-slate-200", label: "Moyen" },
+  weak: { bg: "bg-slate-100 text-slate-500 border-slate-200", label: "Faible" },
 };
 
-const tierLabels: Record<string, string> = {
-  top: "Top", strong: "Fort", average: "Moyen", weak: "Faible",
-};
+function formatMetric(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1).replace(".0", "")}M`;
+  if (value >= 10_000) return `${Math.round(value / 1000)}K`;
+  if (value >= 1_000) return `${(value / 1000).toFixed(1).replace(".0", "")}K`;
+  return value.toLocaleString("fr-FR");
+}
 
 export function TopPosts({ posts }: TopPostsProps) {
   const filteredPosts = posts.filter((post) => {
@@ -70,78 +68,115 @@ export function TopPosts({ posts }: TopPostsProps) {
 
   return (
     <Card className="card-surface p-6 lg:col-span-2 fade-in-up">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="section-title">Contenus phares</h2>
-          <p className="text-sm text-muted-foreground">Les publications a plus fort impact sur la periode.</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Les publications a plus fort impact sur la periode.
+          </p>
         </div>
+        {displayPosts.length > 0 && (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {displayPosts.length} publication{displayPosts.length > 1 ? "s" : ""}
+          </span>
+        )}
       </div>
-      <div className="mt-4 space-y-4">
-        {posts.length === 0 ? (
-          <EmptyPosts />
-        ) : (
-          displayPosts.map((post) => {
+
+      {posts.length === 0 ? (
+        <EmptyPosts />
+      ) : (
+        <div className="space-y-1">
+          {displayPosts.map((post, idx) => {
             const visibility = getPostVisibility(post.metrics, post.media_type);
             const engagements = getPostEngagements(post.metrics);
-            const visibilityValue = visibility.value;
             const contentScore = computeContentScore(
-              { impressions: visibilityValue, engagements, views: visibilityValue },
+              { impressions: visibility.value, engagements, views: visibility.value },
               cohort
             );
+            const tier = tierStyles[contentScore.tier] ?? tierStyles.average;
+
             return (
-              <div key={post.id} className="flex items-start gap-4 border-b border-border pb-4 last:border-0">
-                <div className="relative">
+              <div
+                key={post.id}
+                className="group relative flex items-center gap-4 rounded-xl px-3 py-3 transition-colors hover:bg-muted/30"
+              >
+                {/* Rank */}
+                <span className="w-5 shrink-0 text-center text-xs font-semibold text-muted-foreground/60 tabular-nums">
+                  {idx + 1}
+                </span>
+
+                {/* Thumbnail */}
+                <div className="relative shrink-0">
                   <PostThumbnail url={post.thumbnail_url ?? undefined} platform={post.platform ?? undefined} />
                   <span className={cn(
-                    "absolute -top-1.5 -right-1.5 rounded-full border px-1.5 py-0.5 text-[9px] font-bold",
-                    tierColors[contentScore.tier]
+                    "absolute -top-1 -right-1 rounded-full border px-1.5 py-0.5 text-[9px] font-bold leading-none",
+                    tier.bg
                   )}>
                     {contentScore.score}
                   </span>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium line-clamp-2">{post.caption ?? "Publication sans titre"}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>{post.posted_at ? new Date(post.posted_at).toLocaleDateString("fr-FR") : "-"}</span>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium line-clamp-1 group-hover:text-foreground transition-colors">
+                    {post.caption ?? "Publication sans titre"}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="tabular-nums">
+                      {post.posted_at ? new Date(post.posted_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "-"}
+                    </span>
                     {post.platform && (
-                      <Badge variant="secondary" className="text-[10px]">
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                         {PLATFORM_ICONS[post.platform as Platform]} {PLATFORM_LABELS[post.platform as Platform]}
                       </Badge>
                     )}
                     <span className={cn(
-                      "rounded-full border px-1.5 py-0.5 text-[9px] font-medium",
-                      tierColors[contentScore.tier]
+                      "rounded-full border px-1.5 py-0 text-[10px] font-medium",
+                      tier.bg
                     )}>
-                      Impact {tierLabels[contentScore.tier]}
+                      {tier.label}
                     </span>
-                    {post.url && (
-                      <a className="text-purple-600 hover:underline" href={post.url} target="_blank" rel="noreferrer">
-                        Voir
-                      </a>
-                    )}
                   </div>
                 </div>
-                <div className="text-right text-xs space-y-1">
+
+                {/* Metrics */}
+                <div className="shrink-0 text-right space-y-0.5">
                   {visibility.value > 0 ? (
-                    <p className="text-foreground font-medium">
-                      {visibility.value.toLocaleString("fr-FR")} <span className="text-muted-foreground font-normal">{visibility.label.toLowerCase()}</span>
+                    <p className="text-sm font-semibold tabular-nums">
+                      {formatMetric(visibility.value)}
+                      <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                        {visibility.label.toLowerCase()}
+                      </span>
                     </p>
                   ) : (
-                    <p className="text-muted-foreground">-</p>
+                    <p className="text-xs text-muted-foreground">-</p>
                   )}
                   {engagements > 0 ? (
-                    <p className="text-foreground font-medium">
-                      {engagements.toLocaleString("fr-FR")} <span className="text-muted-foreground font-normal">engagements</span>
+                    <p className="text-xs tabular-nums text-muted-foreground">
+                      {formatMetric(engagements)} eng.
                     </p>
-                  ) : (
-                    <p className="text-muted-foreground">-</p>
-                  )}
+                  ) : null}
                 </div>
+
+                {/* External link on hover */}
+                {post.url && (
+                  <a
+                    className="shrink-0 rounded-lg p-1.5 text-muted-foreground/40 opacity-0 transition-all group-hover:opacity-100 hover:text-purple-600 hover:bg-purple-50"
+                    href={post.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Voir la publication"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                    </svg>
+                  </a>
+                )}
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
     </Card>
   );
 }

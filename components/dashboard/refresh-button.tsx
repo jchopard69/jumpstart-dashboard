@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 
 function RefreshIcon({ className }: { className?: string }) {
@@ -14,53 +16,39 @@ function RefreshIcon({ className }: { className?: string }) {
 
 export function RefreshButton({ tenantId }: { tenantId?: string }) {
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
-  const [message, setMessage] = useState<string | null>(null);
+  const toast = useToast();
+  const router = useRouter();
 
   const handleRefresh = async () => {
+    if (loading) return;
     setLoading(true);
-    setStatus("idle");
-    setMessage(null);
     try {
       const query = tenantId ? `?tenantId=${tenantId}` : "";
       const res = await fetch(`/api/client/refresh${query}`, { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        setStatus("success");
-        setMessage(data.message ?? "Synchronisation terminée");
-        // Auto-hide success message
-        setTimeout(() => {
-          setMessage(null);
-          setStatus("idle");
-        }, 3000);
+        toast.success(data.message ?? "Synchronisation terminée");
+        router.refresh();
       } else {
-        setStatus("error");
-        setMessage(data.error ?? "Erreur de synchronisation");
+        toast.error(data.error ?? "Erreur de synchronisation");
       }
     } catch {
-      setStatus("error");
-      setMessage("Erreur réseau");
+      toast.error("Erreur réseau. Vérifiez votre connexion.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <Button size="sm" variant="secondary" onClick={handleRefresh} disabled={loading}>
-        <RefreshIcon className={cn("h-4 w-4 mr-1.5", loading && "animate-spin")} />
-        {loading ? "Sync..." : "Rafraîchir"}
-      </Button>
-      {message && (
-        <p className={cn(
-          "text-xs",
-          status === "success" && "text-emerald-600",
-          status === "error" && "text-rose-600",
-          status === "idle" && "text-muted-foreground"
-        )}>
-          {message}
-        </p>
-      )}
-    </div>
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={handleRefresh}
+      disabled={loading}
+      className="gap-1.5"
+    >
+      <RefreshIcon className={cn("h-4 w-4", loading && "animate-spin")} />
+      {loading ? "Synchronisation..." : "Rafraîchir"}
+    </Button>
   );
 }

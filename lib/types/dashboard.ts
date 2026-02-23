@@ -38,6 +38,13 @@ export type PlatformData = {
     engagements: number;
     posts_count: number;
   };
+  delta?: {
+    followers: number;
+    views: number;
+    reach: number;
+    engagements: number;
+    posts_count: number;
+  };
 };
 
 export type PostData = {

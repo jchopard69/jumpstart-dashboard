@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -6,8 +9,18 @@ type KpiCardProps = {
   value: number;
   delta: number;
   suffix?: string;
+  description?: string;
   className?: string;
   index?: number;
+};
+
+const KPI_DESCRIPTIONS: Record<string, string> = {
+  "Abonnés": "Nombre total de followers sur vos comptes connectés.",
+  "Vues": "Nombre de fois où vos contenus ont été vus (impressions vidéo incluses).",
+  "Portée": "Nombre de comptes uniques ayant vu vos contenus.",
+  "Engagements": "Total des likes, commentaires, partages et sauvegardes.",
+  "Publications": "Nombre de posts publiés sur la période sélectionnée.",
+  "Taux d'engagement": "Ratio entre engagements et vues sur la période.",
 };
 
 function formatDelta(delta: number): string {
@@ -15,10 +28,8 @@ function formatDelta(delta: number): string {
   const abs = Math.abs(delta);
 
   if (abs >= 10000) {
-    // 10000+ → +10K%
     return `${sign}${Math.round(abs / 1000)}K%`;
   } else if (abs >= 1000) {
-    // 1000-9999 → +1.2K%
     return `${sign}${(abs / 1000).toFixed(1).replace(".0", "")}K%`;
   }
   return `${sign}${Math.round(delta)}%`;
@@ -37,43 +48,139 @@ function formatCompact(value: number): string {
     .replace(/[\u00A0\u202F]/g, "\u2009");
 }
 
-export function KpiCard({ label, value, delta, suffix, className, index = 0 }: KpiCardProps) {
-  const trend = delta >= 0 ? "up" : "down";
-  const compact = formatCompact(value);
+function AnimatedNumber({ value, suffix }: { value: number; suffix?: string }) {
+  const [display, setDisplay] = useState(0);
+  const ref = useRef<HTMLParagraphElement>(null);
+  const hasAnimated = useRef(false);
+
+  useEffect(() => {
+    if (hasAnimated.current) {
+      setDisplay(value);
+      return;
+    }
+
+    // Use IntersectionObserver to only animate when visible
+    const el = ref.current;
+    if (!el) { setDisplay(value); return; }
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) {
+      setDisplay(value);
+      hasAnimated.current = true;
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          observer.disconnect();
+          hasAnimated.current = true;
+
+          if (value === 0) { setDisplay(0); return; }
+
+          const duration = 600;
+          const start = performance.now();
+          const from = 0;
+
+          function tick(now: number) {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            // ease-out-expo
+            const eased = 1 - Math.pow(2, -10 * progress);
+            setDisplay(Math.round(from + (value - from) * eased));
+            if (progress < 1) requestAnimationFrame(tick);
+          }
+          requestAnimationFrame(tick);
+        }
+      },
+      { threshold: 0.3 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [value]);
+
+  const compact = formatCompact(display);
   const full = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 })
     .format(value)
     .replace(/[\u00A0\u202F]/g, "\u2009");
-  const isAbbreviated = compact !== full;
+  const isAbbreviated = formatCompact(value) !== full;
+
+  return (
+    <div ref={ref}>
+      <p className="text-3xl font-semibold font-display tabular-nums animate-count-up">
+        {compact}{suffix && <span className="text-xl ml-0.5">{suffix}</span>}
+      </p>
+      {isAbbreviated && (
+        <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{full}</p>
+      )}
+    </div>
+  );
+}
+
+export function KpiCard({ label, value, delta, suffix, description, className, index = 0 }: KpiCardProps) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const trend = delta >= 0 ? "up" : "down";
   const deltaValue = formatDelta(delta);
+  const tooltipText = description || KPI_DESCRIPTIONS[label];
 
   return (
     <Card
-      className={cn("card-surface relative overflow-hidden p-4 fade-in-up", className)}
+      className={cn("card-surface relative overflow-hidden p-5 fade-in-up group", className)}
       style={{ animationDelay: `${index * 80}ms` }}
     >
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400" />
+      {/* Gradient accent bar */}
+      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400 opacity-80 transition-opacity group-hover:opacity-100" />
+
       <div className="flex items-center justify-between gap-1">
-        <p className="min-w-0 truncate text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="min-w-0 truncate text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+          {tooltipText && (
+            <div className="relative">
+              <button
+                type="button"
+                className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+                onFocus={() => setShowTooltip(true)}
+                onBlur={() => setShowTooltip(false)}
+                aria-label={`Info: ${label}`}
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+              </button>
+              {showTooltip && (
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-48 rounded-lg border border-border/60 bg-white px-3 py-2 text-xs text-muted-foreground shadow-lg">
+                  {tooltipText}
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 rotate-45 bg-white border-r border-b border-border/60" />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         {delta !== 0 && (
           <span
             className={cn(
-              "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+              "inline-flex items-center gap-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-transform group-hover:scale-105",
               trend === "up"
                 ? "bg-emerald-500/10 text-emerald-600"
                 : "bg-rose-500/10 text-rose-600"
             )}
           >
+            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2}>
+              {trend === "up" ? (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2 8l4-4 4 4" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2 4l4 4 4-4" />
+              )}
+            </svg>
             {deltaValue}
           </span>
         )}
       </div>
-      <div className="mt-4">
-        <p className="text-3xl font-semibold font-display">
-          {compact}{suffix && <span className="text-xl ml-0.5">{suffix}</span>}
-        </p>
-        {isAbbreviated && (
-          <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{full}</p>
-        )}
+
+      <div className="mt-3">
+        <AnimatedNumber value={value} suffix={suffix} />
       </div>
     </Card>
   );
