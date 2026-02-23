@@ -306,18 +306,26 @@ function analyzeBestFormats(input: InsightsInput): StrategicInsight[] {
 
   if (formats.length >= 2) {
     const best = formats[0];
-    const worst = formats[formats.length - 1];
-    const ratio = worst.avgEng > 0 ? (best.avgEng / worst.avgEng).toFixed(1) : "N/A";
+    const comparison = [...formats]
+      .slice(1)
+      .reverse()
+      .find((format) => format.avgEng > 0);
 
     const typeLabels: Record<string, string> = {
       reel: "Reels", video: "Videos", image: "Images",
       carousel: "Carrousels", text: "Publications texte", link: "Liens",
     };
 
+    const bestLabel = typeLabels[best.type] ?? best.type;
+    const comparisonLabel = comparison ? (typeLabels[comparison.type] ?? comparison.type) : null;
+    const ratio = comparison ? (best.avgEng / comparison.avgEng).toFixed(1) : null;
+
     results.push({
       type: "opportunity", category: "content", priority: 3,
-      title: `${typeLabels[best.type] ?? best.type} : votre format le plus performant`,
-      description: `Les ${(typeLabels[best.type] ?? best.type).toLowerCase()} generent ${ratio}x plus d'engagement que les ${(typeLabels[worst.type] ?? worst.type).toLowerCase()}. Privilegiez ce format dans votre planning.`,
+      title: `${bestLabel} : votre format le plus performant`,
+      description: ratio && comparisonLabel
+        ? `Les ${bestLabel.toLowerCase()} generent ${ratio}x plus d'engagement que les ${comparisonLabel.toLowerCase()}. Privilegiez ce format dans votre planning.`
+        : `Les ${bestLabel.toLowerCase()} sont votre format avec le meilleur engagement moyen. Privilegiez ce format dans votre planning.`,
     });
   }
 
