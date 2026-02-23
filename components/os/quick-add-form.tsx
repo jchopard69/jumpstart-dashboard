@@ -16,10 +16,16 @@ const KIND_LABELS: Record<string, string> = {
 
 type QuickAddFormProps = {
   canEdit: boolean;
+  allowedKinds?: string[];
   createItemAction: (formData: FormData) => Promise<void>;
 };
 
-export function QuickAddForm({ canEdit, createItemAction }: QuickAddFormProps) {
+export function QuickAddForm({ canEdit, allowedKinds, createItemAction }: QuickAddFormProps) {
+  const filteredKinds = allowedKinds?.length
+    ? Object.entries(KIND_LABELS).filter(([kind]) => allowedKinds.includes(kind))
+    : Object.entries(KIND_LABELS);
+  const defaultKind = filteredKinds[0]?.[0] ?? "idea";
+
   return (
     <Card className="card-surface p-6 fade-in-up">
       <div className="flex items-center gap-2">
@@ -35,15 +41,19 @@ export function QuickAddForm({ canEdit, createItemAction }: QuickAddFormProps) {
           <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Type</label>
           <select
             name="kind"
-            defaultValue="idea"
+            defaultValue={defaultKind}
             className="h-10 w-full rounded-xl border border-input bg-background/90 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-300"
+            disabled={!canEdit || filteredKinds.length <= 1}
           >
-            {Object.entries(KIND_LABELS).map(([kind, label]) => (
+            {filteredKinds.map(([kind, label]) => (
               <option key={kind} value={kind}>
                 {label}
               </option>
             ))}
           </select>
+          {!canEdit && (
+            <p className="text-xs text-muted-foreground">Seules certaines actions sont disponibles selon votre rôle.</p>
+          )}
         </div>
         <div className="space-y-2">
           <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Priorité</label>

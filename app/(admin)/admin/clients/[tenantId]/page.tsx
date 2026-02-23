@@ -115,6 +115,12 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
             </a>
             <a
               className="text-sm font-medium text-primary underline"
+              href={`/client/os?tenantId=${params.tenantId}`}
+            >
+              Gérer JumpStart OS
+            </a>
+            <a
+              className="text-sm font-medium text-primary underline"
               href={`/client/documents?tenantId=${params.tenantId}`}
             >
               Voir les documents

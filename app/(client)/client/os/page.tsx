@@ -34,7 +34,9 @@ export default async function ClientOsPage({
   const isAdmin = profile.role === "agency_admin" && !!searchParams?.tenantId;
   const tenantId = isAdmin ? searchParams?.tenantId : profile.tenant_id;
   const supabase = isAdmin ? createSupabaseServiceClient() : createSupabaseServerClient();
-  const canEdit = profile.role === "agency_admin" || profile.role === "client_manager";
+  const canEditAll = profile.role === "agency_admin" || profile.role === "client_manager";
+  const canAddIdeas = canEditAll || profile.role === "client_user";
+  const allowedKinds = canEditAll ? undefined : ["idea"];
 
   const [{ data: collaboration }, { data: shoots }, { data: items }] = await Promise.all([
     supabase
@@ -70,11 +72,13 @@ export default async function ClientOsPage({
     const description = String(formData.get("description") ?? "").trim();
 
     if (!title) return;
+    const resolvedKind = canEditAll ? kind : "idea";
+    if (!canAddIdeas) return;
     const client = createSupabaseServerClient();
     await client.from("collab_items").insert({
       tenant_id: tenantId,
       title,
-      kind,
+      kind: resolvedKind,
       priority,
       status: "planned",
       due_date: dueDateRaw || null,
@@ -143,7 +147,7 @@ export default async function ClientOsPage({
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <PriorityBoard priorities={monthlyPriorities} />
-        <QuickAddForm canEdit={canEdit} createItemAction={createItem} />
+        <QuickAddForm canEdit={canAddIdeas} allowedKinds={allowedKinds} createItemAction={createItem} />
       </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -151,14 +155,14 @@ export default async function ClientOsPage({
         <IdeasList ideas={ideas} />
       </section>
 
-      <KanbanBoard items={pipelineItems} canEdit={canEdit} updateStatusAction={updateItemStatus} />
+      <KanbanBoard items={pipelineItems} canEdit={canEditAll} updateStatusAction={updateItemStatus} />
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ShootCalendar shoots={shoots ?? []} canEdit={canEdit} addShootAction={addShoot} />
         <NotesEditor
           notes={collaboration?.notes ?? null}
           updatedAt={collaboration?.updated_at ?? null}
-          canEdit={canEdit}
+          canEdit={canEditAll}
           updateNotesAction={updateNotes}
         />
       </section>

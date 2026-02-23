@@ -313,9 +313,9 @@ export async function fetchDashboardData(params: {
     .from("collaboration")
     .select("shoot_days_remaining,notes,updated_at")
     .eq("tenant_id", tenantId)
-    .single();
+    .maybeSingle();
   console.timeEnd("[dashboard] collaborationQuery");
-  if (collaborationError) {
+  if (collaborationError && collaborationError.code !== "PGRST116") {
     console.error("[dashboard] Failed to load collaboration", { tenantId, error: collaborationError });
   }
 
