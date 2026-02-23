@@ -33,6 +33,7 @@ interface MetaMediaItem {
   id: string;
   caption?: string;
   media_type?: string;
+  media_product_type?: string;
   media_url?: string;
   thumbnail_url?: string;
   permalink?: string;
@@ -274,7 +275,7 @@ export const instagramConnector: Connector = {
     // Fetch recent media with pagination (up to 100 posts)
     const allMedia: MetaMediaItem[] = [];
     let nextMediaUrl: string | null = buildUrl(`${GRAPH_URL}/${externalAccountId}/media`, {
-      fields: 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count',
+      fields: 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count',
       limit: 50,
       access_token: accessToken,
     });
@@ -317,7 +318,10 @@ export const instagramConnector: Connector = {
           `media_insights_${metric}`,
           true
         );
-        const value = response.data?.[0]?.values?.[0]?.value;
+        const first = response.data?.[0] as
+          | { values?: Array<{ value?: number }>; total_value?: { value?: number }; value?: number }
+          | undefined;
+        const value = first?.values?.[0]?.value ?? first?.total_value?.value ?? first?.value;
         return typeof value === "number" ? value : 0;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -336,13 +340,13 @@ export const instagramConnector: Connector = {
 
     const metricsForMediaType = (mediaType: string): string[] => {
       if (mediaType === "REEL" || mediaType === "VIDEO") {
-        return ["impressions", "reach", "views", "total_interactions", "saved"];
+        return ["views", "reach", "total_interactions", "saved"];
       }
       if (mediaType === "STORY") {
-        return ["impressions", "reach", "views", "total_interactions"];
+        return ["views", "reach", "total_interactions"];
       }
       // IMAGE / CAROUSEL / unknown
-      return ["impressions", "reach", "total_interactions", "saved"];
+      return ["reach", "total_interactions", "saved"];
     };
 
     const fetchMediaInsights = async (mediaId: string, mediaType?: string) => {
@@ -367,9 +371,12 @@ export const instagramConnector: Connector = {
           true
         );
         for (const metricData of response.data ?? []) {
-          const value = metricData?.values?.[0]?.value;
+          const richMetric = metricData as
+            | { name?: string; values?: Array<{ value?: number }>; total_value?: { value?: number }; value?: number }
+            | undefined;
+          const value = richMetric?.values?.[0]?.value ?? richMetric?.total_value?.value ?? richMetric?.value;
           if (typeof value !== "number") continue;
-          switch (metricData.name) {
+          switch (richMetric?.name) {
             case "impressions":
               result.impressions = value;
               break;
@@ -399,13 +406,11 @@ export const instagramConnector: Connector = {
           return result;
         }
 
-        const impressions = await fetchMediaMetric(mediaId, mediaTypeKey, "impressions");
         const reach = await fetchMediaMetric(mediaId, mediaTypeKey, "reach");
         const views = await fetchMediaMetric(mediaId, mediaTypeKey, "views");
         const totalInteractions = await fetchMediaMetric(mediaId, mediaTypeKey, "total_interactions");
         const saved = await fetchMediaMetric(mediaId, mediaTypeKey, "saved");
 
-        if (typeof impressions === "number") result.impressions = impressions;
         if (typeof reach === "number") result.reach = reach;
         if (typeof views === "number") result.views = views;
         if (typeof totalInteractions === "number") result.engagements = Math.max(result.engagements, totalInteractions);
@@ -425,7 +430,10 @@ export const instagramConnector: Connector = {
       const chunkResults = await Promise.all(
         chunk.map(async (item) => ({
           id: item.id,
-          insights: await fetchMediaInsights(item.id, item.media_type)
+          insights: await fetchMediaInsights(
+            item.id,
+            (item.media_product_type ?? "").toUpperCase() === "REELS" ? "REEL" : item.media_type
+          )
         }))
       );
       for (const result of chunkResults) {
@@ -437,6 +445,11 @@ export const instagramConnector: Connector = {
       const likes = item.like_count || 0;
       const comments = item.comments_count || 0;
 
+      const mediaTypeFromProduct = (item.media_product_type ?? "").toUpperCase();
+      const normalizedMediaType =
+        mediaTypeFromProduct === "REELS"
+          ? "reel"
+          : item.media_type?.toLowerCase();
       const insights = insightsByMedia.get(item.id);
 
       const baseEngagements = likes + comments;
@@ -459,7 +472,7 @@ export const instagramConnector: Connector = {
         posted_at: item.timestamp || new Date().toISOString(),
         url: item.permalink,
         caption: item.caption?.slice(0, 500),
-        media_type: item.media_type?.toLowerCase(),
+        media_type: normalizedMediaType,
         thumbnail_url: item.thumbnail_url || item.media_url,
         media_url: item.media_url,
         metrics,
