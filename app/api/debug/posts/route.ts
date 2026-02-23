@@ -15,7 +15,28 @@ const METRIC_CANDIDATES = [
 async function fetchMetricProbe(url: string) {
   const resp = await fetch(url);
   const body = await resp.json();
-  return { status: resp.status, body };
+  return { status: resp.status, body: sanitizeDebugPayload(body) };
+}
+
+function sanitizeDebugPayload(payload: unknown): unknown {
+  if (typeof payload === "string") {
+    return payload.replace(/access_token=[^&\s]+/g, "access_token=[REDACTED]");
+  }
+  if (Array.isArray(payload)) {
+    return payload.map(sanitizeDebugPayload);
+  }
+  if (payload && typeof payload === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(payload as Record<string, unknown>)) {
+      if (key === "access_token") {
+        out[key] = "[REDACTED]";
+      } else {
+        out[key] = sanitizeDebugPayload(value);
+      }
+    }
+    return out;
+  }
+  return payload;
 }
 
 export async function GET(request: Request) {

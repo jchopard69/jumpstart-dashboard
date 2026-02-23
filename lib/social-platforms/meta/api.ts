@@ -642,45 +642,30 @@ export const facebookConnector: Connector = {
         return result;
       }
 
-      // Probe passed — fetch in batches of 50
-      const chunks: string[][] = [];
-      for (let i = 0; i < postIds.length; i += 50) {
-        chunks.push(postIds.slice(i, i + 50));
-      }
-
-      const fetchMetricBatch = async (spec: MetricSpec & { version: string }) => {
-        for (const chunk of chunks) {
-          const batch = chunk.map((postId) => ({
-            method: "GET",
-            relative_url: `${postId}/insights/${spec.metric}?period=lifetime`,
-          }));
-
-          try {
-            const versionUrl = `https://graph.facebook.com/${spec.version}`;
-            const batchUrl = buildUrl(`${versionUrl}/`, { access_token: accessToken });
-            const body = new URLSearchParams();
-            body.set("batch", JSON.stringify(batch));
-            const response = await apiRequest<Array<{ code: number; body: string }>>(
-              "facebook",
-              batchUrl,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: body.toString(),
-              },
-              "posts_insights_batch",
-              true
-            );
-
-            response.forEach((item, index) => {
-              if (!item || item.code !== 200) return;
+      // Batch endpoints are inconsistent for post insights on some pages.
+      // Use direct metric calls with bounded concurrency for reliability.
+      const POST_CONCURRENCY = 8;
+      for (let i = 0; i < postIds.length; i += POST_CONCURRENCY) {
+        const chunk = postIds.slice(i, i + POST_CONCURRENCY);
+        await Promise.all(
+          chunk.map(async (postId) => {
+            const existing = result.get(postId) ?? { impressions: 0, reach: 0, views: 0 };
+            for (const spec of supported) {
               try {
-                const parsed = JSON.parse(item.body);
-                const data = parsed?.data ?? [];
-                const value = data?.[0]?.values?.[0]?.value;
+                const versionUrl = `https://graph.facebook.com/${spec.version}`;
+                const metricUrl = buildUrl(`${versionUrl}/${postId}/insights/${spec.metric}`, {
+                  period: "lifetime",
+                  access_token: accessToken,
+                });
+                const response = await apiRequest<{ data?: Array<{ values?: Array<{ value?: unknown }> }> }>(
+                  "facebook",
+                  metricUrl,
+                  {},
+                  "post_insights_metric",
+                  true
+                );
+                const value = response?.data?.[0]?.values?.[0]?.value;
                 const parsedValue = parseInsightValue(value);
-                const postId = chunk[index];
-                const existing = result.get(postId) ?? { impressions: 0, reach: 0, views: 0 };
                 if (spec.target === "impressions") {
                   existing.impressions = parsedValue;
                 } else if (spec.target === "reach") {
@@ -688,20 +673,13 @@ export const facebookConnector: Connector = {
                 } else {
                   existing.views = parsedValue;
                 }
-                result.set(postId, existing);
               } catch {
-                return;
+                // Keep best effort behavior: one metric failure should not discard the post.
               }
-            });
-          } catch {
-            console.warn("[facebook] Batch post insights fetch failed, skipping remaining");
-            break;
-          }
-        }
-      };
-
-      for (const spec of supported) {
-        await fetchMetricBatch(spec);
+            }
+            result.set(postId, existing);
+          })
+        );
       }
 
       return result;
