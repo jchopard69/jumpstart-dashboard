@@ -194,6 +194,12 @@ const styles = StyleSheet.create({
     color: "#64748b",
     marginTop: 2,
   },
+  pageLabel: {
+    fontSize: 8,
+    color: "#94a3b8",
+    textAlign: "right",
+    marginBottom: 16,
+  },
 });
 
 type KpiData = {
@@ -241,6 +247,13 @@ type DocumentSummary = {
   tag: string;
 };
 
+type ContentDnaPattern = {
+  label: string;
+  insight: string;
+  detail: string;
+  strength: number;
+};
+
 export type PdfDocumentProps = {
   tenantName: string;
   rangeLabel: string;
@@ -262,6 +275,7 @@ export type PdfDocumentProps = {
   keyTakeaways?: string[];
   executiveSummary?: string;
   insights?: Array<{ title: string; description: string }>;
+  contentDna?: ContentDnaPattern[];
 };
 
 function formatNumber(value: number): string {
@@ -275,7 +289,7 @@ function formatNumber(value: number): string {
 function sanitizeText(value: string): string {
   return value
     .replace(/[\r\n\t]+/g, " ")
-    .replace(/[^\x20-\x7EÀ-ÖØ-öø-ÿ’“”«»—–·•]/g, "")
+    .replace(/[^\x20-\x7EÀ-ÖØ-öø-ÿ'""«»—–·•]/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -337,6 +351,17 @@ function PlatformCard({ platform }: { platform: PlatformSummary }) {
   );
 }
 
+function StrengthBar({ strength }: { strength: number }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+      <View style={{ width: 60, height: 4, backgroundColor: "#e2e8f0", borderRadius: 2 }}>
+        <View style={{ width: `${Math.min(100, strength)}%`, height: 4, backgroundColor: "#7c3aed", borderRadius: 2 }} />
+      </View>
+      <Text style={{ fontSize: 7, color: "#64748b" }}>{strength}%</Text>
+    </View>
+  );
+}
+
 export function PdfDocument(props: PdfDocumentProps) {
   const {
     tenantName,
@@ -353,54 +378,54 @@ export function PdfDocument(props: PdfDocumentProps) {
     keyTakeaways,
     executiveSummary,
     insights,
+    contentDna,
   } = props;
 
   return (
     <Document>
+      {/* PAGE 1 — Synthese executive */}
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.brand}>JumpStart Studio</Text>
-            <Text style={styles.title}>{tenantName} • Social Intelligence</Text>
+            <Text style={styles.title}>{tenantName} -- Rapport Social</Text>
             <Text style={styles.meta}>Periode : {rangeLabel}</Text>
             <Text style={styles.comparisonRow}>vs. {prevRangeLabel}</Text>
           </View>
           <View>
-            <Text style={styles.meta}>Généré le {generatedAt}</Text>
+            <Text style={styles.meta}>Genere le {generatedAt}</Text>
           </View>
         </View>
 
         {/* JumpStart Score */}
         {score && (
-          <>
-            <View style={{ flexDirection: "row", gap: 16, marginTop: 12, marginBottom: 16 }}>
-              <View style={{ width: "25%", borderWidth: 2, borderColor: "#7c3aed", borderRadius: 12, padding: 12, alignItems: "center" }}>
-                <Text style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", marginBottom: 4 }}>JumpStart Score</Text>
-                <Text style={{ fontSize: 28, fontFamily: "Helvetica-Bold", color: "#7c3aed" }}>{score.global}</Text>
-                <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#059669", marginTop: 2 }}>{score.grade}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                {score.subScores.map((sub, i) => (
-                  <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
-                    <Text style={{ fontSize: 9, color: "#64748b" }}>{sub.label}</Text>
-                    <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold" }}>{Math.round(sub.value)}/100</Text>
-                  </View>
-                ))}
-                {executiveSummary && (
-                  <Text style={{ fontSize: 8, color: "#64748b", marginTop: 6 }}>{sanitizeText(executiveSummary)}</Text>
-                )}
-              </View>
-              {keyTakeaways && keyTakeaways.length > 0 && (
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", marginBottom: 6 }}>A retenir</Text>
-                  {keyTakeaways.map((t, i) => (
-                    <Text key={i} style={{ fontSize: 8, color: "#334155", marginBottom: 3 }}>• {sanitizeText(t)}</Text>
-                  ))}
+          <View style={{ flexDirection: "row", gap: 16, marginTop: 4, marginBottom: 16 }}>
+            <View style={{ width: "25%", borderWidth: 2, borderColor: "#7c3aed", borderRadius: 12, padding: 12, alignItems: "center" }}>
+              <Text style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", marginBottom: 4 }}>JumpStart Score</Text>
+              <Text style={{ fontSize: 28, fontFamily: "Helvetica-Bold", color: "#7c3aed" }}>{score.global}</Text>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#059669", marginTop: 2 }}>{score.grade}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              {score.subScores.map((sub, i) => (
+                <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
+                  <Text style={{ fontSize: 9, color: "#64748b" }}>{sub.label}</Text>
+                  <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold" }}>{Math.round(sub.value)}/100</Text>
                 </View>
+              ))}
+              {executiveSummary && (
+                <Text style={{ fontSize: 8, color: "#64748b", marginTop: 6 }}>{sanitizeText(executiveSummary)}</Text>
               )}
             </View>
-          </>
+            {keyTakeaways && keyTakeaways.length > 0 && (
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", marginBottom: 6 }}>A retenir</Text>
+                {keyTakeaways.map((t, i) => (
+                  <Text key={i} style={{ fontSize: 8, color: "#334155", marginBottom: 3 }}>-- {sanitizeText(t)}</Text>
+                ))}
+              </View>
+            )}
+          </View>
         )}
 
         {/* Strategic Insights */}
@@ -424,6 +449,40 @@ export function PdfDocument(props: PdfDocumentProps) {
           {kpis.map((kpi, index) => (
             <KpiCard key={index} kpi={kpi} />
           ))}
+        </View>
+
+        {/* Content DNA */}
+        {contentDna && contentDna.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>ADN de contenu</Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {contentDna.map((pattern, i) => (
+                <View key={i} style={{ flex: 1, borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 8, padding: 10 }}>
+                  <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#7c3aed", marginBottom: 4 }}>{sanitizeText(pattern.label)}</Text>
+                  <Text style={{ fontSize: 8, color: "#1e293b", marginBottom: 2 }}>{sanitizeText(pattern.insight)}</Text>
+                  <Text style={{ fontSize: 7, color: "#64748b" }}>{sanitizeText(pattern.detail)}</Text>
+                  <StrengthBar strength={pattern.strength} />
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        {/* Footer Page 1 */}
+        <View style={styles.footer}>
+          <Text>Rapport genere par JumpStart Studio</Text>
+          <Text>Page 1/2 -- Synthese</Text>
+        </View>
+      </Page>
+
+      {/* PAGE 2 — Donnees detaillees */}
+      <Page size="A4" style={styles.page}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 16 }}>
+          <View>
+            <Text style={styles.brand}>JumpStart Studio</Text>
+            <Text style={{ fontSize: 14, fontFamily: "Helvetica-Bold", marginTop: 2 }}>{tenantName} -- Donnees detaillees</Text>
+          </View>
+          <Text style={styles.pageLabel}>{rangeLabel}</Text>
         </View>
 
         {/* Platforms breakdown */}
@@ -470,7 +529,7 @@ export function PdfDocument(props: PdfDocumentProps) {
         )}
 
         {/* Collaboration */}
-        <Text style={styles.sectionTitle}>Studio & Production</Text>
+        <Text style={styles.sectionTitle}>Collaboration</Text>
         <View style={styles.collaborationGrid}>
           <View style={styles.collaborationCard}>
             <Text style={styles.collaborationTitle}>Prochains shootings</Text>
@@ -478,32 +537,32 @@ export function PdfDocument(props: PdfDocumentProps) {
             {shoots.length > 0 ? (
               shoots.slice(0, 4).map((shoot, index) => (
                 <Text key={index} style={styles.listItem}>
-                  • {shoot.date} - {sanitizeText(shoot.location || "Lieu à définir")}
+                  -- {shoot.date} - {sanitizeText(shoot.location || "Lieu a definir")}
                 </Text>
               ))
             ) : (
-              <Text style={styles.listItem}>Aucun shooting planifié</Text>
+              <Text style={styles.listItem}>Aucun shooting planifie</Text>
             )}
           </View>
           <View style={styles.collaborationCard}>
-            <Text style={styles.collaborationTitle}>Documents partagés</Text>
+            <Text style={styles.collaborationTitle}>Documents partages</Text>
             {documents.length > 0 ? (
               documents.slice(0, 5).map((doc, index) => (
                 <View key={index} style={{ flexDirection: "row", marginBottom: 3, alignItems: "center" }}>
-                  <Text style={styles.listItem}>• {sanitizeText(doc.name)}</Text>
+                  <Text style={styles.listItem}>-- {sanitizeText(doc.name)}</Text>
                   <Text style={styles.tag}>{sanitizeText(doc.tag)}</Text>
                 </View>
               ))
             ) : (
-              <Text style={styles.listItem}>Aucun document partagé</Text>
+              <Text style={styles.listItem}>Aucun document partage</Text>
             )}
           </View>
         </View>
 
-        {/* Footer */}
+        {/* Footer Page 2 */}
         <View style={styles.footer}>
-          <Text>Rapport genere par JumpStart Studio</Text>
           <Text>Les variations (%) comparent la periode selectionnee a la periode precedente equivalente</Text>
+          <Text>Page 2/2 -- Donnees</Text>
         </View>
       </Page>
     </Document>

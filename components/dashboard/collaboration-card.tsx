@@ -26,7 +26,7 @@ export function CollaborationCard({ collaboration, shoots, documents }: Collabor
           <h2 className="section-title">Studio & Production</h2>
         </div>
         <Link
-          href="/client/os"
+          href="/client/collaboration"
           className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-xs")}
         >
           Voir tout

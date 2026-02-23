@@ -5,6 +5,7 @@ import { resolveDateRange, buildPreviousRange } from "@/lib/date";
 import { coerceMetric, getPostEngagements, getPostVisibility } from "@/lib/metrics";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
 import { generateStrategicInsights, generateKeyTakeaways, generateExecutiveSummary, type InsightsInput } from "@/lib/insights";
+import { analyzeContentDna } from "@/lib/content-dna";
 import type { Platform } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -226,7 +227,7 @@ export async function GET(request: Request) {
   // Fetch top posts
   const { data: posts } = await supabase
     .from("social_posts")
-    .select("caption,posted_at,metrics,media_type")
+    .select("caption,posted_at,metrics,media_type,platform")
     .eq("tenant_id", tenantId)
     .gte("posted_at", range.start.toISOString())
     .lte("posted_at", range.end.toISOString())
@@ -351,6 +352,17 @@ export async function GET(request: Request) {
   const pdfTakeaways = generateKeyTakeaways(insightsInput);
   const pdfSummary = generateExecutiveSummary(insightsInput);
 
+  // Content DNA analysis
+  const contentDna = analyzeContentDna({
+    posts: (posts ?? []).map(p => ({
+      platform: p.platform as Platform | undefined,
+      media_type: p.media_type,
+      posted_at: p.posted_at,
+      caption: p.caption,
+      metrics: p.metrics as any,
+    })),
+  });
+
   const documentProps: PdfDocumentProps = {
     tenantName: tenant?.name ?? "Client",
     rangeLabel: `${range.start.toLocaleDateString("fr-FR")} - ${range.end.toLocaleDateString("fr-FR")}`,
@@ -372,15 +384,25 @@ export async function GET(request: Request) {
     keyTakeaways: pdfTakeaways,
     executiveSummary: pdfSummary,
     insights: pdfInsights.map(i => ({ title: i.title, description: i.description })),
+    contentDna: contentDna.patterns.length > 0 ? contentDna.patterns.map(p => ({
+      label: p.label,
+      insight: p.insight,
+      detail: p.detail,
+      strength: p.strength,
+    })) : undefined,
   };
 
   try {
     const pdfBuffer = await renderToBuffer(PdfDocument(documentProps));
 
+    const safeName = (tenant?.name ?? "client").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "");
+    const dateFrom = range.start.toISOString().slice(0, 10);
+    const dateTo = range.end.toISOString().slice(0, 10);
+
     return new Response(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=jumpstart-${tenant?.name ?? "client"}.pdf`,
+        "Content-Disposition": `attachment; filename=rapport-${safeName}-${dateFrom}-${dateTo}.pdf`,
       },
     });
   } catch (error) {
