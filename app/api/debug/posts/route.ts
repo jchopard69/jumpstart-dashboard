@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getPostVisibility, getPostImpressions, getPostEngagements } from "@/lib/metrics";
+import { decryptToken } from "@/lib/crypto";
+import { apiRequest, buildUrl } from "@/lib/social-platforms/core/api-client";
+
+const GRAPH_URL = "https://graph.facebook.com/v21.0";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -8,7 +12,6 @@ export async function GET(request: Request) {
   const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Use service client to bypass RLS (avoids stack depth limit)
   const supabase = createSupabaseServiceClient();
 
   const { data: profile } = await supabase
@@ -26,12 +29,56 @@ export async function GET(request: Request) {
 
   const { data: posts, error } = await supabase
     .from("social_posts")
-    .select("id,platform,caption,posted_at,metrics,media_type")
+    .select("id,platform,caption,posted_at,metrics,media_type,external_post_id,social_account_id")
     .eq("tenant_id", tenantId)
     .order("posted_at", { ascending: false })
     .limit(10);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Try a live Facebook post insights call to diagnose permission issues
+  let fbDiagnostic: Record<string, unknown> | null = null;
+  const firstFbPost = (posts ?? []).find(p => p.platform === "facebook");
+  if (firstFbPost && searchParams.get("diagnose") === "true") {
+    try {
+      const { data: account } = await supabase
+        .from("social_accounts")
+        .select("token_encrypted")
+        .eq("id", firstFbPost.social_account_id)
+        .single();
+
+      if (account?.token_encrypted) {
+        const secret = process.env.ENCRYPTION_SECRET || "";
+        const token = decryptToken(account.token_encrypted, secret);
+        const postId = firstFbPost.external_post_id;
+
+        // Test 1: individual post insight call
+        try {
+          const url = buildUrl(`${GRAPH_URL}/${postId}/insights`, {
+            metric: "post_impressions,post_impressions_unique",
+            period: "lifetime",
+            access_token: token,
+          });
+          const resp = await fetch(url);
+          const body = await resp.json();
+          fbDiagnostic = {
+            test: "individual_post_insights",
+            post_id: postId,
+            status: resp.status,
+            response: body,
+          };
+        } catch (err) {
+          fbDiagnostic = {
+            test: "individual_post_insights",
+            post_id: postId,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }
+    } catch (err) {
+      fbDiagnostic = { error: "Could not get account token", details: err instanceof Error ? err.message : String(err) };
+    }
+  }
 
   const analysis = (posts ?? []).map(p => ({
     id: p.id,
@@ -51,6 +98,7 @@ export async function GET(request: Request) {
     tenant_id: tenantId,
     post_count: posts?.length ?? 0,
     posts: analysis,
+    ...(fbDiagnostic ? { fb_diagnostic: fbDiagnostic } : {}),
   });
 }
 
