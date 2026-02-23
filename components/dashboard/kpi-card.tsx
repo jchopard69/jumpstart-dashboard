@@ -39,7 +39,11 @@ function formatCompact(value: number): string {
 
 export function KpiCard({ label, value, delta, suffix, className, index = 0 }: KpiCardProps) {
   const trend = delta >= 0 ? "up" : "down";
-  const formatted = formatCompact(value);
+  const compact = formatCompact(value);
+  const full = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 })
+    .format(value)
+    .replace(/[\u00A0\u202F]/g, "\u2009");
+  const isAbbreviated = compact !== full;
   const deltaValue = formatDelta(delta);
 
   return (
@@ -65,8 +69,11 @@ export function KpiCard({ label, value, delta, suffix, className, index = 0 }: K
       </div>
       <div className="mt-4">
         <p className="text-3xl font-semibold font-display">
-          {formatted}{suffix && <span className="text-xl ml-0.5">{suffix}</span>}
+          {compact}{suffix && <span className="text-xl ml-0.5">{suffix}</span>}
         </p>
+        {isAbbreviated && (
+          <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{full}</p>
+        )}
       </div>
     </Card>
   );
