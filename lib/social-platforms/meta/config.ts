@@ -3,10 +3,10 @@
  */
 
 export const META_CONFIG = {
-  apiVersion: 'v21.0',
-  graphUrl: 'https://graph.facebook.com/v21.0',
-  authUrl: 'https://www.facebook.com/v21.0/dialog/oauth',
-  tokenUrl: 'https://graph.facebook.com/v21.0/oauth/access_token',
+  apiVersion: process.env.META_API_VERSION || 'v25.0',
+  graphUrl: `https://graph.facebook.com/${process.env.META_API_VERSION || 'v25.0'}`,
+  authUrl: `https://www.facebook.com/${process.env.META_API_VERSION || 'v25.0'}/dialog/oauth`,
+  tokenUrl: `https://graph.facebook.com/${process.env.META_API_VERSION || 'v25.0'}/oauth/access_token`,
 
   // Required scopes for full functionality
   // See: https://developers.facebook.com/docs/permissions/reference

@@ -573,8 +573,7 @@ export const facebookConnector: Connector = {
     console.log(`[facebook] Fetched ${allFbPosts.length} posts`);
 
     // Try to fetch post-level insights via batch API.
-    // If the page token lacks read_insights permission (error 100),
-    // skip entirely to avoid wasting time on 100+ failing requests.
+    // Some pages/posts no longer expose post_impressions*; probe alternatives.
     const fetchPostInsights = async (postIds: string[]) => {
       const result = new Map<string, { impressions: number; reach: number; views: number }>();
       if (!postIds.length) return result;
@@ -589,36 +588,56 @@ export const facebookConnector: Connector = {
         return 0;
       };
 
+      type MetricSpec = {
+        metric: string;
+        target: "impressions" | "reach" | "views";
+      };
+      const metricSpecs: MetricSpec[] = [
+        { metric: "post_impressions", target: "impressions" },
+        { metric: "post_impressions_unique", target: "reach" },
+        { metric: "post_media_view", target: "views" },
+        { metric: "post_total_media_view_unique", target: "reach" },
+      ];
+      const versions = [META_CONFIG.apiVersion, "v25.0", "v24.0", "v23.0", "v21.0"]
+        .filter(Boolean)
+        .filter((value, index, arr) => arr.indexOf(value) === index);
+
       // Probe: use single-metric endpoint per Meta docs
       const testPostId = postIds[0];
-      const testMetrics: Array<"post_impressions" | "post_impressions_unique"> = [
-        "post_impressions",
-        "post_impressions_unique",
-      ];
-      let metricsAvailable = true;
-      for (const metric of testMetrics) {
-        try {
-          const testUrl = buildUrl(`${GRAPH_URL}/${testPostId}/insights/${metric}`, {
-            period: "lifetime",
-            access_token: accessToken,
-          });
-          await apiRequest<{ data?: unknown[] }>(
-            "facebook", testUrl, {}, "post_insights_probe", true
-          );
-        } catch (probeErr) {
-          const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
-          if (msg.includes("valid insights metric")) {
-            console.warn(`[facebook] Post insights probe invalid metric (${metric}): ${msg.slice(0, 120)}`);
-            metricsAvailable = false;
+      const supported: Array<MetricSpec & { version: string }> = [];
+      for (const spec of metricSpecs) {
+        let accepted = false;
+        for (const version of versions) {
+          try {
+            const versionUrl = `https://graph.facebook.com/${version}`;
+            const testUrl = buildUrl(`${versionUrl}/${testPostId}/insights/${spec.metric}`, {
+              period: "lifetime",
+              access_token: accessToken,
+            });
+            await apiRequest<{ data?: unknown[] }>(
+              "facebook", testUrl, {}, "post_insights_probe", true
+            );
+            supported.push({ ...spec, version });
+            accepted = true;
             break;
+          } catch (probeErr) {
+            const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
+            if (msg.includes("valid insights metric")) {
+              continue;
+            }
+            if (msg.includes("Permissions error")) {
+              console.warn(`[facebook] Post insights probe failed (permissions) for ${spec.metric}: ${msg.slice(0, 120)}`);
+              return result;
+            }
+            console.warn(`[facebook] Post insights probe failed for ${spec.metric}: ${msg.slice(0, 120)}`);
           }
-          console.warn(`[facebook] Post insights probe failed (likely no read_insights permission): ${msg.slice(0, 120)}`);
-          console.log(`[facebook] Skipping post-level insights — using engagement data from post objects only`);
-          return result;
+        }
+        if (!accepted) {
+          console.warn(`[facebook] Post insights metric unavailable: ${spec.metric}`);
         }
       }
 
-      if (!metricsAvailable) {
+      if (!supported.length) {
         console.warn("[facebook] No valid post insights metrics available for this page.");
         return result;
       }
@@ -629,15 +648,16 @@ export const facebookConnector: Connector = {
         chunks.push(postIds.slice(i, i + 50));
       }
 
-      const fetchMetricBatch = async (metric: "post_impressions" | "post_impressions_unique") => {
+      const fetchMetricBatch = async (spec: MetricSpec & { version: string }) => {
         for (const chunk of chunks) {
           const batch = chunk.map((postId) => ({
             method: "GET",
-            relative_url: `${postId}/insights/${metric}?period=lifetime`,
+            relative_url: `${postId}/insights/${spec.metric}?period=lifetime`,
           }));
 
           try {
-            const batchUrl = buildUrl(`${GRAPH_URL}/`, { access_token: accessToken });
+            const versionUrl = `https://graph.facebook.com/${spec.version}`;
+            const batchUrl = buildUrl(`${versionUrl}/`, { access_token: accessToken });
             const body = new URLSearchParams();
             body.set("batch", JSON.stringify(batch));
             const response = await apiRequest<Array<{ code: number; body: string }>>(
@@ -661,10 +681,12 @@ export const facebookConnector: Connector = {
                 const parsedValue = parseInsightValue(value);
                 const postId = chunk[index];
                 const existing = result.get(postId) ?? { impressions: 0, reach: 0, views: 0 };
-                if (metric === "post_impressions") {
+                if (spec.target === "impressions") {
                   existing.impressions = parsedValue;
-                } else {
+                } else if (spec.target === "reach") {
                   existing.reach = parsedValue;
+                } else {
+                  existing.views = parsedValue;
                 }
                 result.set(postId, existing);
               } catch {
@@ -678,8 +700,9 @@ export const facebookConnector: Connector = {
         }
       };
 
-      await fetchMetricBatch("post_impressions");
-      await fetchMetricBatch("post_impressions_unique");
+      for (const spec of supported) {
+        await fetchMetricBatch(spec);
+      }
 
       return result;
     };

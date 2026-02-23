@@ -2,9 +2,21 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getPostVisibility, getPostImpressions, getPostEngagements } from "@/lib/metrics";
 import { decryptToken } from "@/lib/crypto";
-import { apiRequest, buildUrl } from "@/lib/social-platforms/core/api-client";
+import { buildUrl } from "@/lib/social-platforms/core/api-client";
 
-const GRAPH_URL = "https://graph.facebook.com/v21.0";
+const DEFAULT_META_VERSION = process.env.META_API_VERSION || "v25.0";
+const METRIC_CANDIDATES = [
+  "post_impressions",
+  "post_impressions_unique",
+  "post_media_view",
+  "post_total_media_view_unique",
+];
+
+async function fetchMetricProbe(url: string) {
+  const resp = await fetch(url);
+  const body = await resp.json();
+  return { status: resp.status, body };
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -46,7 +58,13 @@ export async function GET(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Try a live Facebook post insights call to diagnose permission issues
+  const versionParam = searchParams.get("versions");
+  const versions = (versionParam
+    ? versionParam.split(",").map((v) => v.trim()).filter(Boolean)
+    : [DEFAULT_META_VERSION, "v25.0", "v24.0", "v23.0", "v21.0"])
+    .filter((v, i, arr) => arr.indexOf(v) === i);
+
+  // Try a live Facebook post insights call to diagnose metric availability
   let fbDiagnostic: Record<string, unknown> | null = null;
   const firstFbPost = (posts ?? []).find(p => p.platform === "facebook");
   if (firstFbPost && searchParams.get("diagnose") === "true") {
@@ -62,28 +80,36 @@ export async function GET(request: Request) {
         const token = decryptToken(account.token_encrypted, secret);
         const postId = firstFbPost.external_post_id;
 
-        // Test 1: individual post insight call
-        try {
-          const url = buildUrl(`${GRAPH_URL}/${postId}/insights`, {
-            metric: "post_impressions,post_impressions_unique",
-            period: "lifetime",
-            access_token: token,
-          });
-          const resp = await fetch(url);
-          const body = await resp.json();
-          fbDiagnostic = {
-            test: "individual_post_insights",
-            post_id: postId,
-            status: resp.status,
-            response: body,
-          };
-        } catch (err) {
-          fbDiagnostic = {
-            test: "individual_post_insights",
-            post_id: postId,
-            error: err instanceof Error ? err.message : String(err),
-          };
+        const probes: Array<Record<string, unknown>> = [];
+        for (const version of versions) {
+          const graphUrl = `https://graph.facebook.com/${version}`;
+          for (const metric of METRIC_CANDIDATES) {
+            try {
+              const url = buildUrl(`${graphUrl}/${postId}/insights/${metric}`, {
+                period: "lifetime",
+                access_token: token,
+              });
+              const probe = await fetchMetricProbe(url);
+              probes.push({
+                version,
+                metric,
+                status: probe.status,
+                response: probe.body,
+              });
+            } catch (err) {
+              probes.push({
+                version,
+                metric,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }
         }
+        fbDiagnostic = {
+          test: "individual_post_metric_probes",
+          post_id: postId,
+          probes,
+        };
       }
     } catch (err) {
       fbDiagnostic = { error: "Could not get account token", details: err instanceof Error ? err.message : String(err) };
@@ -113,18 +139,25 @@ export async function GET(request: Request) {
 
         const secret = process.env.ENCRYPTION_SECRET || "";
         const token = decryptToken(account.token_encrypted, secret);
-        const url = buildUrl(`${GRAPH_URL}/${post.external_post_id}/insights`, {
-          metric: "post_impressions,post_impressions_unique",
-          period: "lifetime",
-          access_token: token,
-        });
-        const resp = await fetch(url);
-        const body = await resp.json();
+        const probeResults: Array<Record<string, unknown>> = [];
+        for (const metric of METRIC_CANDIDATES) {
+          const graphUrl = `https://graph.facebook.com/${DEFAULT_META_VERSION}`;
+          const url = buildUrl(`${graphUrl}/${post.external_post_id}/insights/${metric}`, {
+            period: "lifetime",
+            access_token: token,
+          });
+          const probe = await fetchMetricProbe(url);
+          probeResults.push({
+            metric,
+            status: probe.status,
+            response: probe.body,
+          });
+        }
+
         fbPostDiagnostics.push({
           post_id: post.id,
           external_post_id: post.external_post_id,
-          status: resp.status,
-          response: body,
+          probes: probeResults,
         });
       } catch (err) {
         fbPostDiagnostics.push({
