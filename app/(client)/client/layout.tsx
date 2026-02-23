@@ -13,7 +13,7 @@ const TENANT_COOKIE = "active_tenant_id";
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   const profile = await getSessionProfile();
   if (profile.role !== "agency_admin") {
-    requireClientAccess(profile);
+    await requireClientAccess(profile);
   }
 
   async function signOut() {

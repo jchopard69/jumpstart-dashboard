@@ -21,6 +21,7 @@ import {
 import { DocumentManager } from "@/components/admin/document-manager";
 import { SocialAccountsSection } from "@/components/admin/social-accounts-section";
 import { MultiTenantAccess } from "@/components/admin/multi-tenant-access";
+import { InviteUserForm } from "@/components/admin/invite-user-form";
 import type { Platform } from "@/lib/types";
 
 export async function generateMetadata({ params }: { params: { tenantId: string } }): Promise<Metadata> {
@@ -140,21 +141,7 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
 
       <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Inviter un utilisateur</h2>
-        <form action={inviteUser} className="mt-4 grid gap-4 md:grid-cols-4">
-          <Input name="email" type="email" placeholder="email@client.com" required />
-          <Input name="full_name" placeholder="Nom complet" />
-          <select
-            name="role"
-            defaultValue="client_user"
-            className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
-          >
-            <option value="client_user">Utilisateur client</option>
-            <option value="client_manager">Manager client</option>
-            <option value="agency_admin">Admin agence</option>
-          </select>
-          <input type="hidden" name="tenant_id" value={params.tenantId} />
-          <Button type="submit">Envoyer l&apos;invitation</Button>
-        </form>
+        <InviteUserForm tenantId={params.tenantId} action={inviteUser} />
 
         <div className="mt-6">
           <Table>

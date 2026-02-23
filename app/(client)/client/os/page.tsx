@@ -28,7 +28,7 @@ export default async function ClientOsPage({
       redirect("/admin");
     }
   } else {
-    requireClientAccess(profile);
+    await requireClientAccess(profile);
   }
 
   const isAdmin = profile.role === "agency_admin" && !!searchParams?.tenantId;

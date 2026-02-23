@@ -1,8 +1,38 @@
+import { cookies } from "next/headers";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import { assertTenant } from "@/lib/auth";
+import { assertTenant, getUserTenants } from "@/lib/auth";
 import { buildPreviousRange, resolveDateRange } from "@/lib/date";
 import { coerceMetric, getPostEngagements, getPostImpressions, getPostVisibility } from "@/lib/metrics";
 import type { Platform } from "@/lib/types";
+
+const TENANT_COOKIE = "active_tenant_id";
+
+/**
+ * Resolve the effective tenant ID for a user.
+ * Priority: explicit tenantId param > profile.tenant_id > cookie > first accessible tenant.
+ */
+async function resolveClientTenant(profile: { id?: string; tenant_id: string | null }, explicitTenantId?: string): Promise<string> {
+  if (explicitTenantId) return explicitTenantId;
+  if (profile.tenant_id) return profile.tenant_id;
+
+  // Check cookie
+  const cookieStore = cookies();
+  const cookieTenantId = cookieStore.get(TENANT_COOKIE)?.value;
+
+  // Get accessible tenants to validate
+  const tenants = profile.id ? await getUserTenants(profile.id) : [];
+
+  if (cookieTenantId && tenants.some(t => t.id === cookieTenantId)) {
+    return cookieTenantId;
+  }
+
+  if (tenants.length > 0) {
+    return tenants[0].id;
+  }
+
+  // Fallback to assertTenant which will throw a user-friendly error
+  return assertTenant(profile as any);
+}
 
 export async function fetchDashboardData(params: {
   preset: any;
@@ -16,7 +46,9 @@ export async function fetchDashboardData(params: {
 }) {
   const isAdmin = params.profile.role === "agency_admin" && params.tenantId;
   const supabase = isAdmin ? createSupabaseServiceClient() : createSupabaseServerClient();
-  const tenantId = isAdmin ? params.tenantId! : assertTenant(params.profile as any);
+  const tenantId = isAdmin
+    ? params.tenantId!
+    : await resolveClientTenant(params.profile as any, undefined);
   const range = resolveDateRange(params.preset, params.from, params.to);
   const prevRange = buildPreviousRange(range);
 
@@ -404,7 +436,9 @@ export async function fetchDashboardAccounts(params: {
 }) {
   const isAdmin = params.profile.role === "agency_admin" && params.tenantId;
   const supabase = isAdmin ? createSupabaseServiceClient() : createSupabaseServerClient();
-  const tenantId = isAdmin ? params.tenantId! : assertTenant(params.profile as any);
+  const tenantId = isAdmin
+    ? params.tenantId!
+    : await resolveClientTenant(params.profile as any, undefined);
 
   const { data: accounts } = await supabase
     .from("social_accounts")

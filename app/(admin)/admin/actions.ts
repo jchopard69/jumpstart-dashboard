@@ -31,7 +31,10 @@ export async function deactivateTenant(formData: FormData) {
   revalidatePath("/admin/clients");
 }
 
-export async function inviteUser(formData: FormData) {
+export async function inviteUser(
+  _prevState: { error?: string; success?: string } | null,
+  formData: FormData
+): Promise<{ error?: string; success?: string }> {
   const profile = await getSessionProfile();
   requireAdmin(profile);
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -40,7 +43,7 @@ export async function inviteUser(formData: FormData) {
   const tenantId = String(formData.get("tenant_id") ?? "");
 
   if (!email) {
-    throw new Error("Email requis");
+    return { error: "Email requis" };
   }
 
   const supabase = createSupabaseServiceClient();
@@ -59,12 +62,11 @@ export async function inviteUser(formData: FormData) {
 
     if (existingProfile) {
       if (existingProfile.tenant_id === tenantId) {
-        throw new Error("Cet utilisateur est déjà membre de ce workspace");
+        return { error: "Cet utilisateur est deja membre de ce workspace" };
       }
-      // User exists with different tenant - suggest adding multi-tenant access
-      throw new Error(
-        "Cet utilisateur existe déjà dans un autre workspace. Utilisez la section 'Accès multi-tenant' pour lui donner accès à ce workspace."
-      );
+      return {
+        error: "Cet utilisateur existe deja dans un autre workspace. Utilisez la section 'Acces multi-tenant' pour lui donner acces a ce workspace."
+      };
     }
 
     // User in auth but no profile - create profile
@@ -76,7 +78,7 @@ export async function inviteUser(formData: FormData) {
       tenant_id: role === "agency_admin" ? null : tenantId
     });
     revalidatePath(`/admin/clients/${tenantId}`);
-    return;
+    return { success: `Profil cree pour ${email}` };
   }
 
   // New user - send invite
@@ -87,18 +89,18 @@ export async function inviteUser(formData: FormData) {
 
   if (error) {
     if (error.message.includes("rate limit")) {
-      throw new Error("Trop de demandes. Réessayez dans quelques minutes.");
+      return { error: "Trop de demandes. Reessayez dans quelques minutes." };
     }
     if (error.message.includes("SMTP") || error.message.includes("email")) {
-      throw new Error(
-        "Impossible d'envoyer l'email. Vérifiez la configuration SMTP dans Supabase Dashboard."
-      );
+      return {
+        error: "Impossible d'envoyer l'email. Verifiez la configuration SMTP dans Supabase Dashboard."
+      };
     }
-    throw new Error(`Erreur d'invitation: ${error.message}`);
+    return { error: `Erreur d'invitation: ${error.message}` };
   }
 
   if (!data?.user) {
-    throw new Error("Erreur lors de la création de l'utilisateur");
+    return { error: "Erreur lors de la creation de l'utilisateur" };
   }
 
   await supabase.from("profiles").insert({
@@ -110,6 +112,7 @@ export async function inviteUser(formData: FormData) {
   });
 
   revalidatePath(`/admin/clients/${tenantId}`);
+  return { success: `Invitation envoyee a ${email}` };
 }
 
 export async function createSocialAccount(formData: FormData) {

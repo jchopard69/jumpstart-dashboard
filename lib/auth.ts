@@ -55,17 +55,32 @@ export function requireAdmin(profile: Profile) {
   }
 }
 
-export function requireClientAccess(profile: Profile) {
-  if (!profile.tenant_id) {
+export async function requireClientAccess(profile: Profile) {
+  if (profile.tenant_id) return;
+
+  // Check multi-tenant access before giving up
+  const tenants = await getUserTenants(profile.id);
+  if (tenants.length > 0) return;
+
+  // No tenant access at all — if admin, send to admin; otherwise sign out
+  if (profile.role === "agency_admin") {
     redirect("/admin");
   }
+
+  // Client user with no tenant: broken state — sign out to prevent redirect loop
+  const supabase = createSupabaseServerClient();
+  await supabase.auth.signOut();
+  redirect("/login?error=no_profile");
 }
 
-export function assertTenant(profile: Profile) {
-  if (!profile.tenant_id) {
-    throw new Error("Tenant missing for user profile");
-  }
-  return profile.tenant_id;
+export function assertTenant(profile: Profile): string {
+  if (profile.tenant_id) return profile.tenant_id;
+
+  // This should not normally happen — requireClientAccess should have caught it.
+  // Throwing here triggers the error.tsx boundary with a user-friendly message.
+  throw new Error(
+    "Aucun workspace associe a votre compte. Contactez votre administrateur."
+  );
 }
 
 export async function getUserTenants(userId: string): Promise<AccessibleTenant[]> {
