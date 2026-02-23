@@ -14,6 +14,7 @@ import { SyncStatus } from "@/components/dashboard/sync-status";
 import { DailyMetricsTable } from "@/components/dashboard/daily-metrics-table";
 import { InsightCard } from "@/components/dashboard/insight-card";
 import { ScoreCard } from "@/components/dashboard/score-card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
 import { generateStrategicInsights, generateKeyTakeaways, generateExecutiveSummary, type InsightsInput } from "@/lib/insights";
 
@@ -134,6 +135,27 @@ export default async function ClientDashboardPage({
   const showEngagements = data.perPlatform.some((item) => item.available.engagements);
   const showComparison = Boolean(offsetDays && (data.prevMetrics?.length ?? 0) > 0);
 
+  const hasAnyMetrics =
+    (data.metrics?.length ?? 0) > 0 ||
+    (data.posts?.length ?? 0) > 0 ||
+    (data.totals?.followers ?? 0) > 0 ||
+    (data.totals?.posts_count ?? 0) > 0;
+  const hasAccounts = accounts.length > 0;
+  const showEmptyState = !hasAccounts || !hasAnyMetrics;
+  const emptyStateAction = !hasAccounts
+    ? {
+        label: profile.role === "agency_admin" && searchParams.tenantId
+          ? "Connecter un compte"
+          : "Contacter votre administrateur",
+        href: profile.role === "agency_admin" && searchParams.tenantId
+          ? `/admin/clients/${searchParams.tenantId}`
+          : "mailto:contact@jumpstartstudio.fr"
+      }
+    : {
+        label: "Choisir une période",
+        href: "#dashboard-filters"
+      };
+
   // Compute JumpStart Score
   const periodDays = data.range
     ? Math.max(1, Math.round((data.range.end.getTime() - data.range.start.getTime()) / msDay))
@@ -208,6 +230,48 @@ export default async function ClientDashboardPage({
   const hasInsightsData = (data.totals?.views ?? 0) > 0 || (data.totals?.reach ?? 0) > 0 || (data.totals?.engagements ?? 0) > 0;
   const showMissingDataWarning = hasFollowersOrPosts && !hasInsightsData && data.perPlatform.length > 0;
 
+  if (showEmptyState) {
+    return (
+      <div className="space-y-8 fade-in">
+        <section className="surface-panel p-8">
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Social Intelligence</p>
+              <h1 className="page-heading">Vue d&apos;ensemble</h1>
+              <p className="mt-2 text-sm text-muted-foreground">Analyse consolidee de votre presence digitale.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <RefreshButton tenantId={searchParams.tenantId} />
+              <ExportButtons query={queryString} />
+            </div>
+          </div>
+          <div className="mt-6" id="dashboard-filters">
+            <DashboardFilters
+              preset={preset}
+              from={searchParams.from}
+              to={searchParams.to}
+              platform={searchParams.platform}
+              accountId={searchParams.accountId}
+              accounts={accounts}
+            />
+          </div>
+        </section>
+
+        <section className="surface-panel p-8">
+          <EmptyState
+            title={!hasAccounts ? "Aucun compte connecte" : "Aucune donnee sur la periode"}
+            description={
+              !hasAccounts
+                ? "Aucun compte social n'est relie a ce workspace. Connectez un compte pour commencer a voir vos statistiques."
+                : "Les donnees n'ont pas ete trouvees pour la periode selectionnee. Essayez d'elargir la periode ou relancez la synchronisation."
+            }
+            action={emptyStateAction}
+          />
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 fade-in">
       <section className="surface-panel p-8">
@@ -222,7 +286,7 @@ export default async function ClientDashboardPage({
             <ExportButtons query={queryString} />
           </div>
         </div>
-        <div className="mt-6">
+        <div className="mt-6" id="dashboard-filters">
           <DashboardFilters
             preset={preset}
             from={searchParams.from}

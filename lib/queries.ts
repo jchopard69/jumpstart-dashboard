@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { assertTenant, getUserTenants } from "@/lib/auth";
 import { buildPreviousRange, resolveDateRange } from "@/lib/date";
+import { normalizeDashboardFilters } from "@/lib/dashboard-filters";
 import { coerceMetric, getPostEngagements, getPostImpressions, getPostVisibility } from "@/lib/metrics";
 import type { Platform } from "@/lib/types";
 
@@ -12,17 +13,28 @@ const TENANT_COOKIE = "active_tenant_id";
  * Priority: explicit tenantId param > profile.tenant_id > cookie > first accessible tenant.
  */
 async function resolveClientTenant(profile: { id?: string; tenant_id: string | null }, explicitTenantId?: string): Promise<string> {
-  if (explicitTenantId) return explicitTenantId;
+  const tenants = profile.id ? await getUserTenants(profile.id) : [];
+  const tenantIds = new Set(tenants.map((tenant) => tenant.id));
+
+  if (explicitTenantId) {
+    if (tenantIds.has(explicitTenantId)) {
+      return explicitTenantId;
+    }
+    if (tenantIds.size > 0) {
+      console.warn("[dashboard] Ignoring unauthorized explicit tenantId", {
+        tenantId: explicitTenantId,
+        userId: profile.id?.slice(0, 8)
+      });
+    }
+  }
+
   if (profile.tenant_id) return profile.tenant_id;
 
   // Check cookie
   const cookieStore = cookies();
   const cookieTenantId = cookieStore.get(TENANT_COOKIE)?.value;
 
-  // Get accessible tenants to validate
-  const tenants = profile.id ? await getUserTenants(profile.id) : [];
-
-  if (cookieTenantId && tenants.some(t => t.id === cookieTenantId)) {
+  if (cookieTenantId && tenantIds.has(cookieTenantId)) {
     return cookieTenantId;
   }
 
@@ -41,16 +53,32 @@ export async function fetchDashboardData(params: {
   platform?: Platform | "all";
   socialAccountId?: string;
   platforms?: Platform[];
-  profile: { tenant_id: string | null; role?: string | null };
+  profile: { id?: string; tenant_id: string | null; role?: string | null };
   tenantId?: string;
 }) {
   const isAdmin = params.profile.role === "agency_admin" && params.tenantId;
   const supabase = isAdmin ? createSupabaseServiceClient() : createSupabaseServerClient();
   const tenantId = isAdmin
     ? params.tenantId!
-    : await resolveClientTenant(params.profile as any, undefined);
+    : await resolveClientTenant(params.profile as any, params.tenantId);
   const range = resolveDateRange(params.preset, params.from, params.to);
   const prevRange = buildPreviousRange(range);
+  const filters = normalizeDashboardFilters({
+    platform: params.platform,
+    socialAccountId: params.socialAccountId
+  });
+
+  console.log("[dashboard] Fetching data", {
+    tenantId,
+    userId: params.profile.id?.slice(0, 8),
+    role: params.profile.role,
+    range: {
+      start: range.start.toISOString(),
+      end: range.end.toISOString()
+    },
+    platform: filters.platform,
+    socialAccountId: filters.socialAccountId
+  });
 
   let metricsQuery = supabase
     .from("social_daily_metrics")
@@ -66,20 +94,33 @@ export async function fetchDashboardData(params: {
     .gte("date", prevRange.start.toISOString().slice(0, 10))
     .lte("date", prevRange.end.toISOString().slice(0, 10));
 
-  if (params.platform && params.platform !== "all") {
-    metricsQuery = metricsQuery.eq("platform", params.platform);
-    prevQuery = prevQuery.eq("platform", params.platform);
+  if (filters.platform) {
+    metricsQuery = metricsQuery.eq("platform", filters.platform);
+    prevQuery = prevQuery.eq("platform", filters.platform);
   }
 
-  if (params.socialAccountId) {
-    metricsQuery = metricsQuery.eq("social_account_id", params.socialAccountId);
-    prevQuery = prevQuery.eq("social_account_id", params.socialAccountId);
+  if (filters.socialAccountId) {
+    metricsQuery = metricsQuery.eq("social_account_id", filters.socialAccountId);
+    prevQuery = prevQuery.eq("social_account_id", filters.socialAccountId);
   }
 
-  const [{ data: metrics }, { data: prevMetrics }] = await Promise.all([
-    metricsQuery.order("date", { ascending: true }),
-    prevQuery.order("date", { ascending: true })
+  console.time("[dashboard] metricsQuery");
+  const metricsPromise = metricsQuery.order("date", { ascending: true });
+  const prevPromise = prevQuery.order("date", { ascending: true });
+  const [{ data: metrics, error: metricsError }, { data: prevMetrics, error: prevMetricsError }] = await Promise.all([
+    metricsPromise,
+    prevPromise
   ]);
+  console.timeEnd("[dashboard] metricsQuery");
+
+  if (metricsError || prevMetricsError) {
+    console.error("[dashboard] Failed to load daily metrics", {
+      tenantId,
+      metricsError,
+      prevMetricsError
+    });
+    throw new Error("Impossible de charger les métriques.");
+  }
 
   const normalizeMetrics = <T extends {
     date?: string | null;
@@ -205,20 +246,22 @@ export async function fetchDashboardData(params: {
     .gte("posted_at", prevRange.start.toISOString())
     .lte("posted_at", prevRange.end.toISOString());
 
-  if (params.platform && params.platform !== "all") {
-    postsCountQuery = postsCountQuery.eq("platform", params.platform);
-    prevPostsCountQuery = prevPostsCountQuery.eq("platform", params.platform);
+  if (filters.platform) {
+    postsCountQuery = postsCountQuery.eq("platform", filters.platform);
+    prevPostsCountQuery = prevPostsCountQuery.eq("platform", filters.platform);
   }
 
-  if (params.socialAccountId) {
-    postsCountQuery = postsCountQuery.eq("social_account_id", params.socialAccountId);
-    prevPostsCountQuery = prevPostsCountQuery.eq("social_account_id", params.socialAccountId);
+  if (filters.socialAccountId) {
+    postsCountQuery = postsCountQuery.eq("social_account_id", filters.socialAccountId);
+    prevPostsCountQuery = prevPostsCountQuery.eq("social_account_id", filters.socialAccountId);
   }
 
+  console.time("[dashboard] postsCount");
   const [postsCountResult, prevPostsCountResult] = await Promise.all([
     postsCountQuery,
     prevPostsCountQuery
   ]);
+  console.timeEnd("[dashboard] postsCount");
 
   const postsCount = postsCountResult.count;
   const prevPostsCount = prevPostsCountResult.count;
@@ -250,42 +293,67 @@ export async function fetchDashboardData(params: {
     .gte("posted_at", range.start.toISOString())
     .lte("posted_at", range.end.toISOString());
 
-  if (params.platform && params.platform !== "all") {
-    postsQuery = postsQuery.eq("platform", params.platform);
+  if (filters.platform) {
+    postsQuery = postsQuery.eq("platform", filters.platform);
   }
 
-  if (params.socialAccountId) {
-    postsQuery = postsQuery.eq("social_account_id", params.socialAccountId);
+  if (filters.socialAccountId) {
+    postsQuery = postsQuery.eq("social_account_id", filters.socialAccountId);
   }
 
-  const { data: posts } = await postsQuery.order("posted_at", { ascending: false }).limit(100);
+  console.time("[dashboard] postsQuery");
+  const { data: posts, error: postsError } = await postsQuery.order("posted_at", { ascending: false }).limit(100);
+  console.timeEnd("[dashboard] postsQuery");
+  if (postsError) {
+    console.error("[dashboard] Failed to load posts", { tenantId, error: postsError });
+  }
 
-  const { data: collaboration } = await supabase
+  console.time("[dashboard] collaborationQuery");
+  const { data: collaboration, error: collaborationError } = await supabase
     .from("collaboration")
     .select("shoot_days_remaining,notes,updated_at")
     .eq("tenant_id", tenantId)
     .single();
+  console.timeEnd("[dashboard] collaborationQuery");
+  if (collaborationError) {
+    console.error("[dashboard] Failed to load collaboration", { tenantId, error: collaborationError });
+  }
 
-  const { data: shoots } = await supabase
+  console.time("[dashboard] shootsQuery");
+  const { data: shoots, error: shootsError } = await supabase
     .from("upcoming_shoots")
     .select("id,shoot_date,location,notes")
     .eq("tenant_id", tenantId)
     .order("shoot_date", { ascending: true });
+  console.timeEnd("[dashboard] shootsQuery");
+  if (shootsError) {
+    console.error("[dashboard] Failed to load shoots", { tenantId, error: shootsError });
+  }
 
-  const { data: documents } = await supabase
+  console.time("[dashboard] documentsQuery");
+  const { data: documents, error: documentsError } = await supabase
     .from("documents")
     .select("id,file_name,tag,pinned,created_at,file_path")
     .eq("tenant_id", tenantId)
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false });
+  console.timeEnd("[dashboard] documentsQuery");
+  if (documentsError) {
+    console.error("[dashboard] Failed to load documents", { tenantId, error: documentsError });
+  }
 
-  const { data: lastSync } = await supabase
+  console.time("[dashboard] syncLogQuery");
+  const { data: lastSync, error: syncError } = await supabase
     .from("sync_logs")
     .select("status,finished_at")
     .eq("tenant_id", tenantId)
     .order("started_at", { ascending: false })
     .limit(1)
     .single();
+  console.timeEnd("[dashboard] syncLogQuery");
+  if (syncError) {
+    console.error("[dashboard] Failed to load sync logs", { tenantId, error: syncError });
+  }
 
   // Diagnostic: log sample post metrics to debug visibility issues
   if (posts?.length) {
@@ -308,8 +376,8 @@ export async function fetchDashboardData(params: {
     return bImp - aImp || bEng - aEng;
   });
 
-  const availablePlatforms = params.platform && params.platform !== "all"
-    ? [params.platform]
+  const availablePlatforms = filters.platform
+    ? [filters.platform]
     : params.platforms?.length
       ? params.platforms
       : Array.from(new Set((normalizedMetrics ?? []).map((row) => row.platform as Platform).filter(Boolean)));
@@ -370,6 +438,7 @@ export async function fetchDashboardData(params: {
     return count ?? 0;
   };
 
+  console.time("[dashboard] postsByPlatform");
   const postsByPlatform = await Promise.all(
     perPlatform.map(async (item) => ({
       platform: item.platform,
@@ -377,6 +446,19 @@ export async function fetchDashboardData(params: {
       previous: await countPostsByPlatform(item.platform, prevRange.start, prevRange.end)
     }))
   );
+  console.timeEnd("[dashboard] postsByPlatform");
+
+  if ((normalizedMetrics?.length ?? 0) === 0 && (posts?.length ?? 0) === 0) {
+    console.warn("[dashboard] No metrics or posts found for range", {
+      tenantId,
+      range: {
+        start: range.start.toISOString(),
+        end: range.end.toISOString()
+      },
+      platform: filters.platform,
+      socialAccountId: filters.socialAccountId
+    });
+  }
 
   const platformSummaries = perPlatform.map((item) => {
     const counts = postsByPlatform.find((entry) => entry.platform === item.platform);
@@ -431,20 +513,29 @@ export async function fetchDashboardData(params: {
 }
 
 export async function fetchDashboardAccounts(params: {
-  profile: { tenant_id: string | null; role?: string | null };
+  profile: { id?: string; tenant_id: string | null; role?: string | null };
   tenantId?: string;
 }) {
   const isAdmin = params.profile.role === "agency_admin" && params.tenantId;
   const supabase = isAdmin ? createSupabaseServiceClient() : createSupabaseServerClient();
   const tenantId = isAdmin
     ? params.tenantId!
-    : await resolveClientTenant(params.profile as any, undefined);
+    : await resolveClientTenant(params.profile as any, params.tenantId);
 
-  const { data: accounts } = await supabase
+  const { data: accounts, error } = await supabase
     .from("social_accounts")
     .select("id,platform,account_name,external_account_id")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("[dashboard] Failed to load social accounts", { tenantId, error });
+    throw new Error("Impossible de charger les comptes sociaux.");
+  }
+
+  if ((accounts?.length ?? 0) === 0) {
+    console.warn("[dashboard] No social accounts connected", { tenantId });
+  }
 
   return accounts ?? [];
 }

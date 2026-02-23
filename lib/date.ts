@@ -9,8 +9,8 @@ export type DateRangePreset =
   | "last_month"
   | "custom";
 
-export function resolveDateRange(preset: DateRangePreset, from?: string, to?: string) {
-  const now = new Date();
+export function resolveDateRange(preset: DateRangePreset, from?: string, to?: string, nowOverride?: Date) {
+  const now = nowOverride ?? new Date();
   let start: Date;
   let end: Date;
 

@@ -8,6 +8,7 @@
     "build": "node scripts/ensure-swc.mjs && next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "node --test --loader ./scripts/ts-loader.mjs tests/**/*.test.ts",
     "security-check": "node scripts/security-check.mjs"
   },
   "dependencies": {
