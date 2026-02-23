@@ -589,22 +589,42 @@ export const facebookConnector: Connector = {
         return 0;
       };
 
-      // Probe: test a single post first to detect permission issues
+      // Probe: test a single post first to detect permission issues or invalid metrics
       const testPostId = postIds[0];
-      try {
-        const testUrl = buildUrl(`${GRAPH_URL}/${testPostId}/insights`, {
-          metric: "post_impressions,post_impressions_unique",
-          period: "lifetime",
-          access_token: accessToken,
-        });
-        await apiRequest<{ data?: unknown[] }>(
-          'facebook', testUrl, {}, 'post_insights_probe', true
-        );
-        console.log(`[facebook] Post insights probe succeeded, fetching all via batch`);
-      } catch (probeErr) {
-        const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
-        console.warn(`[facebook] Post insights probe failed (likely no read_insights permission): ${msg.slice(0, 120)}`);
-        console.log(`[facebook] Skipping post-level insights — using engagement data from post objects only`);
+      const metricCandidates = [
+        { label: "impressions_unique", metrics: ["post_impressions", "post_impressions_unique"] },
+        { label: "impressions_only", metrics: ["post_impressions"] },
+        { label: "unique_only", metrics: ["post_impressions_unique"] },
+      ];
+
+      let selectedMetrics: string[] | null = null;
+      for (const candidate of metricCandidates) {
+        try {
+          const testUrl = buildUrl(`${GRAPH_URL}/${testPostId}/insights`, {
+            metric: candidate.metrics.join(","),
+            period: "lifetime",
+            access_token: accessToken,
+          });
+          await apiRequest<{ data?: unknown[] }>(
+            'facebook', testUrl, {}, 'post_insights_probe', true
+          );
+          selectedMetrics = candidate.metrics;
+          console.log(`[facebook] Post insights probe succeeded (${candidate.label})`);
+          break;
+        } catch (probeErr) {
+          const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
+          if (msg.includes("valid insights metric")) {
+            console.warn(`[facebook] Post insights probe invalid metrics (${candidate.label}): ${msg.slice(0, 120)}`);
+            continue;
+          }
+          console.warn(`[facebook] Post insights probe failed (likely no read_insights permission): ${msg.slice(0, 120)}`);
+          console.log(`[facebook] Skipping post-level insights — using engagement data from post objects only`);
+          return result;
+        }
+      }
+
+      if (!selectedMetrics) {
+        console.warn("[facebook] No valid post insights metrics available for this page.");
         return result;
       }
 
@@ -617,7 +637,7 @@ export const facebookConnector: Connector = {
       for (const chunk of chunks) {
         const batch = chunk.map((postId) => ({
           method: "GET",
-          relative_url: `${postId}/insights?metric=post_impressions,post_impressions_unique&period=lifetime`,
+          relative_url: `${postId}/insights?metric=${selectedMetrics.join(",")}&period=lifetime`,
         }));
 
         try {
@@ -650,9 +670,11 @@ export const facebookConnector: Connector = {
                 }
               }
               const postId = chunk[index];
+              const impressions = byName.get("post_impressions") ?? 0;
+              const reach = byName.get("post_impressions_unique") ?? 0;
               result.set(postId, {
-                impressions: byName.get("post_impressions") ?? 0,
-                reach: byName.get("post_impressions_unique") ?? 0,
+                impressions,
+                reach,
                 views: 0,
               });
             } catch {
