@@ -589,33 +589,28 @@ export const facebookConnector: Connector = {
         return 0;
       };
 
-      // Probe: test a single post first to detect permission issues or invalid metrics
+      // Probe: use single-metric endpoint per Meta docs
       const testPostId = postIds[0];
-      const metricCandidates = [
-        { label: "impressions_unique", metrics: ["post_impressions", "post_impressions_unique"] },
-        { label: "impressions_only", metrics: ["post_impressions"] },
-        { label: "unique_only", metrics: ["post_impressions_unique"] },
+      const testMetrics: Array<"post_impressions" | "post_impressions_unique"> = [
+        "post_impressions",
+        "post_impressions_unique",
       ];
-
-      let selectedMetrics: string[] | null = null;
-      for (const candidate of metricCandidates) {
+      let metricsAvailable = true;
+      for (const metric of testMetrics) {
         try {
-          const testUrl = buildUrl(`${GRAPH_URL}/${testPostId}/insights`, {
-            metric: candidate.metrics.join(","),
+          const testUrl = buildUrl(`${GRAPH_URL}/${testPostId}/insights/${metric}`, {
             period: "lifetime",
             access_token: accessToken,
           });
           await apiRequest<{ data?: unknown[] }>(
-            'facebook', testUrl, {}, 'post_insights_probe', true
+            "facebook", testUrl, {}, "post_insights_probe", true
           );
-          selectedMetrics = candidate.metrics;
-          console.log(`[facebook] Post insights probe succeeded (${candidate.label})`);
-          break;
         } catch (probeErr) {
           const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
           if (msg.includes("valid insights metric")) {
-            console.warn(`[facebook] Post insights probe invalid metrics (${candidate.label}): ${msg.slice(0, 120)}`);
-            continue;
+            console.warn(`[facebook] Post insights probe invalid metric (${metric}): ${msg.slice(0, 120)}`);
+            metricsAvailable = false;
+            break;
           }
           console.warn(`[facebook] Post insights probe failed (likely no read_insights permission): ${msg.slice(0, 120)}`);
           console.log(`[facebook] Skipping post-level insights — using engagement data from post objects only`);
@@ -623,7 +618,7 @@ export const facebookConnector: Connector = {
         }
       }
 
-      if (!selectedMetrics) {
+      if (!metricsAvailable) {
         console.warn("[facebook] No valid post insights metrics available for this page.");
         return result;
       }
@@ -634,58 +629,57 @@ export const facebookConnector: Connector = {
         chunks.push(postIds.slice(i, i + 50));
       }
 
-      for (const chunk of chunks) {
-        const batch = chunk.map((postId) => ({
-          method: "GET",
-          relative_url: `${postId}/insights?metric=${selectedMetrics.join(",")}&period=lifetime`,
-        }));
+      const fetchMetricBatch = async (metric: "post_impressions" | "post_impressions_unique") => {
+        for (const chunk of chunks) {
+          const batch = chunk.map((postId) => ({
+            method: "GET",
+            relative_url: `${postId}/insights/${metric}?period=lifetime`,
+          }));
 
-        try {
-          const batchUrl = buildUrl(`${GRAPH_URL}/`, { access_token: accessToken });
-          const body = new URLSearchParams();
-          body.set("batch", JSON.stringify(batch));
-          const response = await apiRequest<Array<{ code: number; body: string }>>(
-            'facebook',
-            batchUrl,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/x-www-form-urlencoded" },
-              body: body.toString(),
-            },
-            'posts_insights_batch',
-            true
-          );
+          try {
+            const batchUrl = buildUrl(`${GRAPH_URL}/`, { access_token: accessToken });
+            const body = new URLSearchParams();
+            body.set("batch", JSON.stringify(batch));
+            const response = await apiRequest<Array<{ code: number; body: string }>>(
+              "facebook",
+              batchUrl,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: body.toString(),
+              },
+              "posts_insights_batch",
+              true
+            );
 
-          response.forEach((item, index) => {
-            if (!item || item.code !== 200) return;
-            try {
-              const parsed = JSON.parse(item.body);
-              const data = parsed?.data ?? [];
-              const byName = new Map<string, number>();
-              for (const metric of data) {
-                const value = metric?.values?.[0]?.value;
-                const parsed = parseInsightValue(value);
-                if (parsed > 0) {
-                  byName.set(metric.name, parsed);
+            response.forEach((item, index) => {
+              if (!item || item.code !== 200) return;
+              try {
+                const parsed = JSON.parse(item.body);
+                const data = parsed?.data ?? [];
+                const value = data?.[0]?.values?.[0]?.value;
+                const parsedValue = parseInsightValue(value);
+                const postId = chunk[index];
+                const existing = result.get(postId) ?? { impressions: 0, reach: 0, views: 0 };
+                if (metric === "post_impressions") {
+                  existing.impressions = parsedValue;
+                } else {
+                  existing.reach = parsedValue;
                 }
+                result.set(postId, existing);
+              } catch {
+                return;
               }
-              const postId = chunk[index];
-              const impressions = byName.get("post_impressions") ?? 0;
-              const reach = byName.get("post_impressions_unique") ?? 0;
-              result.set(postId, {
-                impressions,
-                reach,
-                views: 0,
-              });
-            } catch {
-              return;
-            }
-          });
-        } catch {
-          console.warn("[facebook] Batch post insights fetch failed, skipping remaining");
-          break;
+            });
+          } catch {
+            console.warn("[facebook] Batch post insights fetch failed, skipping remaining");
+            break;
+          }
         }
-      }
+      };
+
+      await fetchMetricBatch("post_impressions");
+      await fetchMetricBatch("post_impressions_unique");
 
       return result;
     };
