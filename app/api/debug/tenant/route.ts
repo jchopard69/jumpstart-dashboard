@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
+  // Debug routes require CRON_SECRET header
+  const debugSecret = request.headers.get("x-debug-secret");
+  if (!process.env.CRON_SECRET || debugSecret !== process.env.CRON_SECRET) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const { searchParams } = new URL(request.url);
   const supabase = createSupabaseServerClient();
   const {

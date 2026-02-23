@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { getSessionProfile } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
 import { RefreshButton } from "@/components/dashboard/refresh-button";
 import { ExportButtons } from "@/components/dashboard/export-buttons";
@@ -16,16 +14,11 @@ import { SyncStatus } from "@/components/dashboard/sync-status";
 import { DailyMetricsTable } from "@/components/dashboard/daily-metrics-table";
 import { InsightCard } from "@/components/dashboard/insight-card";
 import { ScoreCard } from "@/components/dashboard/score-card";
-import { PulseCard } from "@/components/dashboard/pulse-card";
 import { ContentDnaCard } from "@/components/dashboard/content-dna-card";
-import { PlaybookCard } from "@/components/dashboard/playbook-card";
-import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
 import { EmptyState } from "@/components/ui/empty-state";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
 import { generateStrategicInsights, generateKeyTakeaways, generateExecutiveSummary, type InsightsInput } from "@/lib/insights";
-import { generatePlaybook, type PlaybookInput } from "@/lib/playbook";
 import { analyzeContentDna, type ContentDnaInput } from "@/lib/content-dna";
-import { generatePulse, type PulseInput } from "@/lib/pulse";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -234,10 +227,7 @@ export default async function ClientDashboardPage({
   const keyTakeaways = generateKeyTakeaways(insightsInput);
   const executiveSummary = generateExecutiveSummary(insightsInput);
 
-  // Generate Playbook, Content DNA, Pulse
-  const playbookInput: PlaybookInput = { ...insightsInput, score: jumpStartScore };
-  const playbook = generatePlaybook(playbookInput);
-
+  // Content DNA
   const contentDnaInput: ContentDnaInput = {
     posts: data.posts.map(p => ({
       platform: p.platform as any,
@@ -248,43 +238,6 @@ export default async function ClientDashboardPage({
     })),
   };
   const contentDna = analyzeContentDna(contentDnaInput);
-
-  const pulseInput: PulseInput = {
-    totals: insightsInput.totals,
-    prevTotals: insightsInput.prevTotals,
-    platforms: insightsInput.platforms,
-    score: jumpStartScore,
-    prevScore: null,
-    periodDays,
-  };
-  const pulse = generatePulse(pulseInput);
-
-  // Server action: plan a playbook action into the OS
-  async function planPlaybookAction(taskData: string): Promise<{ success: boolean; error?: string }> {
-    "use server";
-    try {
-      const task = JSON.parse(taskData);
-      const supabase = createSupabaseServerClient();
-      const sessionProfile = await getSessionProfile();
-      const tid = searchParams.tenantId ?? sessionProfile.tenant_id;
-      if (!tid) return { success: false, error: "Aucun tenant trouvé." };
-
-      const { error } = await supabase.from("collab_items").insert({
-        tenant_id: tid,
-        title: task.title,
-        kind: task.kind ?? "monthly_priority",
-        priority: task.priority ?? "high",
-        status: "planned",
-        description: task.description ?? null,
-      });
-
-      if (error) return { success: false, error: error.message };
-      revalidatePath("/client/os");
-      return { success: true };
-    } catch {
-      return { success: false, error: "Données invalides." };
-    }
-  }
 
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
@@ -399,17 +352,12 @@ export default async function ClientDashboardPage({
         </section>
       )}
 
-      {/* JumpStart Score + Pulse */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <ScoreCard
-            score={jumpStartScore}
-            takeaways={keyTakeaways}
-            executiveSummary={executiveSummary}
-          />
-        </div>
-        <PulseCard pulse={pulse} />
-      </section>
+      {/* JumpStart Score */}
+      <ScoreCard
+        score={jumpStartScore}
+        takeaways={keyTakeaways}
+        executiveSummary={executiveSummary}
+      />
 
       <KpiSection
         totals={data.totals}
@@ -419,63 +367,56 @@ export default async function ClientDashboardPage({
         showEngagements={showEngagements}
       />
 
-      <DashboardTabs
-        insightsTab={
-          <>
-            <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <InsightCard insights={strategicInsights.map(i => ({
-                type: i.type === "opportunity" || i.type === "recommendation" ? "positive" : i.type as any,
-                title: i.title,
-                description: i.description,
-              }))} />
-              <CollaborationCard
-                collaboration={data.collaboration}
-                shoots={data.shoots}
-                documents={data.documents}
-              />
-            </section>
+      {/* Insights + Content DNA + Collaboration */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <InsightCard insights={strategicInsights.map(i => ({
+          type: i.type === "opportunity" || i.type === "recommendation" ? "positive" : i.type as any,
+          title: i.title,
+          description: i.description,
+        }))} />
+        <ContentDnaCard dna={contentDna} />
+      </section>
 
-            {(playbook.length > 0 || contentDna.patterns.length > 0) && (
-              <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <PlaybookCard actions={playbook} planAction={planPlaybookAction} />
-                <ContentDnaCard dna={contentDna} />
-              </section>
-            )}
-          </>
-        }
-        performanceTab={
-          <>
-            <ChartsSection
-              trendFollowers={trendFollowers}
-              trendViews={trendViews}
-              trendEngagements={trendEngagements}
-              trendReach={trendReach}
-              showViews={showViews}
-              showReach={showReach}
-              showEngagements={showEngagements}
-              showComparison={showComparison}
-            />
+      {/* Charts */}
+      <ChartsSection
+        trendFollowers={trendFollowers}
+        trendViews={trendViews}
+        trendEngagements={trendEngagements}
+        trendReach={trendReach}
+        showViews={showViews}
+        showReach={showReach}
+        showEngagements={showEngagements}
+        showComparison={showComparison}
+      />
 
-            <PlatformTable
-              perPlatform={data.perPlatform}
-              showViews={showViews}
-              showReach={showReach}
-              showEngagements={showEngagements}
-            />
+      {/* Top Posts + Platform breakdown */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <TopPosts posts={data.posts.slice(0, 10)} />
+        <PlatformTable
+          perPlatform={data.perPlatform}
+          showViews={showViews}
+          showReach={showReach}
+          showEngagements={showEngagements}
+        />
+      </section>
 
-            <DailyMetricsTable
-              metrics={aggregatedMetricsArray}
-              showViews={showViews}
-              showReach={showReach}
-              showEngagements={showEngagements}
-            />
+      {/* Collaboration + Sync */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <CollaborationCard
+            collaboration={data.collaboration}
+            shoots={data.shoots}
+            documents={data.documents}
+          />
+        </div>
+        <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
+      </section>
 
-            <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
-          </>
-        }
-        contentsTab={
-          <TopPosts posts={data.posts.slice(0, 10)} />
-        }
+      <DailyMetricsTable
+        metrics={aggregatedMetricsArray}
+        showViews={showViews}
+        showReach={showReach}
+        showEngagements={showEngagements}
       />
     </div>
   );

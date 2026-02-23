@@ -64,9 +64,10 @@ export async function POST(request: Request) {
     return true;
   });
 
-  const secret = process.env.ENCRYPTION_SECRET ?? "";
+  const secret = process.env.ENCRYPTION_SECRET;
   if (!secret) {
-    return NextResponse.json({ error: "ENCRYPTION_SECRET is missing" }, { status: 500 });
+    console.error("[backfill] ENCRYPTION_SECRET not configured");
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
 
   const results: Array<{ id: string; platform: string; status: string; message?: string }> = [];

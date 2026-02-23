@@ -56,6 +56,12 @@ async function tryLinkedIn<T>(url: string, headers: Record<string, string>) {
 }
 
 export async function GET(request: Request) {
+  // Debug routes require CRON_SECRET header
+  const debugSecret = request.headers.get("x-debug-secret");
+  if (!process.env.CRON_SECRET || debugSecret !== process.env.CRON_SECRET) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const { searchParams } = new URL(request.url);
   const socialAccountId = searchParams.get("socialAccountId");
   if (!socialAccountId) {
@@ -96,9 +102,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "LinkedIn account required" }, { status: 400 });
   }
 
-  const secret = process.env.ENCRYPTION_SECRET ?? "";
+  const secret = process.env.ENCRYPTION_SECRET;
   if (!secret) {
-    return NextResponse.json({ error: "ENCRYPTION_SECRET is missing" }, { status: 500 });
+    console.error("[debug/linkedin] ENCRYPTION_SECRET not configured");
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
 
   const accessToken = account.token_encrypted ? decryptToken(account.token_encrypted, secret) : "";

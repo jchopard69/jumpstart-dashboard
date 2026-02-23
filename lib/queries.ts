@@ -68,18 +68,6 @@ export async function fetchDashboardData(params: {
     socialAccountId: params.socialAccountId
   });
 
-  console.log("[dashboard] Fetching data", {
-    tenantId,
-    userId: params.profile.id?.slice(0, 8),
-    role: params.profile.role,
-    range: {
-      start: range.start.toISOString(),
-      end: range.end.toISOString()
-    },
-    platform: filters.platform,
-    socialAccountId: filters.socialAccountId
-  });
-
   let metricsQuery = supabase
     .from("social_daily_metrics")
     .select("date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform")
@@ -104,15 +92,12 @@ export async function fetchDashboardData(params: {
     prevQuery = prevQuery.eq("social_account_id", filters.socialAccountId);
   }
 
-  console.time("[dashboard] metricsQuery");
   const metricsPromise = metricsQuery.order("date", { ascending: true });
   const prevPromise = prevQuery.order("date", { ascending: true });
   const [{ data: metrics, error: metricsError }, { data: prevMetrics, error: prevMetricsError }] = await Promise.all([
     metricsPromise,
     prevPromise
   ]);
-  console.timeEnd("[dashboard] metricsQuery");
-
   if (metricsError || prevMetricsError) {
     console.error("[dashboard] Failed to load daily metrics", {
       tenantId,
@@ -256,13 +241,10 @@ export async function fetchDashboardData(params: {
     prevPostsCountQuery = prevPostsCountQuery.eq("social_account_id", filters.socialAccountId);
   }
 
-  console.time("[dashboard] postsCount");
   const [postsCountResult, prevPostsCountResult] = await Promise.all([
     postsCountQuery,
     prevPostsCountQuery
   ]);
-  console.timeEnd("[dashboard] postsCount");
-
   const postsCount = postsCountResult.count;
   const prevPostsCount = prevPostsCountResult.count;
 
@@ -301,48 +283,39 @@ export async function fetchDashboardData(params: {
     postsQuery = postsQuery.eq("social_account_id", filters.socialAccountId);
   }
 
-  console.time("[dashboard] postsQuery");
   const { data: posts, error: postsError } = await postsQuery.order("posted_at", { ascending: false }).limit(100);
-  console.timeEnd("[dashboard] postsQuery");
   if (postsError) {
     console.error("[dashboard] Failed to load posts", { tenantId, error: postsError });
   }
 
-  console.time("[dashboard] collaborationQuery");
   const { data: collaboration, error: collaborationError } = await supabase
     .from("collaboration")
     .select("shoot_days_remaining,notes,updated_at")
     .eq("tenant_id", tenantId)
     .maybeSingle();
-  console.timeEnd("[dashboard] collaborationQuery");
   if (collaborationError && collaborationError.code !== "PGRST116") {
     console.error("[dashboard] Failed to load collaboration", { tenantId, error: collaborationError });
   }
 
-  console.time("[dashboard] shootsQuery");
   const { data: shoots, error: shootsError } = await supabase
     .from("upcoming_shoots")
     .select("id,shoot_date,location,notes")
     .eq("tenant_id", tenantId)
     .order("shoot_date", { ascending: true });
-  console.timeEnd("[dashboard] shootsQuery");
   if (shootsError) {
     console.error("[dashboard] Failed to load shoots", { tenantId, error: shootsError });
   }
 
-  console.time("[dashboard] documentsQuery");
   const { data: documents, error: documentsError } = await supabase
     .from("documents")
     .select("id,file_name,tag,pinned,created_at,file_path")
     .eq("tenant_id", tenantId)
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false });
-  console.timeEnd("[dashboard] documentsQuery");
   if (documentsError) {
     console.error("[dashboard] Failed to load documents", { tenantId, error: documentsError });
   }
 
-  console.time("[dashboard] syncLogQuery");
   const { data: lastSync, error: syncError } = await supabase
     .from("sync_logs")
     .select("status,finished_at")
@@ -350,23 +323,8 @@ export async function fetchDashboardData(params: {
     .order("started_at", { ascending: false })
     .limit(1)
     .single();
-  console.timeEnd("[dashboard] syncLogQuery");
   if (syncError) {
     console.error("[dashboard] Failed to load sync logs", { tenantId, error: syncError });
-  }
-
-  // Diagnostic: log sample post metrics to debug visibility issues
-  if (posts?.length) {
-    const sample = posts.slice(0, 3).map(p => ({
-      id: p.id?.slice(0, 8),
-      platform: p.platform,
-      media_type: p.media_type,
-      metrics: p.metrics,
-      visibility: getPostVisibility(p.metrics as any, p.media_type),
-      impressions: getPostImpressions(p.metrics as any),
-      engagements: getPostEngagements(p.metrics as any),
-    }));
-    console.log(`[queries] Post metrics sample (${posts.length} total):`, JSON.stringify(sample, null, 2));
   }
 
   const dedupedPosts = (() => {
@@ -473,7 +431,6 @@ export async function fetchDashboardData(params: {
     return count ?? 0;
   };
 
-  console.time("[dashboard] postsByPlatform");
   const postsByPlatform = await Promise.all(
     perPlatform.map(async (item) => ({
       platform: item.platform,
@@ -481,8 +438,6 @@ export async function fetchDashboardData(params: {
       previous: await countPostsByPlatform(item.platform, prevRange.start, prevRange.end)
     }))
   );
-  console.timeEnd("[dashboard] postsByPlatform");
-
   if ((normalizedMetrics?.length ?? 0) === 0 && (posts?.length ?? 0) === 0) {
     console.warn("[dashboard] No metrics or posts found for range", {
       tenantId,

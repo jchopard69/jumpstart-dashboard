@@ -55,15 +55,15 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
 
     try {
       const connector = getConnector(account.platform);
-      const secret = process.env.ENCRYPTION_SECRET ?? "";
+      const secret = process.env.ENCRYPTION_SECRET;
       if ((account.token_encrypted || account.refresh_token_encrypted) && !secret) {
-        throw new Error("ENCRYPTION_SECRET is missing");
+        throw new Error("ENCRYPTION_SECRET is not configured");
       }
       const accessToken = account.token_encrypted
         ? await getValidAccessToken(account.id)
         : null;
       const refreshToken = account.refresh_token_encrypted
-        ? decryptToken(account.refresh_token_encrypted, secret)
+        ? decryptToken(account.refresh_token_encrypted, secret!)
         : null;
 
       const result = await connector.sync({

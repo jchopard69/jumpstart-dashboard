@@ -124,11 +124,11 @@ export async function createSocialAccount(formData: FormData) {
   const externalId = String(formData.get("external_account_id") ?? "");
   const token = String(formData.get("token") ?? "");
   const refreshToken = String(formData.get("refresh_token") ?? "");
-  const secret = process.env.ENCRYPTION_SECRET ?? "";
+  const secret = process.env.ENCRYPTION_SECRET;
   const demoMode = process.env.DEMO_MODE === "true";
 
   if ((token || refreshToken) && !secret) {
-    throw new Error("ENCRYPTION_SECRET is missing");
+    throw new Error("ENCRYPTION_SECRET is not configured");
   }
 
   const supabase = createSupabaseServiceClient();
@@ -138,8 +138,8 @@ export async function createSocialAccount(formData: FormData) {
     account_name: accountName,
     external_account_id: externalId,
     auth_status: token || demoMode ? "active" : "pending",
-    token_encrypted: token ? encryptToken(token, secret) : null,
-    refresh_token_encrypted: refreshToken ? encryptToken(refreshToken, secret) : null
+    token_encrypted: token ? encryptToken(token, secret!) : null,
+    refresh_token_encrypted: refreshToken ? encryptToken(refreshToken, secret!) : null
   });
 
   revalidatePath(`/admin/clients/${tenantId}`);

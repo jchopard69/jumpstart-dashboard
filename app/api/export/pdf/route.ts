@@ -384,9 +384,8 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "PDF generation failed";
     console.error("[pdf] generation failed", error);
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json({ error: "Une erreur est survenue lors de la génération du PDF." }, { status: 500 });
   }
 }
 

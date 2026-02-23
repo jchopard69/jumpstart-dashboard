@@ -40,6 +40,12 @@ function sanitizeDebugPayload(payload: unknown): unknown {
 }
 
 export async function GET(request: Request) {
+  // Debug routes require CRON_SECRET in addition to admin auth
+  const debugSecret = request.headers.get("x-debug-secret");
+  if (!process.env.CRON_SECRET || debugSecret !== process.env.CRON_SECRET) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const { searchParams } = new URL(request.url);
   const authClient = createSupabaseServerClient();
   const { data: { user } } = await authClient.auth.getUser();
@@ -60,7 +66,8 @@ export async function GET(request: Request) {
   const tenantId = searchParams.get("tenantId") || profile?.tenant_id;
   if (!tenantId) return NextResponse.json({ error: "No tenant" }, { status: 400 });
 
-  const limit = Number(searchParams.get("limit") ?? "10");
+  const limitRaw = Number(searchParams.get("limit") ?? "10");
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(1, limitRaw), 50) : 10;
   const postId = searchParams.get("postId");
   const externalPostId = searchParams.get("externalPostId");
   const platformFilter = searchParams.get("platform");
@@ -75,7 +82,7 @@ export async function GET(request: Request) {
   if (externalPostId) postsQuery = postsQuery.eq("external_post_id", externalPostId);
   if (platformFilter) postsQuery = postsQuery.eq("platform", platformFilter);
 
-  const { data: posts, error } = await postsQuery.limit(Number.isFinite(limit) ? limit : 10);
+  const { data: posts, error } = await postsQuery.limit(limit);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -97,7 +104,8 @@ export async function GET(request: Request) {
         .single();
 
       if (account?.token_encrypted) {
-        const secret = process.env.ENCRYPTION_SECRET || "";
+        const secret = process.env.ENCRYPTION_SECRET;
+        if (!secret) throw new Error("ENCRYPTION_SECRET not configured");
         const token = decryptToken(account.token_encrypted, secret);
         const postId = firstFbPost.external_post_id;
 
@@ -158,7 +166,8 @@ export async function GET(request: Request) {
           continue;
         }
 
-        const secret = process.env.ENCRYPTION_SECRET || "";
+        const secret = process.env.ENCRYPTION_SECRET;
+        if (!secret) throw new Error("ENCRYPTION_SECRET not configured");
         const token = decryptToken(account.token_encrypted, secret);
         const probeResults: Array<Record<string, unknown>> = [];
         for (const metric of METRIC_CANDIDATES) {

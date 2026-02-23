@@ -61,14 +61,16 @@ export async function POST(request: Request) {
     });
   } catch (error: unknown) {
     const duration = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-
-    console.error("[cron] Sync failed:", { error: errorMessage, duration });
+    console.error("[cron] Sync failed:", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      duration,
+    });
 
     return NextResponse.json(
       {
         ok: false,
-        error: errorMessage,
+        error: "Sync failed",
         duration,
       },
       { status: 500 }

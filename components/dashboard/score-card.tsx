@@ -91,7 +91,7 @@ function SubScoreBar({ label, value, description }: { label: string; value: numb
 
 export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps) {
   return (
-    <Card className="card-surface p-6 lg:col-span-3 fade-in-up overflow-hidden relative">
+    <Card className="card-surface p-6 fade-in-up overflow-hidden relative">
       <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400" />
 
       <div className="flex items-center gap-2 mb-6">
