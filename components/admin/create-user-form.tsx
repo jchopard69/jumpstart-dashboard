@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFormState } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,7 @@ type CreateUserFormProps = {
 };
 
 export function CreateUserForm({ tenants, action }: CreateUserFormProps) {
-  const [state, formAction, pending] = useActionState(action, null);
+  const [state, formAction] = useFormState(action, null);
 
   return (
     <form action={formAction} className="mt-4 grid gap-4 md:grid-cols-5">
@@ -59,9 +59,7 @@ export function CreateUserForm({ tenants, action }: CreateUserFormProps) {
         </select>
       </div>
       <div className="md:col-span-5 flex items-center gap-4">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Creation..." : "Creer l'utilisateur"}
-        </Button>
+        <Button type="submit">Creer l&apos;utilisateur</Button>
         {state?.error && (
           <p className="text-sm text-destructive">{state.error}</p>
         )}
