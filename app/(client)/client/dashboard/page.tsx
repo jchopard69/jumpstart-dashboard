@@ -392,18 +392,15 @@ export default async function ClientDashboardPage({
       {/* Top Posts — full width */}
       <TopPosts posts={data.posts.slice(0, 10)} />
 
-      {/* Platform breakdown + Sync */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <PlatformTable
-            perPlatform={data.perPlatform}
-            showViews={showViews}
-            showReach={showReach}
-            showEngagements={showEngagements}
-          />
-        </div>
-        <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
-      </section>
+      {/* Platform breakdown — full width */}
+      <PlatformTable
+        perPlatform={data.perPlatform}
+        showViews={showViews}
+        showReach={showReach}
+        showEngagements={showEngagements}
+      />
+
+      <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
 
       {/* Collaboration — full width */}
       <CollaborationCard
