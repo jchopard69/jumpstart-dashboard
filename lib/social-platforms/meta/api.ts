@@ -295,32 +295,29 @@ export const instagramConnector: Connector = {
     console.log(`[instagram] Fetched ${allMedia.length} media items`);
 
     // Fetch all insights for a media item in a single API call.
-    // IMPORTANT: each media type only supports specific metrics.
-    // Requesting an unsupported metric causes a 400 error for the ENTIRE call.
-    // Valid metrics per type (Instagram Graph API, as of 2025):
-    //   IMAGE:          impressions, reach, saved
-    //   CAROUSEL_ALBUM: impressions, reach, saved
-    //   VIDEO:          impressions, reach, saved, video_views
-    //   REEL:           reach, plays, saved, shares, total_interactions
-    //   STORY:          impressions, reach
+    // IMPORTANT: Meta deprecated `impressions` and `video_views` starting v22.0+.
+    // Even on v21.0, the API now rejects these metrics for most media types.
+    // Instagram also treats all VIDEO as REEL internally.
+    // Safe metrics (as of Feb 2026):
+    //   IMAGE/CAROUSEL_ALBUM: reach, saved
+    //   VIDEO/REEL:           reach, plays, saved, shares, total_interactions
+    //   STORY:                reach
+    // NO FALLBACK: individual retries per media item caused 300s timeouts on Vercel.
     const fetchMediaInsights = async (mediaId: string, mediaType?: string) => {
       const normalized = (mediaType ?? "").toUpperCase();
 
       const result = { impressions: 0, reach: 0, views: 0, engagements: 0 };
 
-      // Build STRICT metric list — only metrics valid for this exact media type
+      // Build STRICT metric list — NO impressions, NO video_views (both deprecated)
       let metricsToFetch: string;
-      if (normalized === "REEL") {
+      if (normalized === "REEL" || normalized === "VIDEO") {
+        // Instagram treats all videos as reels now
         metricsToFetch = "reach,plays,saved,shares,total_interactions";
-      } else if (normalized === "VIDEO") {
-        metricsToFetch = "impressions,reach,saved,video_views";
-      } else if (normalized === "CAROUSEL_ALBUM") {
-        metricsToFetch = "impressions,reach,saved";
       } else if (normalized === "STORY") {
-        metricsToFetch = "impressions,reach";
+        metricsToFetch = "reach";
       } else {
-        // IMAGE or unknown — only use universally safe metrics
-        metricsToFetch = "impressions,reach,saved";
+        // IMAGE, CAROUSEL_ALBUM, or unknown
+        metricsToFetch = "reach,saved";
       }
 
       try {
@@ -340,14 +337,12 @@ export const instagramConnector: Connector = {
           const value = metric?.values?.[0]?.value;
           if (typeof value !== "number") continue;
           switch (metric.name) {
-            case "impressions":
-              result.impressions = value;
-              break;
             case "reach":
               result.reach = value;
+              // Use reach as impressions substitute since impressions is deprecated
+              result.impressions = value;
               break;
             case "plays":
-            case "video_views":
               result.views = Math.max(result.views, value);
               break;
             case "total_interactions":
@@ -359,36 +354,9 @@ export const instagramConnector: Connector = {
           }
         }
       } catch (err) {
-        // Log the first failure to help diagnose permission issues
+        // Log failure but do NOT retry individually — too slow for 100+ items
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[instagram] Media insights failed for ${mediaId} (${normalized}): ${msg.slice(0, 150)}`);
-
-        // Fallback: try each metric individually — only metrics valid for this type
-        const fallbackMetrics = normalized === "REEL"
-          ? ["reach", "plays"]
-          : normalized === "VIDEO"
-            ? ["reach", "impressions", "video_views"]
-            : ["reach", "impressions"];
-
-        for (const metric of fallbackMetrics) {
-          try {
-            const url = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
-              metric,
-              access_token: accessToken,
-            });
-            const resp = await apiRequest<{ data?: Array<{ name?: string; values?: Array<{ value?: number }> }> }>(
-              "instagram", url, {}, "media_insights_fallback", true
-            );
-            const value = resp.data?.[0]?.values?.[0]?.value;
-            if (typeof value === "number" && value > 0) {
-              if (metric === "reach") result.reach = value;
-              else if (metric === "impressions") result.impressions = value;
-              else result.views = Math.max(result.views, value);
-            }
-          } catch {
-            continue;
-          }
-        }
       }
 
       return result;
@@ -604,14 +572,12 @@ export const facebookConnector: Connector = {
 
     console.log(`[facebook] Fetched ${allFbPosts.length} posts`);
 
+    // Try to fetch post-level insights via batch API.
+    // If the page token lacks read_insights permission (error 100),
+    // skip entirely to avoid wasting time on 100+ failing requests.
     const fetchPostInsights = async (postIds: string[]) => {
       const result = new Map<string, { impressions: number; reach: number; views: number }>();
       if (!postIds.length) return result;
-
-      const chunks: string[][] = [];
-      for (let i = 0; i < postIds.length; i += 50) {
-        chunks.push(postIds.slice(i, i + 50));
-      }
 
       const parseInsightValue = (value: unknown): number => {
         if (typeof value === "number") return value;
@@ -623,11 +589,32 @@ export const facebookConnector: Connector = {
         return 0;
       };
 
+      // Probe: test a single post first to detect permission issues
+      const testPostId = postIds[0];
+      try {
+        const testUrl = buildUrl(`${GRAPH_URL}/${testPostId}/insights`, {
+          metric: "post_impressions,post_impressions_unique",
+          period: "lifetime",
+          access_token: accessToken,
+        });
+        await apiRequest<{ data?: unknown[] }>(
+          'facebook', testUrl, {}, 'post_insights_probe', true
+        );
+        console.log(`[facebook] Post insights probe succeeded, fetching all via batch`);
+      } catch (probeErr) {
+        const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
+        console.warn(`[facebook] Post insights probe failed (likely no read_insights permission): ${msg.slice(0, 120)}`);
+        console.log(`[facebook] Skipping post-level insights — using engagement data from post objects only`);
+        return result;
+      }
+
+      // Probe passed — fetch in batches of 50
+      const chunks: string[][] = [];
+      for (let i = 0; i < postIds.length; i += 50) {
+        chunks.push(postIds.slice(i, i + 50));
+      }
+
       for (const chunk of chunks) {
-        // IMPORTANT: Only request metrics valid for ALL post types.
-        // post_video_views is ONLY valid for video posts — requesting it for
-        // image/link posts returns error 400 for that batch item.
-        // post_impressions and post_impressions_unique work for all post types.
         const batch = chunk.map((postId) => ({
           method: "GET",
           relative_url: `${postId}/insights?metric=post_impressions,post_impressions_unique&period=lifetime`,
@@ -649,16 +636,8 @@ export const facebookConnector: Connector = {
             true
           );
 
-          let batchErrors = 0;
           response.forEach((item, index) => {
-            if (!item || item.code !== 200) {
-              batchErrors++;
-              if (batchErrors <= 2) {
-                const errorBody = item?.body ? JSON.stringify(item.body).slice(0, 200) : 'no body';
-                console.warn(`[facebook] Batch insights item ${index} failed: code=${item?.code} body=${errorBody}`);
-              }
-              return;
-            }
+            if (!item || item.code !== 200) return;
             try {
               const parsed = JSON.parse(item.body);
               const data = parsed?.data ?? [];
@@ -674,45 +653,15 @@ export const facebookConnector: Connector = {
               result.set(postId, {
                 impressions: byName.get("post_impressions") ?? 0,
                 reach: byName.get("post_impressions_unique") ?? 0,
-                views: 0, // video views fetched separately only for video posts
+                views: 0,
               });
             } catch {
               return;
             }
           });
-          if (batchErrors > 0) {
-            console.warn(`[facebook] ${batchErrors}/${chunk.length} batch insight items failed in this chunk`);
-          }
-        } catch (error) {
-          console.warn("[facebook] Batch post insights fetch failed, trying individual requests for this chunk");
-          // Fallback: fetch insights individually for first 10 posts of the failed chunk
-          for (const postId of chunk.slice(0, 10)) {
-            try {
-              const url = buildUrl(`${GRAPH_URL}/${postId}/insights`, {
-                metric: "post_impressions,post_impressions_unique",
-                period: "lifetime",
-                access_token: accessToken,
-              });
-              const resp = await apiRequest<{ data?: Array<{ name?: string; values?: Array<{ value?: unknown }> }> }>(
-                'facebook', url, {}, 'post_insights_single', true
-              );
-              const byName = new Map<string, number>();
-              for (const metric of resp.data ?? []) {
-                const val = parseInsightValue(metric?.values?.[0]?.value);
-                if (val > 0) byName.set(metric.name!, val);
-              }
-              if (byName.size > 0) {
-                result.set(postId, {
-                  impressions: byName.get("post_impressions") ?? 0,
-                  reach: byName.get("post_impressions_unique") ?? 0,
-                  views: 0,
-                });
-              }
-            } catch {
-              // Individual request also failed - likely permission issue
-              continue;
-            }
-          }
+        } catch {
+          console.warn("[facebook] Batch post insights fetch failed, skipping remaining");
+          break;
         }
       }
 
