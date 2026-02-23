@@ -3,9 +3,6 @@ import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   createUserWithPassword,
@@ -15,6 +12,7 @@ import {
   deleteUser
 } from "./actions";
 import { UserTenantManager } from "@/components/admin/user-tenant-manager";
+import { CreateUserForm } from "@/components/admin/create-user-form";
 
 export const metadata: Metadata = {
   title: "Admin - Utilisateurs"
@@ -75,49 +73,7 @@ export default async function AdminUsersPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           Créez un compte avec un mot de passe temporaire. L&apos;utilisateur pourra le changer via &quot;Mot de passe oublié&quot;.
         </p>
-        <form action={createUserWithPassword} className="mt-4 grid gap-4 md:grid-cols-5">
-          <div>
-            <Label>Email</Label>
-            <Input name="email" type="email" placeholder="email@example.com" required />
-          </div>
-          <div>
-            <Label>Nom complet</Label>
-            <Input name="full_name" placeholder="Jean Dupont" />
-          </div>
-          <div>
-            <Label>Mot de passe</Label>
-            <Input name="password" type="text" placeholder="MotDePasse123!" required />
-          </div>
-          <div>
-            <Label>Rôle</Label>
-            <select
-              name="role"
-              defaultValue="client_user"
-              className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm"
-            >
-              <option value="client_user">Utilisateur client</option>
-              <option value="client_manager">Manager client</option>
-              <option value="agency_admin">Admin agence</option>
-            </select>
-          </div>
-          <div>
-            <Label>Workspace principal</Label>
-            <select
-              name="tenant_id"
-              className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Aucun (admin)</option>
-              {(tenants ?? []).map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenant.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="md:col-span-5">
-            <Button type="submit">Créer l&apos;utilisateur</Button>
-          </div>
-        </form>
+        <CreateUserForm tenants={tenants ?? []} action={createUserWithPassword} />
       </Card>
 
       <Card className="card-surface p-6 fade-in-up">

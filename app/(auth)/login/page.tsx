@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Image from "next/image";
@@ -10,12 +10,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_token: "Le lien d'invitation a expire. Demandez a votre administrateur de vous renvoyer une invitation.",
+  no_profile: "Votre compte n'est pas encore configure. Contactez votre administrateur.",
+};
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlError = searchParams.get("error");
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -28,7 +35,15 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (signInError) {
-      setError(signInError.message);
+      if (signInError.message === "Invalid login credentials") {
+        setError(
+          "Identifiants incorrects. Si vous venez de recevoir une invitation, cliquez d'abord sur le lien dans l'email pour creer votre mot de passe."
+        );
+      } else if (signInError.message === "Email not confirmed") {
+        setError("Votre email n'a pas encore ete confirme. Verifiez votre boite de reception.");
+      } else {
+        setError(signInError.message);
+      }
       return;
     }
     // Fetch profile by auth user id (more robust than email)
@@ -101,7 +116,11 @@ export default function LoginPage() {
                   required
                 />
               </div>
-              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              {(error || (urlError && ERROR_MESSAGES[urlError])) && (
+                <p className="text-sm text-destructive">
+                  {error || ERROR_MESSAGES[urlError!]}
+                </p>
+              )}
               <Button className="w-full" disabled={loading}>
                 {loading ? "Connexion..." : "Se connecter"}
               </Button>

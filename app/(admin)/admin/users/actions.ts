@@ -5,7 +5,10 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import type { UserRole } from "@/lib/types";
 
-export async function createUserWithPassword(formData: FormData) {
+export async function createUserWithPassword(
+  _prevState: { error?: string; success?: boolean } | null,
+  formData: FormData
+): Promise<{ error?: string; success?: boolean }> {
   const profile = await getSessionProfile();
   requireAdmin(profile);
 
@@ -16,14 +19,11 @@ export async function createUserWithPassword(formData: FormData) {
   const tenantId = String(formData.get("tenant_id") ?? "") || null;
 
   if (!email || !password) {
-    throw new Error("Email et mot de passe requis");
+    return { error: "Email et mot de passe requis" };
   }
 
-  if (password.length < 10) {
-    throw new Error("Le mot de passe doit contenir au moins 10 caractères");
-  }
-  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
-    throw new Error("Le mot de passe doit contenir majuscules, minuscules et chiffres");
+  if (password.length < 8) {
+    return { error: "Le mot de passe doit contenir au moins 8 caracteres" };
   }
 
   const supabase = createSupabaseServiceClient();
@@ -36,7 +36,7 @@ export async function createUserWithPassword(formData: FormData) {
     .single();
 
   if (existingProfile) {
-    throw new Error("Un utilisateur avec cet email existe déjà");
+    return { error: "Un utilisateur avec cet email existe deja" };
   }
 
   // Create user in auth
@@ -47,11 +47,11 @@ export async function createUserWithPassword(formData: FormData) {
   });
 
   if (error) {
-    throw new Error(`Erreur création utilisateur: ${error.message}`);
+    return { error: `Erreur creation utilisateur: ${error.message}` };
   }
 
   if (!data?.user) {
-    throw new Error("Erreur lors de la création de l'utilisateur");
+    return { error: "Erreur lors de la creation de l'utilisateur" };
   }
 
   // Create profile
@@ -64,6 +64,7 @@ export async function createUserWithPassword(formData: FormData) {
   });
 
   revalidatePath("/admin/users");
+  return { success: true };
 }
 
 export async function updateUserPrimaryTenant(formData: FormData) {

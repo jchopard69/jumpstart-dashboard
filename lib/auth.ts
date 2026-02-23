@@ -33,7 +33,11 @@ export async function getSessionProfile() {
     .single();
 
   if (error || !profile) {
-    redirect("/login");
+    // Sign out to prevent infinite redirect loop:
+    // middleware sees authenticated user → allows /client → getSessionProfile finds no profile → redirect /login
+    // → middleware sees authenticated user on /login → redirect /client/dashboard → loop
+    await supabase.auth.signOut();
+    redirect("/login?error=no_profile");
   }
 
   return profile as Profile;
