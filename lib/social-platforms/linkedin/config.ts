@@ -10,10 +10,9 @@ export const LINKEDIN_CONFIG = {
 
   // OAuth scopes (Community Management / Organizations)
   // See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations
+  // Pages Data Portability API (DMA) — single scope for read-only page analytics
   scopes: [
-    'r_organization_admin',
-    'rw_organization_admin',
-    'r_organization_social'
+    'r_dma_admin_pages_content'
   ],
 };
 

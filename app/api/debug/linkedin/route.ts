@@ -12,51 +12,37 @@ type DebugResponse = {
   };
   token_suffix?: string;
   org_acls?: unknown;
-  follower_stats?: Record<string, unknown>;
-  share_stats?: Record<string, unknown>;
-  shares?: unknown;
+  dma_org_auth?: unknown;
+  follower_trend?: unknown;
+  content_analytics?: unknown;
+  feed_contents?: unknown;
   error?: string;
 };
 
 type DebugAttempt = {
   url: string;
   ok: boolean;
+  data?: unknown;
   error?: string;
 };
 
 const API_URL = LINKEDIN_CONFIG.apiUrl;
 const API_VERSION = getLinkedInVersion();
 
-function buildTimeIntervalsSingle(start: Date, end: Date) {
-  return `(timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY)`;
-}
-
-function buildDotParams(start: Date, end: Date) {
-  return new URLSearchParams({
-    "timeIntervals.timeRange.start": String(start.getTime()),
-    "timeIntervals.timeRange.end": String(end.getTime()),
-    "timeIntervals.timeGranularityType": "DAY"
-  }).toString();
-}
-
-async function tryLinkedIn<T>(url: string, headers: Record<string, string>) {
+async function tryLinkedIn<T>(url: string, headers: Record<string, string>): Promise<DebugAttempt> {
   try {
     const data = await apiRequest<T>("linkedin", url, { headers }, "linkedin_debug", true);
-    return { data, attempt: { url, ok: true } as DebugAttempt };
+    return { url, ok: true, data };
   } catch (error) {
     return {
-      data: null,
-      attempt: {
-        url,
-        ok: false,
-        error: error instanceof Error ? error.message : "Unknown error"
-      } as DebugAttempt
+      url,
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown error"
     };
   }
 }
 
 export async function GET(request: Request) {
-  // Debug routes require CRON_SECRET header
   const debugSecret = request.headers.get("x-debug-secret");
   if (!process.env.CRON_SECRET || debugSecret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -114,56 +100,72 @@ export async function GET(request: Request) {
   }
 
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${accessToken}`
+    Authorization: `Bearer ${accessToken}`,
+    "X-Restli-Protocol-Version": "2.0.0"
   };
   if (API_VERSION) {
     headers["LinkedIn-Version"] = API_VERSION;
   }
 
+  const orgId = account.external_account_id;
+  const pageUrn = `urn:li:organizationalPage:${orgId}`;
+
   const response: DebugResponse = {
     account: {
       id: account.id,
       platform: account.platform,
-      external_account_id: account.external_account_id
+      external_account_id: orgId
     },
     token_suffix: accessToken.slice(-6)
   };
 
   try {
-    const orgAclsUrl = `${API_URL}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED`;
-    const orgAcls = await apiRequest("linkedin", orgAclsUrl, { headers }, "organization_acls", true);
-    response.org_acls = orgAcls;
+    // Test org ACLs (standard + DMA fallback)
+    const orgAclsAttempt = await tryLinkedIn(
+      `${API_URL}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED`,
+      headers
+    );
+    response.org_acls = orgAclsAttempt;
 
+    const dmaOrgAuthAttempt = await tryLinkedIn(
+      `${API_URL}/dmaOrganizationAuthorizations?q=authorizationActionsAndAuthenticatedMember&actions=List(ADMIN_READ)&start=0&count=100`,
+      headers
+    );
+    response.dma_org_auth = dmaOrgAuthAttempt;
+
+    // Test DMA follower trend (last 7 days)
     const start = new Date();
     start.setDate(start.getDate() - 7);
     start.setUTCHours(0, 0, 0, 0);
     const end = new Date();
     end.setUTCHours(23, 59, 59, 999);
 
-    const baseStatsUrl = `${API_URL}/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=urn:li:organization:${account.external_account_id}`;
-    const baseShareUrl = `${API_URL}/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=urn:li:organization:${account.external_account_id}`;
+    const followerAttempt = await tryLinkedIn(
+      `${API_URL}/dmaOrganizationalPageEdgeAnalytics` +
+        `?q=trend&organizationalPage=${encodeURIComponent(pageUrn)}` +
+        `&analyticsType=FOLLOWER` +
+        `&timeIntervals=(timeRange:(start:${start.getTime()},end:${end.getTime()}))`,
+      headers
+    );
+    response.follower_trend = followerAttempt;
 
-    const statsAttempts: DebugAttempt[] = [];
-    const shareAttempts: DebugAttempt[] = [];
+    // Test DMA content analytics (last 7 days)
+    const contentAttempt = await tryLinkedIn(
+      `${API_URL}/dmaOrganizationalPageContentAnalytics` +
+        `?q=trend&sourceEntity=${encodeURIComponent(pageUrn)}` +
+        `&metricTypes=List(IMPRESSIONS,UNIQUE_IMPRESSIONS,CLICKS,COMMENTS,REACTIONS,REPOSTS)` +
+        `&timeIntervals=(timeRange:(start:${start.getTime()},end:${end.getTime()}),timeGranularityType:DAY)`,
+      headers
+    );
+    response.content_analytics = contentAttempt;
 
-    const singleStats = await tryLinkedIn(`${baseStatsUrl}&timeIntervals=${buildTimeIntervalsSingle(start, end)}`, headers);
-    statsAttempts.push(singleStats.attempt);
-    const dotStats = await tryLinkedIn(`${baseStatsUrl}&${buildDotParams(start, end)}`, headers);
-    statsAttempts.push(dotStats.attempt);
-
-    response.follower_stats = { attempts: statsAttempts };
-
-    const singleShare = await tryLinkedIn(`${baseShareUrl}&timeIntervals=${buildTimeIntervalsSingle(start, end)}`, headers);
-    shareAttempts.push(singleShare.attempt);
-    const dotShare = await tryLinkedIn(`${baseShareUrl}&${buildDotParams(start, end)}`, headers);
-    shareAttempts.push(dotShare.attempt);
-
-    response.share_stats = { attempts: shareAttempts };
-
-    const sharesUrl = `${LINKEDIN_CONFIG.apiV2Url ?? "https://api.linkedin.com/v2"}/shares` +
-      `?q=owners&owners=urn:li:organization:${account.external_account_id}` +
-      `&count=10&sharesPerOwner=10&projection=(elements*(id,created,commentary,text,content,specificContent))`;
-    response.shares = await apiRequest("linkedin", sharesUrl, { headers }, "shares_debug", true);
+    // Test DMA feed contents
+    const feedAttempt = await tryLinkedIn(
+      `${API_URL}/dmaFeedContentsExternal` +
+        `?q=author&author=${encodeURIComponent(pageUrn)}&type=POST&maxPaginationCount=5`,
+      headers
+    );
+    response.feed_contents = feedAttempt;
   } catch (error) {
     response.error = error instanceof Error ? error.message : "Unknown error";
   }

@@ -150,12 +150,21 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
   }
 
   try {
-    // Step 1: Get organizations where user is admin using Organization Access Control
-    const aclsUrl = `${config.apiUrl}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED&start=0&count=100`;
+    // Step 1: Get organizations where user is admin
+    // Try DMA Organization Authorizations first, then fall back to organizationAcls
+    let aclsUrl = `${config.apiUrl}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED&start=0&count=100`;
     console.log('[linkedin] Fetching organization ACLs from:', aclsUrl);
 
-    const aclsResponse = await fetch(aclsUrl, { headers });
+    let aclsResponse = await fetch(aclsUrl, { headers });
     console.log('[linkedin] ACL response status:', aclsResponse.status);
+
+    // If organizationAcls fails (403 = scope not authorized), try DMA endpoint
+    if (aclsResponse.status === 403) {
+      console.log('[linkedin] organizationAcls forbidden, trying dmaOrganizationAuthorizations...');
+      aclsUrl = `${config.apiUrl}/dmaOrganizationAuthorizations?q=authorizationActionsAndAuthenticatedMember&actions=List(ADMIN_READ)&start=0&count=100`;
+      aclsResponse = await fetch(aclsUrl, { headers });
+      console.log('[linkedin] DMA org auth response status:', aclsResponse.status);
+    }
 
     const aclsData = await aclsResponse.json();
     console.log('[linkedin] ACL response:', JSON.stringify(aclsData, null, 2));
@@ -221,23 +230,46 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
       console.warn('[linkedin] Error fetching org batch details:', error);
     }
 
+    // Fallback: try individual org fetch or DMA page profiles
     if (!organizations.length) {
       for (const orgId of orgIds) {
         try {
-          const orgUrl = `${config.apiUrl}/organizations/${orgId}`;
-          const orgResponse = await fetch(orgUrl, { headers });
+          // Try standard organizations endpoint first
+          let orgUrl = `${config.apiUrl}/organizations/${orgId}`;
+          let orgResponse = await fetch(orgUrl, { headers });
+
+          // If forbidden, try DMA organizational page profiles
+          if (!orgResponse.ok) {
+            console.warn(`[linkedin] Standard org fetch failed (${orgResponse.status}), trying DMA page profiles...`);
+            const pageUrn = encodeURIComponent(`urn:li:organizationalPage:${orgId}`);
+            orgUrl = `${config.apiUrl}/dmaOrganizationalPageProfiles/${pageUrn}`;
+            orgResponse = await fetch(orgUrl, { headers });
+          }
+
           if (!orgResponse.ok) {
             console.warn(`[linkedin] Failed to fetch org ${orgId}:`, orgResponse.status);
+            // Still add the org with a fallback name
+            organizations.push({
+              organizationId: orgId,
+              name: `Organization ${orgId}`,
+              logoUrl: undefined
+            });
             continue;
           }
           const orgData = await orgResponse.json();
           organizations.push({
             organizationId: orgId,
-            name: orgData.localizedName || orgData.name?.localized?.en_US || 'Unknown Organization',
+            name: orgData.localizedName || orgData.name?.localized?.en_US || orgData.name || `Organization ${orgId}`,
             logoUrl: undefined
           });
         } catch (error) {
           console.warn(`[linkedin] Error fetching org ${orgId}:`, error);
+          // Add with fallback name so the user can still select it
+          organizations.push({
+            organizationId: orgId,
+            name: `Organization ${orgId}`,
+            logoUrl: undefined
+          });
         }
       }
     }
