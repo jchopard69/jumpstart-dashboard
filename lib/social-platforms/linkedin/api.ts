@@ -183,6 +183,33 @@ export async function fetchFollowerTrend(
 }
 
 /**
+ * Fetch total follower count via dmaOrganizationalPageFollows paging.total
+ * This is more reliable than EdgeAnalytics for getting the current total.
+ */
+export async function fetchFollowerCount(
+  headers: Record<string, string>,
+  organizationId: string
+): Promise<number> {
+  const pageUrn = `urn:li:organizationalPage:${organizationId}`;
+
+  // Request just 1 result — we only need paging.total
+  const url = `${API_REST_URL}/dmaOrganizationalPageFollows` +
+    `?q=followee` +
+    `&followee=${encodeURIComponent(pageUrn)}` +
+    `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE` +
+    `&maxPaginationCount=1`;
+
+  const response = await apiRequest<{
+    paging?: { total?: number };
+    elements?: unknown[];
+  }>('linkedin', url, { headers }, 'linkedin_dma_follower_count');
+
+  const total = response.paging?.total ?? 0;
+  console.log(`[linkedin-dma] Follower count from dmaOrganizationalPageFollows: ${total}`);
+  return total;
+}
+
+/**
  * Fetch page-level content analytics trend (daily impressions, clicks, etc.)
  */
 export async function fetchPageContentTrend(
@@ -440,12 +467,23 @@ export const linkedinConnector: Connector = {
 
     const organizationId = normalizeOrganizationId(externalAccountId);
 
-    // 1. Fetch follower trend (daily gains + total)
+    // 1. Fetch follower data
+    // Use dmaOrganizationalPageFollows for reliable total count
     let totalFollowers = 0;
     try {
+      totalFollowers = await fetchFollowerCount(headers, organizationId);
+    } catch (error) {
+      console.error('[linkedin-dma] Failed to fetch follower count:', error);
+    }
+
+    // Also try EdgeAnalytics for daily gains
+    try {
       const followerData = await fetchFollowerTrend(headers, organizationId, since, now);
-      totalFollowers = followerData.totalFollowers;
-      console.log(`[linkedin-dma] Follower trend: totalFollowers=${totalFollowers}, daily entries=${Object.keys(followerData.daily).length}`);
+      console.log(`[linkedin-dma] Follower trend: edgeTotalFollowers=${followerData.totalFollowers}, daily entries=${Object.keys(followerData.daily).length}`);
+      // Use EdgeAnalytics total as fallback if Follows API returned 0
+      if (totalFollowers === 0 && followerData.totalFollowers > 0) {
+        totalFollowers = followerData.totalFollowers;
+      }
       for (const [dateKey, count] of Object.entries(followerData.daily)) {
         const entry = dailyMap.get(dateKey);
         if (entry) {
@@ -464,6 +502,8 @@ export const linkedinConnector: Connector = {
         entry.followers = totalFollowers;
       }
     }
+
+    console.log(`[linkedin-dma] Total followers: ${totalFollowers}`);
 
     // 2. Fetch page-level content analytics (daily impressions, reactions, etc.)
     try {

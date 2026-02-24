@@ -12,6 +12,7 @@ type DebugResponse = {
   };
   token_suffix?: string;
   org_acls?: unknown;
+  follower_count?: unknown;
   follower_trend?: unknown;
   content_analytics?: unknown;
   feed_contents?: unknown;
@@ -125,6 +126,15 @@ export async function GET(request: Request) {
       headers
     );
     response.org_acls = orgAclsAttempt;
+
+    // Test dmaOrganizationalPageFollows (total follower count)
+    const followerCountAttempt = await tryLinkedIn(
+      `${API_URL}/dmaOrganizationalPageFollows` +
+        `?q=followee&followee=${encodeURIComponent(pageUrn)}` +
+        `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE&maxPaginationCount=1`,
+      headers
+    );
+    response.follower_count = followerCountAttempt;
 
     // Test DMA follower trend (last 7 days)
     const start = new Date();
