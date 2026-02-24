@@ -1,11 +1,13 @@
 import Image from "next/image";
 import { getSessionProfile, requireClientAccess, getUserTenants } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavLink } from "@/components/layout/nav-link";
 import { TenantSwitcher } from "@/components/layout/tenant-switcher";
+import { ClientSwitcher, type ClientInfo } from "@/components/admin/client-switcher";
+import type { Platform, SyncStatus } from "@/lib/types";
 import { cookies } from "next/headers";
 
 const TENANT_COOKIE = "active_tenant_id";
@@ -30,6 +32,40 @@ export default async function ClientLayout({ children }: { children: React.React
   const currentTenantId = cookieTenantId && tenants.some((t) => t.id === cookieTenantId)
     ? cookieTenantId
     : profile.tenant_id ?? tenants[0]?.id ?? "";
+
+  // Fetch enriched tenant data for admin ClientSwitcher
+  let clientsData: ClientInfo[] = [];
+  if (isAdmin) {
+    const supabase = createSupabaseServiceClient();
+    const [{ data: allTenants }, { data: accounts }, { data: syncLogs }] = await Promise.all([
+      supabase.from("tenants").select("id,name,slug,is_active").eq("is_active", true).order("name"),
+      supabase.from("social_accounts").select("tenant_id,platform"),
+      supabase.from("sync_logs").select("tenant_id,status,started_at").order("started_at", { ascending: false }),
+    ]);
+
+    const platformsByTenant = new Map<string, Set<Platform>>();
+    for (const acc of accounts ?? []) {
+      if (!platformsByTenant.has(acc.tenant_id)) platformsByTenant.set(acc.tenant_id, new Set());
+      platformsByTenant.get(acc.tenant_id)!.add(acc.platform as Platform);
+    }
+
+    const lastSyncByTenant = new Map<string, { status: SyncStatus; started_at: string }>();
+    for (const log of syncLogs ?? []) {
+      if (!lastSyncByTenant.has(log.tenant_id)) {
+        lastSyncByTenant.set(log.tenant_id, { status: log.status as SyncStatus, started_at: log.started_at });
+      }
+    }
+
+    clientsData = (allTenants ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      is_active: t.is_active,
+      platforms: Array.from(platformsByTenant.get(t.id) ?? []),
+      lastSyncStatus: lastSyncByTenant.get(t.id)?.status ?? null,
+      lastSyncAt: lastSyncByTenant.get(t.id)?.started_at ?? null,
+    }));
+  }
 
   return (
     <Toaster>
@@ -63,6 +99,12 @@ export default async function ClientLayout({ children }: { children: React.React
                     <NavLink href="/client/collaboration">Ma collaboration</NavLink>
                     {isAdmin && <NavLink href="/admin">Admin</NavLink>}
                   </nav>
+                  {isAdmin && clientsData.length > 0 && (
+                    <div className="mt-6 border-t border-border/50 pt-5">
+                      <p className="mb-2 section-label">Changer de client</p>
+                      <ClientSwitcher clients={clientsData} compact />
+                    </div>
+                  )}
                 </div>
                 <form action={signOut}>
                   <Button variant="outline" className="w-full" type="submit">
@@ -83,6 +125,9 @@ export default async function ClientLayout({ children }: { children: React.React
                   <div className="flex items-center gap-2">
                     {tenants.length > 1 && (
                       <TenantSwitcher tenants={tenants} currentTenantId={currentTenantId} />
+                    )}
+                    {isAdmin && clientsData.length > 0 && (
+                      <ClientSwitcher clients={clientsData} />
                     )}
                     <span className="rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
                       Client
