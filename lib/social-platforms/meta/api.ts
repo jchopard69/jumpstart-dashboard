@@ -327,7 +327,9 @@ export const instagramConnector: Connector = {
         const message = err instanceof Error ? err.message : String(err);
         const unsupportedMetric =
           message.includes("valid insights metric") ||
-          message.includes("no longer supported");
+          message.includes("no longer supported") ||
+          message.includes("Invalid parameter") ||
+          message.includes("2108006");
         if (unsupportedMetric) {
           unsupported.add(metric);
           unsupportedMetricsByType.set(mediaType, unsupported);
@@ -400,7 +402,9 @@ export const instagramConnector: Connector = {
         const message = err instanceof Error ? err.message : String(err);
         const unsupportedMetric =
           message.includes("valid insights metric") ||
-          message.includes("no longer supported");
+          message.includes("no longer supported") ||
+          message.includes("Invalid parameter") ||
+          message.includes("2108006");
         if (!unsupportedMetric) {
           console.warn(`[instagram] media_insights failed for ${mediaId} (${mediaTypeKey}): ${message.slice(0, 120)}`);
           return result;
