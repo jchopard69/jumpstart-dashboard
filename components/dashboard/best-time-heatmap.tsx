@@ -1,8 +1,10 @@
 "use client";
 
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import type { BestTimeData } from "@/lib/best-time";
 import { DAY_LABELS, HOUR_LABELS } from "@/lib/best-time";
+import { PLATFORM_ICONS, PLATFORM_LABELS, type Platform } from "@/lib/types";
 
 type BestTimeHeatmapProps = {
   data: BestTimeData;
@@ -37,16 +39,18 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
             <h2 className="section-title">Meilleur moment pour publier</h2>
             <p className="text-xs text-muted-foreground">
               Basé sur {data.totalPostsAnalyzed} publications
+              {data.platforms.length > 0 && (
+                <span> · {data.platforms.map(p => PLATFORM_LABELS[p as Platform] ?? p).join(", ")}</span>
+              )}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className="inline-block h-3 w-3 rounded bg-muted/40" />
-          <span>Faible</span>
-          <span className="inline-block h-3 w-3 rounded bg-violet-400" />
-          <span>Moyen</span>
-          <span className="inline-block h-3 w-3 rounded bg-emerald-500" />
-          <span>Fort</span>
+        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          {data.platforms.map(p => (
+            <Badge key={p} variant="secondary" className="text-[10px] px-1.5 py-0">
+              {PLATFORM_ICONS[p as Platform]} {PLATFORM_LABELS[p as Platform] ?? p}
+            </Badge>
+          ))}
         </div>
       </div>
 
@@ -99,8 +103,23 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
         </div>
       </div>
 
+      {/* Legend */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[11px] text-muted-foreground">
+          Chaque chiffre = nombre de posts publiés sur ce créneau. La couleur indique l&apos;engagement moyen obtenu.
+        </p>
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground shrink-0">
+          <span className="inline-block h-2.5 w-2.5 rounded bg-muted/40" />
+          <span>Faible</span>
+          <span className="inline-block h-2.5 w-2.5 rounded bg-violet-400" />
+          <span>Moyen</span>
+          <span className="inline-block h-2.5 w-2.5 rounded bg-emerald-500" />
+          <span>Fort</span>
+        </div>
+      </div>
+
       {/* Best time summary */}
-      <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2.5">
+      <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2.5">
         <svg className="h-4 w-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>

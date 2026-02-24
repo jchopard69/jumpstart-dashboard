@@ -18,6 +18,7 @@ export type BestTimeData = {
   bestDay: string;
   bestHour: string;
   totalPostsAnalyzed: number;
+  platforms: string[];
 };
 
 const DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -31,6 +32,7 @@ const HOUR_RANGES: [number, number][] = [
 export function analyzeBestTime(posts: Array<{
   posted_at?: string | null;
   metrics?: Record<string, unknown> | null;
+  platform?: string | null;
 }>): BestTimeData | null {
   const validPosts = posts.filter(p => p.posted_at);
   if (validPosts.length < 5) return null;
@@ -92,11 +94,14 @@ export function analyzeBestTime(posts: Array<{
   const bestDay = DAY_LABELS[bestSlot.day];
   const bestHour = HOUR_LABELS[bestSlot.hour];
 
+  const platforms = Array.from(new Set(validPosts.map(p => p.platform).filter(Boolean) as string[]));
+
   return {
     slots,
     bestDay,
     bestHour,
     totalPostsAnalyzed: validPosts.length,
+    platforms,
   };
 }
 

@@ -86,11 +86,16 @@ function formatMetric(value: number): string {
   return value.toLocaleString("fr-FR");
 }
 
+const INITIAL_COUNT = 5;
+
 export function TopPosts({ posts }: TopPostsProps) {
+  const [expanded, setExpanded] = useState(false);
   const filteredPosts = posts.filter((post) => {
     return getPostVisibility(post.metrics, post.media_type).value > 0 || getPostEngagements(post.metrics) > 0;
   });
   const displayPosts = filteredPosts.length ? filteredPosts : posts;
+  const visiblePosts = expanded ? displayPosts : displayPosts.slice(0, INITIAL_COUNT);
+  const hasMore = displayPosts.length > INITIAL_COUNT;
 
   // Compute cohort stats for Content Impact Score
   const cohortImpressions = displayPosts.map((p) => getPostVisibility(p.metrics, p.media_type).value);
@@ -123,7 +128,7 @@ export function TopPosts({ posts }: TopPostsProps) {
         <EmptyPosts />
       ) : (
         <div className="space-y-1">
-          {displayPosts.map((post, idx) => {
+          {visiblePosts.map((post, idx) => {
             const visibility = getPostVisibility(post.metrics, post.media_type);
             const engagements = getPostEngagements(post.metrics);
             const contentScore = computeContentScore(
@@ -210,6 +215,15 @@ export function TopPosts({ posts }: TopPostsProps) {
             );
           })}
         </div>
+      )}
+
+      {hasMore && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-3 w-full rounded-xl border border-border/60 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+        >
+          {expanded ? "Voir moins" : `Voir les ${displayPosts.length - INITIAL_COUNT} autres publications`}
+        </button>
       )}
     </Card>
   );
