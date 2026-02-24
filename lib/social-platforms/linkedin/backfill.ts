@@ -122,7 +122,7 @@ export async function fetchLinkedInPostsBackfill(params: {
     const meta = socialMeta.get(urn);
     const analytics = postAnalyticsMap.get(urn);
 
-    const createdAt = detail?.publishedAt ?? detail?.createdAt ?? Date.now();
+    const createdAt = detail?.publishedAt ?? detail?.created?.time ?? detail?.createdAt ?? Date.now();
     const postedAt = new Date(createdAt).toISOString();
 
     // Skip posts before the since date

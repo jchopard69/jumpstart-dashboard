@@ -152,10 +152,11 @@ export async function GET(request: Request) {
     );
     response.content_analytics = contentAttempt;
 
-    // Test DMA feed contents
+    // Test DMA feed contents (q=postsByAuthor, author=List(orgUrn))
+    const orgUrn = `urn:li:organization:${orgId}`;
     const feedAttempt = await tryLinkedIn(
       `${API_URL}/dmaFeedContentsExternal` +
-        `?q=author&author=${encodeURIComponent(pageUrn)}&type=POST&maxPaginationCount=5`,
+        `?q=postsByAuthor&author=List(${encodeURIComponent(orgUrn)})&maxPaginationCount=5`,
       headers
     );
     response.feed_contents = feedAttempt;

@@ -67,13 +67,19 @@ type DmaPostElement = {
   author?: string;
   commentary?: string;
   content?: Record<string, unknown>;
-  createdAt?: number;
+  created?: { actor?: string; time?: number };
+  lastModified?: { actor?: string; time?: number };
   publishedAt?: number;
   lifecycleState?: string;
   visibility?: string;
+  distribution?: Record<string, unknown>;
+  // Legacy fields kept for compat
+  createdAt?: number;
 };
 
 type FeedContentsElement = {
+  id?: string;
+  // Legacy field name
   contentUrn?: string;
   type?: string;
 };
@@ -230,13 +236,12 @@ export async function fetchDmaPosts(
   organizationId: string,
   limit: number
 ): Promise<string[]> {
-  const pageUrn = `urn:li:organizationalPage:${organizationId}`;
+  const orgUrn = `urn:li:organization:${organizationId}`;
 
-  // dmaFeedContentsExternal returns URNs of posts by author
+  // dmaFeedContentsExternal with q=postsByAuthor and author=List(orgUrn)
   const url = `${API_REST_URL}/dmaFeedContentsExternal` +
-    `?q=author` +
-    `&author=${encodeURIComponent(pageUrn)}` +
-    `&type=POST` +
+    `?q=postsByAuthor` +
+    `&author=List(${encodeURIComponent(orgUrn)})` +
     `&maxPaginationCount=${limit}`;
 
   try {
@@ -244,18 +249,20 @@ export async function fetchDmaPosts(
       'linkedin', url, { headers }, 'linkedin_dma_feed_contents'
     );
 
+    console.log(`[linkedin-dma] dmaFeedContentsExternal returned ${response.elements?.length ?? 0} elements`);
+
     return (response.elements ?? [])
-      .map(e => e.contentUrn)
+      .map(e => e.id ?? e.contentUrn)
       .filter((urn): urn is string => !!urn)
       .slice(0, limit);
   } catch (error) {
-    console.warn('[linkedin-dma] Failed to fetch feed contents, trying dmaPosts finder:', error);
+    console.error('[linkedin-dma] Failed to fetch feed contents:', error);
     return [];
   }
 }
 
 /**
- * Fetch post details via /dmaPosts
+ * Fetch post details via /dmaPosts BATCH_GET
  */
 export async function fetchPostDetails(
   headers: Record<string, string>,
@@ -263,17 +270,43 @@ export async function fetchPostDetails(
 ): Promise<Map<string, DmaPostElement>> {
   const posts = new Map<string, DmaPostElement>();
 
-  // Fetch posts one by one (batch not available in DMA)
-  for (const urn of postUrns) {
+  if (!postUrns.length) return posts;
+
+  // BATCH_GET: /dmaPosts?ids=List(encoded_urn1,encoded_urn2,...)&viewContext=AUTHOR
+  // Process in chunks of 20 to avoid URL length issues
+  const BATCH_SIZE = 20;
+  for (let i = 0; i < postUrns.length; i += BATCH_SIZE) {
+    const batch = postUrns.slice(i, i + BATCH_SIZE);
+    const encodedIds = batch.map(urn => encodeURIComponent(urn)).join(',');
+    const url = `${API_REST_URL}/dmaPosts?ids=List(${encodedIds})&viewContext=AUTHOR`;
+
     try {
-      const encodedUrn = encodeURIComponent(urn);
-      const url = `${API_REST_URL}/dmaPosts/${encodedUrn}`;
-      const post = await apiRequest<DmaPostElement>(
-        'linkedin', url, { headers }, 'linkedin_dma_post_detail'
-      );
-      posts.set(urn, post);
+      const response = await apiRequest<{
+        results?: Record<string, DmaPostElement>;
+        statuses?: Record<string, number>;
+        errors?: Record<string, unknown>;
+      }>('linkedin', url, { headers }, 'linkedin_dma_post_batch');
+
+      if (response.results) {
+        for (const [urn, post] of Object.entries(response.results)) {
+          posts.set(urn, post);
+        }
+      }
     } catch (error) {
-      console.warn(`[linkedin-dma] Failed to fetch post ${urn}:`, error);
+      console.error(`[linkedin-dma] Failed to batch fetch posts:`, error);
+      // Fallback: fetch individually
+      for (const urn of batch) {
+        try {
+          const encodedUrn = encodeURIComponent(urn);
+          const fallbackUrl = `${API_REST_URL}/dmaPosts/${encodedUrn}`;
+          const post = await apiRequest<DmaPostElement>(
+            'linkedin', fallbackUrl, { headers }, 'linkedin_dma_post_detail'
+          );
+          posts.set(urn, post);
+        } catch (innerError) {
+          console.warn(`[linkedin-dma] Failed to fetch post ${urn}:`, innerError);
+        }
+      }
     }
   }
 
@@ -453,7 +486,7 @@ export const linkedinConnector: Connector = {
         const meta = socialMeta.get(urn);
         const analytics = postAnalytics.get(urn);
 
-        const createdAt = detail?.publishedAt ?? detail?.createdAt ?? Date.now();
+        const createdAt = detail?.publishedAt ?? detail?.created?.time ?? detail?.createdAt ?? Date.now();
         const postedAt = new Date(createdAt).toISOString();
         const caption = detail?.commentary?.slice(0, 280) || 'LinkedIn post';
 
