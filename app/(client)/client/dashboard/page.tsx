@@ -397,11 +397,8 @@ export default async function ClientDashboardPage({
         <ContentDnaCard dna={contentDna} />
       </section>
 
-      {/* ─── Score Trend + Best Time ─── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ScoreTrend history={scoreHistory} />
-        {bestTimeData && <BestTimeHeatmap data={bestTimeData} />}
-      </div>
+      {/* ─── Score Trend ─── */}
+      <ScoreTrend history={scoreHistory} />
 
       {/* ─── Trends ─── */}
       <div className="section-divider" />
@@ -417,10 +414,13 @@ export default async function ClientDashboardPage({
         showComparison={showComparison}
       />
 
-      {/* ─── Content Performance ─── */}
+      {/* ─── Content Strategy: Top Posts + Best Time ─── */}
       <div className="section-divider" />
 
-      <TopPosts posts={data.posts.slice(0, 10)} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <TopPosts posts={data.posts.slice(0, 10)} />
+        {bestTimeData && <BestTimeHeatmap data={bestTimeData} />}
+      </div>
 
       <PlatformTable
         perPlatform={data.perPlatform}
