@@ -391,6 +391,7 @@ export const linkedinConnector: Connector = {
     try {
       const followerData = await fetchFollowerTrend(headers, organizationId, since, now);
       totalFollowers = followerData.totalFollowers;
+      console.log(`[linkedin-dma] Follower trend: totalFollowers=${totalFollowers}, daily entries=${Object.keys(followerData.daily).length}`);
       for (const [dateKey, count] of Object.entries(followerData.daily)) {
         const entry = dailyMap.get(dateKey);
         if (entry) {
@@ -398,7 +399,7 @@ export const linkedinConnector: Connector = {
         }
       }
     } catch (error) {
-      console.warn('[linkedin-dma] Failed to fetch follower trend:', error);
+      console.error('[linkedin-dma] Failed to fetch follower trend:', error);
     }
 
     // Set total followers on latest date for cumsum conversion in sync.ts
@@ -406,7 +407,7 @@ export const linkedinConnector: Connector = {
     if (latestDate && totalFollowers > 0) {
       const entry = dailyMap.get(latestDate);
       if (entry) {
-        entry.followers = entry.followers ?? 0;
+        entry.followers = totalFollowers;
       }
     }
 
@@ -432,8 +433,9 @@ export const linkedinConnector: Connector = {
     let postUrns: string[] = [];
     try {
       postUrns = await fetchDmaPosts(headers, organizationId, MAX_POSTS_SYNC);
+      console.log(`[linkedin-dma] Fetched ${postUrns.length} post URNs for org ${organizationId}`);
     } catch (error) {
-      console.warn('[linkedin-dma] Failed to fetch posts list:', error);
+      console.error('[linkedin-dma] Failed to fetch posts list:', error);
     }
 
     const posts: PostMetric[] = [];
