@@ -86,6 +86,27 @@ type FeedContentsElement = {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
+/**
+ * Determine the media_type from a DMA post's content field.
+ * Maps LinkedIn content types to normalized format names used by insights.
+ */
+export function detectLinkedInMediaType(content?: Record<string, unknown>): string {
+  if (!content) return 'text';
+  if (content.carousel) return 'carousel';
+  if (content.multiImage) return 'carousel';
+  if (content.poll) return 'text';
+  if (content.article) return 'link';
+  if (content.celebration) return 'image';
+  if (content.media) {
+    const media = content.media as Record<string, unknown>;
+    if (media.video) return 'video';
+    if (media.document) return 'link';
+    // image by default for media content
+    return 'image';
+  }
+  return 'text';
+}
+
 export function buildHeaders(accessToken: string): Record<string, string> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
@@ -506,7 +527,7 @@ export const linkedinConnector: Connector = {
           posted_at: postedAt,
           url: `https://www.linkedin.com/feed/update/${urn}`,
           caption,
-          media_type: 'share',
+          media_type: detectLinkedInMediaType(detail?.content),
           metrics: {
             impressions,
             reach: uniqueImpressions,

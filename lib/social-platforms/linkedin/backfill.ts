@@ -15,6 +15,7 @@ import {
   fetchPostDetails,
   fetchSocialMetadata,
   fetchPostAnalytics,
+  detectLinkedInMediaType,
 } from "./api";
 
 const MAX_POSTS_BACKFILL = 200;
@@ -144,7 +145,7 @@ export async function fetchLinkedInPostsBackfill(params: {
       posted_at: postedAt,
       url: `https://www.linkedin.com/feed/update/${urn}`,
       caption,
-      media_type: "share",
+      media_type: detectLinkedInMediaType(detail?.content as Record<string, unknown> | undefined),
       metrics: {
         impressions,
         reach: uniqueImpressions,
