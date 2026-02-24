@@ -253,7 +253,7 @@ export default async function ClientDashboardPage({
     resolvedTenantId ? fetchTenantGoals(resolvedTenantId) : Promise.resolve(null),
   ]);
 
-  const bestTimeData = analyzeBestTime(data.posts);
+  const bestTimeData = analyzeBestTime(data.posts, searchParams.platform);
 
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;

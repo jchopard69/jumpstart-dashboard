@@ -86,7 +86,7 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
                     className={`flex items-center justify-center rounded-lg h-10 ${color} transition-colors cursor-default`}
                     title={
                       postCount > 0
-                        ? `${dayLabel} ${HOUR_LABELS[hourIndex]} — ${postCount} post${postCount > 1 ? "s" : ""}, ~${Math.round(slot?.avgEngagement ?? 0)} eng. moyen`
+                        ? `${dayLabel} ${HOUR_LABELS[hourIndex]} — ${postCount} post${postCount > 1 ? "s" : ""}, ~${Math.round(slot?.avgVisibility ?? 0)} vues moy.`
                         : `${dayLabel} ${HOUR_LABELS[hourIndex]} — Aucun post`
                     }
                   >
@@ -106,7 +106,7 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
       {/* Legend */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-[11px] text-muted-foreground">
-          Chaque chiffre = nombre de posts publiés sur ce créneau. La couleur indique l&apos;engagement moyen obtenu.
+          Chaque chiffre = nombre de posts publiés sur ce créneau. La couleur indique la visibilité moyenne obtenue (vues / portée).
         </p>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground shrink-0">
           <span className="inline-block h-2.5 w-2.5 rounded bg-muted/40" />

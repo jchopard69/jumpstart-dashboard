@@ -1,14 +1,14 @@
 /**
  * Best Time to Post — analyzes post performance by day of week and hour
- * to identify optimal publishing windows.
+ * to identify optimal publishing windows based on visibility (views/reach).
  */
 
-import { getPostEngagements } from "@/lib/metrics";
+import { getPostVisibility } from "@/lib/metrics";
 
 export type TimeSlot = {
   day: number; // 0 = Monday, 6 = Sunday
-  hour: number; // 0-23
-  avgEngagement: number;
+  hour: number; // 0-5 (index into HOUR_LABELS)
+  avgVisibility: number;
   postCount: number;
   intensity: number; // 0-1 normalized
 };
@@ -29,16 +29,25 @@ const HOUR_RANGES: [number, number][] = [
   [6, 9], [9, 12], [12, 14], [14, 17], [17, 20], [20, 23]
 ];
 
-export function analyzeBestTime(posts: Array<{
-  posted_at?: string | null;
-  metrics?: Record<string, unknown> | null;
-  platform?: string | null;
-}>): BestTimeData | null {
-  const validPosts = posts.filter(p => p.posted_at);
+export function analyzeBestTime(
+  posts: Array<{
+    posted_at?: string | null;
+    metrics?: Record<string, unknown> | null;
+    media_type?: string | null;
+    platform?: string | null;
+  }>,
+  platformFilter?: string
+): BestTimeData | null {
+  // Filter by platform if specified
+  const filtered = platformFilter && platformFilter !== "all"
+    ? posts.filter(p => p.platform === platformFilter)
+    : posts;
+
+  const validPosts = filtered.filter(p => p.posted_at);
   if (validPosts.length < 5) return null;
 
-  // Aggregate engagement by day × hour slot
-  const grid = new Map<string, { totalEng: number; count: number }>();
+  // Aggregate visibility (views/reach/impressions) by day × hour slot
+  const grid = new Map<string, { totalVis: number; count: number }>();
 
   for (const post of validPosts) {
     const date = new Date(post.posted_at!);
@@ -52,9 +61,9 @@ export function analyzeBestTime(posts: Array<{
     if (slotIndex === -1) continue; // Outside 6h-23h
 
     const key = `${day}-${slotIndex}`;
-    const eng = getPostEngagements(post.metrics);
-    const existing = grid.get(key) ?? { totalEng: 0, count: 0 };
-    existing.totalEng += eng;
+    const visibility = getPostVisibility(post.metrics, post.media_type).value;
+    const existing = grid.get(key) ?? { totalVis: 0, count: 0 };
+    existing.totalVis += visibility;
     existing.count++;
     grid.set(key, existing);
   }
@@ -69,15 +78,15 @@ export function analyzeBestTime(posts: Array<{
     for (let hourSlot = 0; hourSlot < HOUR_RANGES.length; hourSlot++) {
       const key = `${day}-${hourSlot}`;
       const data = grid.get(key);
-      const avgEngagement = data ? data.totalEng / data.count : 0;
+      const avgVisibility = data ? data.totalVis / data.count : 0;
       const postCount = data?.count ?? 0;
 
-      if (avgEngagement > maxAvg) maxAvg = avgEngagement;
+      if (avgVisibility > maxAvg) maxAvg = avgVisibility;
 
       slots.push({
         day,
         hour: hourSlot,
-        avgEngagement,
+        avgVisibility,
         postCount,
         intensity: 0, // will normalize below
       });
@@ -86,11 +95,11 @@ export function analyzeBestTime(posts: Array<{
 
   // Normalize intensities
   for (const slot of slots) {
-    slot.intensity = maxAvg > 0 ? slot.avgEngagement / maxAvg : 0;
+    slot.intensity = maxAvg > 0 ? slot.avgVisibility / maxAvg : 0;
   }
 
   // Find best day and hour
-  const bestSlot = slots.reduce((a, b) => a.avgEngagement > b.avgEngagement ? a : b);
+  const bestSlot = slots.reduce((a, b) => a.avgVisibility > b.avgVisibility ? a : b);
   const bestDay = DAY_LABELS[bestSlot.day];
   const bestHour = HOUR_LABELS[bestSlot.hour];
 
