@@ -3,6 +3,8 @@ import { coerceMetric } from "@/lib/metrics";
 import { decryptToken } from "@/lib/crypto";
 import { getConnector } from "@/lib/connectors";
 import { getValidAccessToken } from "@/lib/social-platforms/core/token-manager";
+import { computeJumpStartScore } from "@/lib/scoring";
+import { saveScoreSnapshot } from "@/lib/score-history";
 import type { Platform } from "@/lib/types";
 
 const CONCURRENCY_LIMIT = 2;
@@ -36,6 +38,8 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
   if (!filtered.length) {
     return;
   }
+
+  let syncSucceeded = false;
 
   await runWithLimit(filtered, async (account) => {
     const { data: log, error: logError } = await supabase
@@ -254,6 +258,8 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
       if (logUpdateError) {
         throw new Error(`Failed to update sync log: ${logUpdateError.message}`);
       }
+
+      syncSucceeded = true;
     } catch (syncError: any) {
       const { error: logFailError } = await supabase
         .from("sync_logs")
@@ -268,6 +274,83 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
       }
     }
   });
+
+  // After sync completes, snapshot the JumpStart Score
+  if (syncSucceeded) {
+    try {
+      const periodDays = 30;
+      const end = new Date();
+      const start = new Date(end);
+      start.setDate(start.getDate() - periodDays);
+      const prevStart = new Date(start);
+      prevStart.setDate(prevStart.getDate() - periodDays);
+
+      const [{ data: currentMetrics }, { data: prevMetrics }, currentPostsResult, prevPostsResult] = await Promise.all([
+        supabase.from("social_daily_metrics")
+          .select("followers,impressions,reach,engagements,views,posts_count,social_account_id,date")
+          .eq("tenant_id", tenantId)
+          .gte("date", start.toISOString().slice(0, 10))
+          .lte("date", end.toISOString().slice(0, 10)),
+        supabase.from("social_daily_metrics")
+          .select("followers,impressions,reach,engagements,views,posts_count,social_account_id,date")
+          .eq("tenant_id", tenantId)
+          .gte("date", prevStart.toISOString().slice(0, 10))
+          .lt("date", start.toISOString().slice(0, 10)),
+        supabase.from("social_posts")
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", tenantId)
+          .gte("posted_at", start.toISOString())
+          .lte("posted_at", end.toISOString()),
+        supabase.from("social_posts")
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", tenantId)
+          .gte("posted_at", prevStart.toISOString())
+          .lt("posted_at", start.toISOString()),
+      ]);
+
+      const sumMetrics = (rows: typeof currentMetrics) => {
+        if (!rows?.length) return { followers: 0, views: 0, reach: 0, engagements: 0 };
+        const latestFollowers = new Map<string, number>();
+        let views = 0, reach = 0, engagements = 0;
+        for (const r of rows) {
+          views += coerceMetric(r.views);
+          reach += coerceMetric(r.reach);
+          engagements += coerceMetric(r.engagements);
+          if (r.social_account_id) {
+            const existing = latestFollowers.get(r.social_account_id);
+            if (existing === undefined || (r.date && r.date > (existing.toString()))) {
+              latestFollowers.set(r.social_account_id, coerceMetric(r.followers));
+            }
+          }
+        }
+        let followers = 0;
+        for (const f of latestFollowers.values()) followers += f;
+        return { followers, views, reach, engagements };
+      };
+
+      const current = sumMetrics(currentMetrics);
+      const prev = sumMetrics(prevMetrics);
+
+      const score = computeJumpStartScore({
+        followers: current.followers,
+        views: current.views,
+        reach: current.reach,
+        engagements: current.engagements,
+        postsCount: currentPostsResult.count ?? 0,
+        prevFollowers: prev.followers,
+        prevViews: prev.views,
+        prevReach: prev.reach,
+        prevEngagements: prev.engagements,
+        prevPostsCount: prevPostsResult.count ?? 0,
+        periodDays,
+      });
+
+      await saveScoreSnapshot(tenantId, score, periodDays);
+      console.log(`[sync] Score snapshot saved for ${tenantId}: ${score.global}/100 (${score.grade})`);
+    } catch (scoreError) {
+      console.warn("[sync] Failed to compute/save score snapshot:", scoreError);
+    }
+  }
 }
 
 export async function runGlobalSync() {

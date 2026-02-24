@@ -321,3 +321,27 @@ export async function removeTenantAccess(formData: FormData) {
 
   revalidatePath(`/admin/clients/${tenantId}`);
 }
+
+export async function updateTenantGoals(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const followersTarget = formData.get("followers_target") ? Number(formData.get("followers_target")) : null;
+  const engagementRateTarget = formData.get("engagement_rate_target") ? Number(formData.get("engagement_rate_target")) : null;
+  const postsPerWeekTarget = formData.get("posts_per_week_target") ? Number(formData.get("posts_per_week_target")) : null;
+  const reachTarget = formData.get("reach_target") ? Number(formData.get("reach_target")) : null;
+  const viewsTarget = formData.get("views_target") ? Number(formData.get("views_target")) : null;
+
+  const supabase = createSupabaseServiceClient();
+  await supabase.from("tenant_goals").upsert({
+    tenant_id: tenantId,
+    followers_target: followersTarget,
+    engagement_rate_target: engagementRateTarget,
+    posts_per_week_target: postsPerWeekTarget,
+    reach_target: reachTarget,
+    views_target: viewsTarget,
+    updated_at: new Date().toISOString(),
+  });
+
+  revalidatePath(`/admin/clients/${tenantId}`);
+}

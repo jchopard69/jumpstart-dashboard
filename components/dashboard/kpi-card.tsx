@@ -12,6 +12,7 @@ type KpiCardProps = {
   description?: string;
   className?: string;
   index?: number;
+  goal?: number | null;
 };
 
 const KPI_DESCRIPTIONS: Record<string, string> = {
@@ -27,7 +28,9 @@ function formatDelta(delta: number): string {
   const sign = delta >= 0 ? "+" : "";
   const abs = Math.abs(delta);
 
-  if (abs >= 10000) {
+  if (abs >= 100000) {
+    return `${sign}${Math.round(abs / 1000)}K`;
+  } else if (abs >= 10000) {
     return `${sign}${Math.round(abs / 1000)}K%`;
   } else if (abs >= 1000) {
     return `${sign}${(abs / 1000).toFixed(1).replace(".0", "")}K%`;
@@ -117,10 +120,12 @@ function AnimatedNumber({ value, suffix }: { value: number; suffix?: string }) {
   );
 }
 
-export function KpiCard({ label, value, delta, suffix, description, className, index = 0 }: KpiCardProps) {
+export function KpiCard({ label, value, delta, suffix, description, className, index = 0, goal }: KpiCardProps) {
   const trend = delta >= 0 ? "up" : "down";
   const deltaValue = formatDelta(delta);
   const tooltipText = description || KPI_DESCRIPTIONS[label];
+
+  const goalProgress = goal && goal > 0 ? Math.min((value / goal) * 100, 100) : null;
 
   return (
     <Card
@@ -130,18 +135,18 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
       {/* Gradient accent bar */}
       <div className="absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400 opacity-70 transition-opacity group-hover:opacity-100" />
 
-      <div className="flex items-start justify-between gap-2">
-        <p className="section-label leading-tight">{label}</p>
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <p className="section-label leading-tight truncate">{label}</p>
         {delta !== 0 && (
           <span
             className={cn(
-              "inline-flex items-center gap-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-transform group-hover:scale-105",
+              "inline-flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap",
               trend === "up"
                 ? "bg-emerald-500/10 text-emerald-600"
                 : "bg-rose-500/10 text-rose-600"
             )}
           >
-            <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-2.5 w-2.5 shrink-0" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2}>
               {trend === "up" ? (
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2 8l4-4 4 4" />
               ) : (
@@ -156,6 +161,24 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
       <div className="mt-4">
         <AnimatedNumber value={value} suffix={suffix} />
       </div>
+
+      {goalProgress !== null && (
+        <div className="mt-3">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+            <span>Objectif : {formatCompact(goal!)}{suffix ?? ""}</span>
+            <span className="font-medium">{Math.round(goalProgress)}%</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-muted/40 overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-700",
+                goalProgress >= 100 ? "bg-emerald-500" : goalProgress >= 60 ? "bg-violet-500" : "bg-amber-500"
+              )}
+              style={{ width: `${goalProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

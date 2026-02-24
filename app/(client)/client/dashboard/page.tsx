@@ -19,6 +19,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
 import { generateStrategicInsights, generateKeyTakeaways, generateExecutiveSummary, type InsightsInput } from "@/lib/insights";
 import { analyzeContentDna, type ContentDnaInput } from "@/lib/content-dna";
+import { fetchScoreHistory } from "@/lib/score-history";
+import { analyzeBestTime } from "@/lib/best-time";
+import { fetchTenantGoals } from "@/lib/goals";
+import { ScoreTrend } from "@/components/dashboard/score-trend";
+import { BestTimeHeatmap } from "@/components/dashboard/best-time-heatmap";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -239,6 +244,17 @@ export default async function ClientDashboardPage({
   };
   const contentDna = analyzeContentDna(contentDnaInput);
 
+  // Resolve tenant ID for additional data fetches
+  const resolvedTenantId = searchParams.tenantId ?? profile.tenant_id ?? "";
+
+  // Fetch score history, best time analysis, and goals in parallel
+  const [scoreHistory, goals] = await Promise.all([
+    resolvedTenantId ? fetchScoreHistory(resolvedTenantId) : Promise.resolve([]),
+    resolvedTenantId ? fetchTenantGoals(resolvedTenantId) : Promise.resolve(null),
+  ]);
+
+  const bestTimeData = analyzeBestTime(data.posts);
+
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
   const hasInsightsData = (data.totals?.views ?? 0) > 0 || (data.totals?.reach ?? 0) > 0 || (data.totals?.engagements ?? 0) > 0;
@@ -363,6 +379,7 @@ export default async function ClientDashboardPage({
       <KpiSection
         totals={data.totals}
         delta={data.delta}
+        goals={goals}
         showViews={showViews}
         showReach={showReach}
         showEngagements={showEngagements}
@@ -379,6 +396,12 @@ export default async function ClientDashboardPage({
         }))} />
         <ContentDnaCard dna={contentDna} />
       </section>
+
+      {/* ─── Score Trend + Best Time ─── */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <ScoreTrend history={scoreHistory} />
+        {bestTimeData && <BestTimeHeatmap data={bestTimeData} />}
+      </div>
 
       {/* ─── Trends ─── */}
       <div className="section-divider" />

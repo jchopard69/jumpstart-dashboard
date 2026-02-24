@@ -16,7 +16,8 @@ import {
   deleteSocialAccount,
   resetLinkedInData,
   addTenantAccess,
-  removeTenantAccess
+  removeTenantAccess,
+  updateTenantGoals
 } from "@/app/(admin)/admin/actions";
 import { DocumentManager } from "@/components/admin/document-manager";
 import { SocialAccountsSection } from "@/components/admin/social-accounts-section";
@@ -74,6 +75,11 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
     .eq("tenant_id", params.tenantId)
     .order("started_at", { ascending: false })
     .limit(10);
+  const { data: goals } = await supabase
+    .from("tenant_goals")
+    .select("followers_target,engagement_rate_target,posts_per_week_target,reach_target,views_target")
+    .eq("tenant_id", params.tenantId)
+    .maybeSingle();
 
   const { data: allUsers } = await supabase
     .from("profiles")
@@ -173,6 +179,35 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
         }))}
         deleteAction={deleteSocialAccount}
       />
+
+      <Card className="card-surface p-6 fade-in-up">
+        <h2 className="section-title">Objectifs de performance</h2>
+        <p className="text-sm text-muted-foreground mt-1">Definissez des cibles pour suivre la progression sur le dashboard client.</p>
+        <form action={updateTenantGoals} className="mt-4 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+          <div>
+            <Label>Abonnés cible</Label>
+            <Input name="followers_target" type="number" placeholder="Ex: 10000" defaultValue={goals?.followers_target ?? ""} />
+          </div>
+          <div>
+            <Label>Taux d'engagement cible (%)</Label>
+            <Input name="engagement_rate_target" type="number" step="0.1" placeholder="Ex: 3.5" defaultValue={goals?.engagement_rate_target ?? ""} />
+          </div>
+          <div>
+            <Label>Posts / semaine</Label>
+            <Input name="posts_per_week_target" type="number" placeholder="Ex: 4" defaultValue={goals?.posts_per_week_target ?? ""} />
+          </div>
+          <div>
+            <Label>Portée cible</Label>
+            <Input name="reach_target" type="number" placeholder="Ex: 50000" defaultValue={goals?.reach_target ?? ""} />
+          </div>
+          <div>
+            <Label>Vues cible</Label>
+            <Input name="views_target" type="number" placeholder="Ex: 100000" defaultValue={goals?.views_target ?? ""} />
+          </div>
+          <input type="hidden" name="tenant_id" value={params.tenantId} />
+          <Button type="submit">Sauvegarder les objectifs</Button>
+        </form>
+      </Card>
 
       <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Collaboration</h2>
