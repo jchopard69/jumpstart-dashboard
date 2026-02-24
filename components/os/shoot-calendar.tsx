@@ -79,7 +79,7 @@ export function ShootCalendar({ shoots, canEdit, addShootAction }: ShootCalendar
       </div>
       {canEdit && (
         <form action={addShootAction} className="mt-4 space-y-3 border-t border-border/40 pt-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Nouveau tournage</p>
+          <p className="section-label">Nouveau tournage</p>
           <Input name="shoot_date" type="date" required />
           <Input name="location" placeholder="Lieu" />
           <Textarea name="notes" placeholder="Notes" rows={2} />

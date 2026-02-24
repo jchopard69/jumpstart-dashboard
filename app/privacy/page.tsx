@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
-      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">JumpStart Studio</p>
+      <p className="section-label">JumpStart Studio</p>
       <h1 className="page-heading mt-2">Politique de confidentialité</h1>
       <p className="mt-4 text-sm text-muted-foreground">Dernière mise à jour : 23 janvier 2026</p>
 

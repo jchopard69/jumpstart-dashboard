@@ -58,7 +58,7 @@ export default async function AdminUsersPage() {
       <section className="surface-panel p-8">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Admin agence</p>
+            <p className="section-label">Admin agence</p>
             <h1 className="page-heading">Utilisateurs</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Gérez les utilisateurs et leurs accès aux workspaces.
@@ -79,7 +79,7 @@ export default async function AdminUsersPage() {
       <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Tous les utilisateurs</h2>
         <div className="mt-4 overflow-x-auto">
-          <Table>
+          <Table className="table-premium">
             <TableHeader>
               <TableRow>
                 <TableHead>Nom</TableHead>

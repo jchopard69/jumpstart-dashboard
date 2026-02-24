@@ -128,10 +128,10 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
       style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* Gradient accent bar */}
-      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400 opacity-80 transition-opacity group-hover:opacity-100" />
+      <div className="absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400 opacity-70 transition-opacity group-hover:opacity-100" />
 
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-medium text-muted-foreground leading-tight">{label}</p>
+        <p className="section-label leading-tight">{label}</p>
         {delta !== 0 && (
           <span
             className={cn(
@@ -153,11 +153,7 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
         )}
       </div>
 
-      {tooltipText && (
-        <p className="text-[11px] text-muted-foreground/60 leading-snug mt-0.5">{tooltipText}</p>
-      )}
-
-      <div className="mt-3">
+      <div className="mt-4">
         <AnimatedNumber value={value} suffix={suffix} />
       </div>
     </Card>

@@ -12,7 +12,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-background text-foreground">
       <main className="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-16">
         <header className="space-y-4">
-          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">JumpStart Studio</p>
+          <p className="section-label">JumpStart Studio</p>
           <h1 className="page-heading">JumpStart OS</h1>
           <p className="max-w-2xl text-base text-muted-foreground">
             Tableau de bord social media pour piloter la performance, suivre la collaboration
@@ -30,19 +30,19 @@ export default function HomePage() {
 
         <section className="grid gap-4 md:grid-cols-3">
           <div className="surface-panel p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">Performance</h2>
+            <h2 className="section-label">Performance</h2>
             <p className="mt-3 text-sm text-muted-foreground">
               Suivi clair des impressions, portée, engagements et publications pour vos clients.
             </p>
           </div>
           <div className="surface-panel p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">Collaboration</h2>
+            <h2 className="section-label">Collaboration</h2>
             <p className="mt-3 text-sm text-muted-foreground">
               Gestion des tournages, montages, idées et prochaines priorités mensuelles.
             </p>
           </div>
           <div className="surface-panel p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">Clients</h2>
+            <h2 className="section-label">Clients</h2>
             <p className="mt-3 text-sm text-muted-foreground">
               Accès sécurisé par client, avec reporting et historiques centralisés.
             </p>

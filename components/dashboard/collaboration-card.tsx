@@ -50,7 +50,7 @@ export function CollaborationCard({ collaboration, shoots, documents }: Collabor
 
         {/* Upcoming shoots */}
         <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-medium mb-2">Shootings à venir</p>
+          <p className="section-label mb-2">Shootings à venir</p>
           {shoots.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2 italic">Aucun shooting planifié.</p>
           ) : (
@@ -70,7 +70,7 @@ export function CollaborationCard({ collaboration, shoots, documents }: Collabor
         {/* Documents */}
         {documents.length > 0 && (
           <div>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-medium mb-2">Documents</p>
+            <p className="section-label mb-2">Documents</p>
             <ul className="space-y-1.5">
               {documents.slice(0, 4).map((doc) => (
                 <li key={doc.id} className="flex items-center justify-between rounded-lg p-2 text-sm transition-colors hover:bg-muted/20">

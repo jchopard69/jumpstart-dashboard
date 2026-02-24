@@ -109,13 +109,13 @@ export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Score ring */}
         <div className="flex flex-col items-center gap-2">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground font-medium">JumpStart Score</p>
+          <p className="section-label">JumpStart Score</p>
           <ScoreRing score={score.global} grade={score.grade} />
         </div>
 
         {/* Sub-scores */}
         <div className="flex-1 space-y-3 min-w-0">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-medium mb-3">Composantes</p>
+          <p className="section-label mb-3">Composantes</p>
           {score.subScores.map((sub) => (
             <SubScoreBar
               key={sub.key}
@@ -129,7 +129,7 @@ export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps
         {/* Takeaways */}
         <div className="flex-1 min-w-0 space-y-4">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-medium mb-3">A retenir</p>
+            <p className="section-label mb-3">A retenir</p>
             <ul className="space-y-2.5">
               {takeaways.map((t, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm leading-relaxed">

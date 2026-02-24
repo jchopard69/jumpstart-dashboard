@@ -1,9 +1,12 @@
 import Image from "next/image";
-import Link from "next/link";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
+import { AdminNavLink } from "@/components/admin/admin-nav-link";
+import { ClientSwitcher, type ClientInfo } from "@/components/admin/client-switcher";
+import { CommandPalette } from "@/components/admin/command-palette";
+import type { Platform, SyncStatus } from "@/lib/types";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const profile = await getSessionProfile();
@@ -14,6 +17,47 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     const client = createSupabaseServerClient();
     await client.auth.signOut();
   }
+
+  // Fetch enriched tenant data for ClientSwitcher
+  const supabase = createSupabaseServiceClient();
+  const [{ data: tenants }, { data: accounts }, { data: syncLogs }] = await Promise.all([
+    supabase.from("tenants").select("id,name,slug,is_active").eq("is_active", true).order("name"),
+    supabase.from("social_accounts").select("tenant_id,platform"),
+    supabase
+      .from("sync_logs")
+      .select("tenant_id,status,started_at")
+      .order("started_at", { ascending: false }),
+  ]);
+
+  // Build platform set per tenant
+  const platformsByTenant = new Map<string, Set<Platform>>();
+  for (const acc of accounts ?? []) {
+    if (!platformsByTenant.has(acc.tenant_id)) {
+      platformsByTenant.set(acc.tenant_id, new Set());
+    }
+    platformsByTenant.get(acc.tenant_id)!.add(acc.platform as Platform);
+  }
+
+  // Build last sync per tenant (first occurrence since ordered desc)
+  const lastSyncByTenant = new Map<string, { status: SyncStatus; started_at: string }>();
+  for (const log of syncLogs ?? []) {
+    if (!lastSyncByTenant.has(log.tenant_id)) {
+      lastSyncByTenant.set(log.tenant_id, {
+        status: log.status as SyncStatus,
+        started_at: log.started_at,
+      });
+    }
+  }
+
+  const clientsData: ClientInfo[] = (tenants ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    slug: t.slug,
+    is_active: t.is_active,
+    platforms: Array.from(platformsByTenant.get(t.id) ?? []),
+    lastSyncStatus: lastSyncByTenant.get(t.id)?.status ?? null,
+    lastSyncAt: lastSyncByTenant.get(t.id)?.started_at ?? null,
+  }));
 
   return (
     <Toaster>
@@ -35,24 +79,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                       Admin
                     </span>
                   </div>
-                  <p className="mt-3 text-xs uppercase tracking-[0.3em] text-muted-foreground">Centre de controle</p>
+                  <p className="mt-3 section-label">Centre de controle</p>
                   <nav className="mt-6 flex flex-col gap-2 text-sm">
-                    <Link className="nav-pill" href="/admin">
-                      Vue d&apos;ensemble
-                    </Link>
-                    <Link className="nav-pill" href="/admin/clients">
-                      Clients
-                    </Link>
-                    <Link className="nav-pill" href="/admin/users">
-                      Utilisateurs
-                    </Link>
-                    <Link className="nav-pill" href="/admin/health">
-                      Santé
-                    </Link>
-                    <Link className="nav-pill" href="/admin/settings">
-                      Réglages
-                    </Link>
+                    <AdminNavLink href="/admin">Vue d&apos;ensemble</AdminNavLink>
+                    <AdminNavLink href="/admin/clients">Clients</AdminNavLink>
+                    <AdminNavLink href="/admin/users">Utilisateurs</AdminNavLink>
+                    <AdminNavLink href="/admin/health">Santé</AdminNavLink>
+                    <AdminNavLink href="/admin/settings">Réglages</AdminNavLink>
                   </nav>
+
+                  {/* Client Switcher */}
+                  <div className="mt-6 border-t border-border/50 pt-5">
+                    <p className="mb-2 section-label">Accès rapide</p>
+                    <ClientSwitcher clients={clientsData} compact />
+                  </div>
                 </div>
                 <form action={signOut}>
                   <Button variant="outline" className="w-full" type="submit">
@@ -72,27 +112,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                     </span>
                   </div>
                   <nav className="flex items-center gap-2">
-                    <Link className="nav-pill" href="/admin">
-                      Vue d&apos;ensemble
-                    </Link>
-                    <Link className="nav-pill" href="/admin/clients">
-                      Clients
-                    </Link>
-                    <Link className="nav-pill" href="/admin/users">
-                      Utilisateurs
-                    </Link>
-                    <Link className="nav-pill" href="/admin/health">
-                      Santé
-                    </Link>
-                    <Link className="nav-pill" href="/admin/settings">
-                      Réglages
-                    </Link>
+                    <AdminNavLink href="/admin">Vue d&apos;ensemble</AdminNavLink>
+                    <AdminNavLink href="/admin/clients">Clients</AdminNavLink>
+                    <AdminNavLink href="/admin/users">Utilisateurs</AdminNavLink>
+                    <AdminNavLink href="/admin/health">Santé</AdminNavLink>
+                    <AdminNavLink href="/admin/settings">Réglages</AdminNavLink>
                   </nav>
-                  <form action={signOut} className="hidden sm:block">
-                    <Button variant="outline" size="sm" type="submit">
-                      Déconnexion
-                    </Button>
-                  </form>
+                  <div className="flex items-center gap-2">
+                    <ClientSwitcher clients={clientsData} />
+                    <form action={signOut} className="hidden sm:block">
+                      <Button variant="outline" size="sm" type="submit">
+                        Déconnexion
+                      </Button>
+                    </form>
+                  </div>
                 </div>
               </header>
 
@@ -100,6 +133,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </div>
           </div>
         </div>
+
+        {/* Command Palette (Cmd+K) */}
+        <CommandPalette clients={clientsData} />
       </div>
     </Toaster>
   );

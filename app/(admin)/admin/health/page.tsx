@@ -32,7 +32,7 @@ export default async function AdminHealthPage() {
       <section className="surface-panel p-8">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Admin agence</p>
+            <p className="section-label">Admin agence</p>
             <h1 className="page-heading">Santé</h1>
             <p className="mt-2 text-sm text-muted-foreground">Surveillance des synchronisations et alertes.</p>
           </div>

@@ -52,7 +52,7 @@ export default async function ClientLayout({ children }: { children: React.React
                       Client
                     </span>
                   </div>
-                  <p className="mt-3 text-xs uppercase tracking-[0.3em] text-muted-foreground">Social Pulse</p>
+                  <p className="mt-3 section-label">Social Pulse</p>
                   {tenants.length > 1 && (
                     <div className="mt-4">
                       <TenantSwitcher tenants={tenants} currentTenantId={currentTenantId} />

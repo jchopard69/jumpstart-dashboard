@@ -93,14 +93,14 @@ export default async function CollaborationPage({
       <section className="surface-panel p-8">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">JumpStart Studio</p>
+            <p className="section-label">JumpStart Studio</p>
             <h1 className="page-heading">Ma collaboration</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Tournages, documents et suivi de votre collaboration.
             </p>
           </div>
           <div className="rounded-2xl border border-border/60 bg-white/80 px-5 py-4">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Jours de tournage</p>
+            <p className="section-label">Jours de tournage</p>
             <div className="flex items-baseline gap-2 mt-1">
               <span className={`text-3xl font-bold font-display tabular-nums ${shootDays === 0 ? "text-rose-500" : shootDays <= 2 ? "text-amber-500" : "text-foreground"}`}>
                 {shootDays}

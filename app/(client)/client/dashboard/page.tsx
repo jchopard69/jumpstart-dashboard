@@ -250,9 +250,9 @@ export default async function ClientDashboardPage({
         <section className="surface-panel p-8">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground font-medium">Social Intelligence</p>
-              <h1 className="page-heading">Vue d&apos;ensemble</h1>
-              <p className="mt-1.5 text-sm text-muted-foreground">Analyse consolidée de votre présence digitale.</p>
+              <p className="section-label">Social Intelligence</p>
+              <h1 className="page-heading mt-1">Vue d&apos;ensemble</h1>
+              <p className="mt-2 text-sm text-muted-foreground">Analyse consolidée de votre présence digitale.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <RefreshButton tenantId={searchParams.tenantId} />
@@ -303,13 +303,14 @@ export default async function ClientDashboardPage({
   })();
 
   return (
-    <div className="space-y-8 fade-in">
+    <div className="space-y-10 fade-in">
+      {/* ─── Header + Filters ─── */}
       <section className="surface-panel p-8">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground font-medium">Social Intelligence</p>
-            <h1 className="page-heading">Vue d&apos;ensemble</h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">
+            <p className="section-label">Social Intelligence</p>
+            <h1 className="page-heading mt-1">Vue d&apos;ensemble</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
               Analyse consolidee — <span className="font-medium text-foreground/70">{periodLabel}</span>
               {platformList.length > 0 && (
                 <span> · {platformList.length} plateforme{platformList.length > 1 ? "s" : ""}</span>
@@ -352,7 +353,7 @@ export default async function ClientDashboardPage({
         </section>
       )}
 
-      {/* JumpStart Score */}
+      {/* ─── Score + KPIs ─── */}
       <ScoreCard
         score={jumpStartScore}
         takeaways={keyTakeaways}
@@ -367,8 +368,10 @@ export default async function ClientDashboardPage({
         showEngagements={showEngagements}
       />
 
-      {/* Insights + Content DNA + Collaboration */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* ─── Strategic Analysis ─── */}
+      <div className="section-divider" />
+
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <InsightCard insights={strategicInsights.map(i => ({
           type: i.type === "opportunity" || i.type === "recommendation" ? "positive" : i.type as any,
           title: i.title,
@@ -377,7 +380,9 @@ export default async function ClientDashboardPage({
         <ContentDnaCard dna={contentDna} />
       </section>
 
-      {/* Charts */}
+      {/* ─── Trends ─── */}
+      <div className="section-divider" />
+
       <ChartsSection
         trendFollowers={trendFollowers}
         trendViews={trendViews}
@@ -389,10 +394,11 @@ export default async function ClientDashboardPage({
         showComparison={showComparison}
       />
 
-      {/* Top Posts — full width */}
+      {/* ─── Content Performance ─── */}
+      <div className="section-divider" />
+
       <TopPosts posts={data.posts.slice(0, 10)} />
 
-      {/* Platform breakdown — full width */}
       <PlatformTable
         perPlatform={data.perPlatform}
         showViews={showViews}
@@ -400,14 +406,17 @@ export default async function ClientDashboardPage({
         showEngagements={showEngagements}
       />
 
-      <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
+      {/* ─── Operations ─── */}
+      <div className="section-divider" />
 
-      {/* Collaboration — full width */}
-      <CollaborationCard
-        collaboration={data.collaboration}
-        shoots={data.shoots}
-        documents={data.documents}
-      />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
+        <CollaborationCard
+          collaboration={data.collaboration}
+          shoots={data.shoots}
+          documents={data.documents}
+        />
+      </div>
 
       <DailyMetricsTable
         metrics={aggregatedMetricsArray}

@@ -26,14 +26,14 @@ TableBody.displayName = "TableBody";
 
 const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTMLTableRowElement>>(
   ({ className, ...props }, ref) => (
-    <tr ref={ref} className={cn("border-b border-border/60 transition-colors hover:bg-muted/40", className)} {...props} />
+    <tr ref={ref} className={cn("border-b border-border/40 transition-colors hover:bg-muted/30", className)} {...props} />
   )
 );
 TableRow.displayName = "TableRow";
 
 const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(
   ({ className, ...props }, ref) => (
-    <th ref={ref} className={cn("h-12 px-4 text-left align-middle text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground", className)} {...props} />
+    <th ref={ref} className={cn("h-11 px-4 text-left align-middle text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80", className)} {...props} />
   )
 );
 TableHead.displayName = "TableHead";
