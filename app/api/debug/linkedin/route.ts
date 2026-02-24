@@ -12,7 +12,6 @@ type DebugResponse = {
   };
   token_suffix?: string;
   org_acls?: unknown;
-  dma_org_auth?: unknown;
   follower_trend?: unknown;
   content_analytics?: unknown;
   feed_contents?: unknown;
@@ -120,22 +119,12 @@ export async function GET(request: Request) {
   };
 
   try {
-    // Test org ACLs (standard + DMA fallback)
+    // Test dmaOrganizationAcls (DMA endpoint for org discovery)
     const orgAclsAttempt = await tryLinkedIn(
-      `${API_URL}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED`,
+      `${API_URL}/dmaOrganizationAcls?q=roleAssignee&role=(value:ADMINISTRATOR)&state=(value:APPROVED)&start=0&count=10`,
       headers
     );
     response.org_acls = orgAclsAttempt;
-
-    const authActions = 'List(' +
-      '(authorizationAction:(organizationAnalyticsAuthorizationAction:(actionType:VISITOR_ANALYTICS_READ))),' +
-      '(authorizationAction:(organizationAnalyticsAuthorizationAction:(actionType:FOLLOWER_ANALYTICS_READ)))' +
-      ')';
-    const dmaOrgAuthAttempt = await tryLinkedIn(
-      `${API_URL}/organizationAuthorizations?bq=authorizationActionsAndImpersonator&authorizationActions=${authActions}`,
-      headers
-    );
-    response.dma_org_auth = dmaOrgAuthAttempt;
 
     // Test DMA follower trend (last 7 days)
     const start = new Date();
