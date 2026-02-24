@@ -127,8 +127,12 @@ export async function GET(request: Request) {
     );
     response.org_acls = orgAclsAttempt;
 
+    const authActions = 'List(' +
+      '(authorizationAction:(organizationAnalyticsAuthorizationAction:(actionType:VISITOR_ANALYTICS_READ))),' +
+      '(authorizationAction:(organizationAnalyticsAuthorizationAction:(actionType:FOLLOWER_ANALYTICS_READ)))' +
+      ')';
     const dmaOrgAuthAttempt = await tryLinkedIn(
-      `${API_URL}/dmaOrganizationAuthorizations?q=authorizationActionsAndAuthenticatedMember&actions=List(ADMIN_READ)&start=0&count=100`,
+      `${API_URL}/organizationAuthorizations?bq=authorizationActionsAndImpersonator&authorizationActions=${authActions}`,
       headers
     );
     response.dma_org_auth = dmaOrgAuthAttempt;

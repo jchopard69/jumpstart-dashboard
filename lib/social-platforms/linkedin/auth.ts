@@ -129,8 +129,9 @@ export async function fetchLinkedInProfile(accessToken: string): Promise<{
 
 /**
  * Fetch LinkedIn organization pages the user manages
- * Uses Organization Access Control (Community Management / Organizations)
- * See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations
+ * Uses organizationAuthorizations batch finder (bq=authorizationActionsAndImpersonator)
+ * then dmaOrganizationalPageProfiles for org details.
+ * See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations/organization-authorizations
  */
 export async function fetchLinkedInOrganizations(accessToken: string): Promise<Array<{
   organizationId: string;
@@ -150,127 +151,150 @@ export async function fetchLinkedInOrganizations(accessToken: string): Promise<A
   }
 
   try {
-    // Step 1: Get organizations where user is admin
-    // Try DMA Organization Authorizations first, then fall back to organizationAcls
-    let aclsUrl = `${config.apiUrl}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED&start=0&count=100`;
-    console.log('[linkedin] Fetching organization ACLs from:', aclsUrl);
-
-    let aclsResponse = await fetch(aclsUrl, { headers });
-    console.log('[linkedin] ACL response status:', aclsResponse.status);
-
-    // If organizationAcls fails (403 = scope not authorized), try DMA endpoint
-    if (aclsResponse.status === 403) {
-      console.log('[linkedin] organizationAcls forbidden, trying dmaOrganizationAuthorizations...');
-      aclsUrl = `${config.apiUrl}/dmaOrganizationAuthorizations?q=authorizationActionsAndAuthenticatedMember&actions=List(ADMIN_READ)&start=0&count=100`;
-      aclsResponse = await fetch(aclsUrl, { headers });
-      console.log('[linkedin] DMA org auth response status:', aclsResponse.status);
-    }
-
-    const aclsData = await aclsResponse.json();
-    console.log('[linkedin] ACL response:', JSON.stringify(aclsData, null, 2));
-    if (aclsData?.errorDetails) {
-      console.warn('[linkedin] ACL errorDetails:', JSON.stringify(aclsData.errorDetails, null, 2));
-    }
-
-    if (aclsData.status && aclsData.status >= 400) {
-      console.warn('[linkedin] ACL API error:', aclsData);
-      const code = typeof aclsData.code === 'string' ? aclsData.code : '';
-      const message = typeof aclsData.message === 'string' ? aclsData.message : 'LinkedIn DMA ACL error';
-      throw new Error(`LinkedIn org ACL error ${aclsData.status}${code ? ` (${code})` : ''}: ${message}`);
-    }
-
-    // Extract organization IDs from ACLs
-    const elements = aclsData.elements || [];
-    console.log('[linkedin] Found', elements.length, 'ACL elements');
-
+    // Step 1: Discover organizations via organizationAuthorizations batch finder
+    // This is the method recommended by LinkedIn DMA docs for discovering admin pages
     const orgIds = new Set<string>();
-    for (const element of elements) {
-      const orgUrn = element?.organizationTarget || element?.organization || element?.key?.organization;
-      if (orgUrn) {
-        const orgId = String(orgUrn).replace('urn:li:organization:', '');
-        if (orgId && orgId !== 'undefined') {
-          orgIds.add(orgId);
+
+    // Try organizationAuthorizations batch finder (works with DMA scope)
+    const authActions = 'List(' +
+      '(authorizationAction:(organizationAnalyticsAuthorizationAction:(actionType:VISITOR_ANALYTICS_READ))),' +
+      '(authorizationAction:(organizationAnalyticsAuthorizationAction:(actionType:FOLLOWER_ANALYTICS_READ)))' +
+      ')';
+    const authUrl = `${config.apiUrl}/organizationAuthorizations?bq=authorizationActionsAndImpersonator&authorizationActions=${authActions}`;
+    console.log('[linkedin] Fetching organization authorizations from:', authUrl);
+
+    const authResponse = await fetch(authUrl, { headers });
+    console.log('[linkedin] Organization authorizations response status:', authResponse.status);
+
+    if (authResponse.ok) {
+      const authData = await authResponse.json();
+      console.log('[linkedin] Organization authorizations response:', JSON.stringify(authData, null, 2));
+
+      // Response structure: { elements: [ { elements: [ { organization: "urn:li:organization:XXX", status: {...} } ] } ] }
+      const outerElements = authData.elements || [];
+      for (const outerElement of outerElements) {
+        const innerElements = outerElement.elements || [];
+        for (const element of innerElements) {
+          // Only include approved organizations
+          const status = element?.status;
+          const isApproved = status && (
+            status['com.linkedin.organization.Approved'] !== undefined ||
+            status.Approved !== undefined
+          );
+          if (!isApproved && status) {
+            console.log('[linkedin] Skipping org with status:', JSON.stringify(status));
+            continue;
+          }
+
+          const orgUrn = element?.organization;
+          if (orgUrn) {
+            const orgId = String(orgUrn).replace('urn:li:organization:', '');
+            if (orgId && orgId !== 'undefined') {
+              orgIds.add(orgId);
+            }
+          }
+        }
+      }
+    } else {
+      console.warn('[linkedin] organizationAuthorizations failed:', authResponse.status);
+      const errorBody = await authResponse.text();
+      console.warn('[linkedin] Error body:', errorBody);
+    }
+
+    // Fallback: try organizationAcls if organizationAuthorizations didn't work
+    if (orgIds.size === 0) {
+      console.log('[linkedin] Trying organizationAcls fallback...');
+      const aclsUrl = `${config.apiUrl}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED&start=0&count=100`;
+      const aclsResponse = await fetch(aclsUrl, { headers });
+      console.log('[linkedin] organizationAcls response status:', aclsResponse.status);
+
+      if (aclsResponse.ok) {
+        const aclsData = await aclsResponse.json();
+        const elements = aclsData.elements || [];
+        for (const element of elements) {
+          const orgUrn = element?.organizationTarget || element?.organization || element?.key?.organization;
+          if (orgUrn) {
+            const orgId = String(orgUrn).replace('urn:li:organization:', '');
+            if (orgId && orgId !== 'undefined') {
+              orgIds.add(orgId);
+            }
+          }
         }
       }
     }
 
-    console.log('[linkedin] Extracted organization IDs:', Array.from(orgIds));
+    console.log('[linkedin] Discovered organization IDs:', Array.from(orgIds));
 
     if (orgIds.size === 0) {
-      console.warn('[linkedin] No organization IDs found in ACLs');
+      console.warn('[linkedin] No organization IDs found');
       return [];
     }
 
-    // Step 2: Fetch organization details (batch if possible)
+    // Step 2: Fetch organization details via dmaOrganizationalPageProfiles
     const organizations: Array<{ organizationId: string; name: string; logoUrl?: string }> = [];
-    const idsList = Array.from(orgIds);
-    try {
-      const idsParam = `List(${idsList.join(',')})`;
-      const orgsUrl = `${config.apiUrl}/organizations?ids=${encodeURIComponent(idsParam)}`;
-      console.log('[linkedin] Fetching org details from:', orgsUrl);
 
-      const orgsResponse = await fetch(orgsUrl, { headers });
-      console.log('[linkedin] Org batch response status:', orgsResponse.status);
-      if (orgsResponse.ok) {
-        const orgsData = await orgsResponse.json();
-        const results = orgsData?.results || {};
-        for (const orgId of idsList) {
-          const orgData = results[orgId];
-          if (!orgData) continue;
-          organizations.push({
-            organizationId: orgId,
-            name: orgData.localizedName || orgData.name?.localized?.en_US || 'Unknown Organization',
-            logoUrl: undefined
-          });
-        }
-      } else {
-        console.warn('[linkedin] Failed to fetch org batch details:', orgsResponse.status);
-      }
-    } catch (error) {
-      console.warn('[linkedin] Error fetching org batch details:', error);
-    }
+    for (const orgId of orgIds) {
+      try {
+        // Use pageEntity finder to get org page profile from organization URN
+        const orgUrn = encodeURIComponent(`urn:li:organization:${orgId}`);
+        const profileUrl = `${config.apiUrl}/dmaOrganizationalPageProfiles?q=pageEntity&pageEntity=(organization:${orgUrn})`;
+        console.log('[linkedin] Fetching page profile for org:', orgId);
 
-    // Fallback: try individual org fetch or DMA page profiles
-    if (!organizations.length) {
-      for (const orgId of orgIds) {
-        try {
-          // Try standard organizations endpoint first
-          let orgUrl = `${config.apiUrl}/organizations/${orgId}`;
-          let orgResponse = await fetch(orgUrl, { headers });
+        const profileResponse = await fetch(profileUrl, { headers });
 
-          // If forbidden, try DMA organizational page profiles
-          if (!orgResponse.ok) {
-            console.warn(`[linkedin] Standard org fetch failed (${orgResponse.status}), trying DMA page profiles...`);
-            const pageUrn = encodeURIComponent(`urn:li:organizationalPage:${orgId}`);
-            orgUrl = `${config.apiUrl}/dmaOrganizationalPageProfiles/${pageUrn}`;
-            orgResponse = await fetch(orgUrl, { headers });
-          }
-
-          if (!orgResponse.ok) {
-            console.warn(`[linkedin] Failed to fetch org ${orgId}:`, orgResponse.status);
-            // Still add the org with a fallback name
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          const pageElements = profileData.elements || [];
+          if (pageElements.length > 0) {
+            const page = pageElements[0];
+            // Extract logo URL from the artifacts
+            let logoUrl: string | undefined;
+            const logoAsset = page.logo?.digitalmediaAsset;
+            if (logoAsset?.downloadUrl && logoAsset?.status === 'AVAILABLE') {
+              logoUrl = logoAsset.downloadUrl;
+            }
             organizations.push({
               organizationId: orgId,
-              name: `Organization ${orgId}`,
-              logoUrl: undefined
+              name: page.localizedName || page.name?.localized?.en_US || `Organization ${orgId}`,
+              logoUrl,
             });
             continue;
           }
-          const orgData = await orgResponse.json();
+        }
+
+        // Fallback: try direct page profile GET
+        const pageUrn = encodeURIComponent(`urn:li:organizationalPage:${orgId}`);
+        const directUrl = `${config.apiUrl}/dmaOrganizationalPageProfiles/${pageUrn}`;
+        const directResponse = await fetch(directUrl, { headers });
+
+        if (directResponse.ok) {
+          const orgData = await directResponse.json();
+          let logoUrl: string | undefined;
+          const logoAsset = orgData.logo?.digitalmediaAsset;
+          if (logoAsset?.downloadUrl && logoAsset?.status === 'AVAILABLE') {
+            logoUrl = logoAsset.downloadUrl;
+          }
           organizations.push({
             organizationId: orgId,
-            name: orgData.localizedName || orgData.name?.localized?.en_US || orgData.name || `Organization ${orgId}`,
-            logoUrl: undefined
+            name: orgData.localizedName || orgData.name?.localized?.en_US || `Organization ${orgId}`,
+            logoUrl,
           });
-        } catch (error) {
-          console.warn(`[linkedin] Error fetching org ${orgId}:`, error);
-          // Add with fallback name so the user can still select it
+        } else {
+          console.warn(`[linkedin] Failed to fetch page profile for org ${orgId}:`, directResponse.status);
+          // Still add the org with a fallback name so the user can select it
           organizations.push({
             organizationId: orgId,
             name: `Organization ${orgId}`,
-            logoUrl: undefined
+            logoUrl: undefined,
           });
         }
+      } catch (error) {
+        console.warn(`[linkedin] Error fetching org ${orgId}:`, error);
+        organizations.push({
+          organizationId: orgId,
+          name: `Organization ${orgId}`,
+          logoUrl: undefined,
+        });
       }
     }
 
