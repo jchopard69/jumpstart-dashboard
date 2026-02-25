@@ -144,7 +144,13 @@ export async function GET(request: Request) {
       headers
     );
 
-    // Strategy 3: DMA cursor pagination (first page + check for nextPaginationCursor)
+    // Strategy 3: dmaOrganizations/{orgId}
+    const dmaOrganizationAttempt = await tryLinkedIn(
+      `${API_URL}/dmaOrganizations/${encodeURIComponent(orgId)}`,
+      headers
+    );
+
+    // Strategy 4: DMA cursor pagination (first page + check for nextPaginationCursor)
     const dmaFollowsAttempt = await tryLinkedIn(
       `${API_URL}/dmaOrganizationalPageFollows` +
         `?q=followee&followee=${encodeURIComponent(pageUrn)}` +
@@ -169,12 +175,13 @@ export async function GET(request: Request) {
     response.follower_count = {
       strategy1_followerStatistics: followerStatsAttempt,
       strategy2_networkSizes: networkSizesAttempt,
-      strategy3_dmaFollows_page1: {
+      strategy3_dmaOrganizations: dmaOrganizationAttempt,
+      strategy4_dmaFollows_page1: {
         ...dmaFollowsAttempt,
         _elementsCount: firstPageData?.elements?.length ?? 0,
         _nextCursor: nextCursor ?? null
       },
-      strategy3_dmaFollows_page2: dmaPage2Attempt
+      strategy4_dmaFollows_page2: dmaPage2Attempt
     };
 
     // Test DMA follower trend (last 7 days)

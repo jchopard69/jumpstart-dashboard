@@ -22,6 +22,7 @@ const API_VERSION = getLinkedInVersion();
 
 const MAX_POSTS_SYNC = 50;
 const MAX_POST_METRICS_SYNC = 15;
+const ENABLE_PUBLIC_FOLLOWER_FALLBACK = (process.env.LINKEDIN_ENABLE_PUBLIC_FOLLOWER_FALLBACK ?? '1') !== '0';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -202,6 +203,137 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
+function parseLooseCount(value: string): number {
+  const normalized = value
+    .toLowerCase()
+    .replace(/\u202f/g, ' ')
+    .replace(/\u00a0/g, ' ')
+    .trim();
+  if (!normalized) return 0;
+
+  const compact = normalized.replace(/\s+/g, '');
+  const suffixMatch = compact.match(/^(\d+(?:[.,]\d+)?)([kmb])$/i);
+  if (suffixMatch) {
+    const base = Number(suffixMatch[1].replace(',', '.'));
+    if (Number.isFinite(base) && base > 0) {
+      const multiplier = suffixMatch[2].toLowerCase() === 'k'
+        ? 1_000
+        : suffixMatch[2].toLowerCase() === 'm'
+          ? 1_000_000
+          : 1_000_000_000;
+      return Math.round(base * multiplier);
+    }
+  }
+
+  if (/^\d{1,3}(?:[.,]\d{3})+$/.test(compact)) {
+    const parsedGrouped = Number(compact.replace(/[.,]/g, ''));
+    if (Number.isFinite(parsedGrouped) && parsedGrouped > 0) return parsedGrouped;
+  }
+
+  const parsedAsNumber = Number(compact.replace(',', '.'));
+  if (Number.isFinite(parsedAsNumber) && parsedAsNumber > 0) {
+    return Math.round(parsedAsNumber);
+  }
+
+  const digits = compact.replace(/[^\d]/g, '');
+  if (!digits) return 0;
+  const parsedDigits = Number(digits);
+  return Number.isFinite(parsedDigits) ? parsedDigits : 0;
+}
+
+function parseFollowerOverrides(raw: string): Map<string, number> {
+  const output = new Map<string, number>();
+  if (!raw.trim()) return output;
+
+  for (const token of raw.split(/[\n;]+/)) {
+    const entry = token.trim();
+    if (!entry) continue;
+
+    const parts = entry.includes('=') ? entry.split('=') : entry.split(':');
+    if (parts.length !== 2) continue;
+
+    const key = parts[0].trim();
+    const value = parseLooseCount(parts[1] ?? '');
+    if (!key || value <= 0) continue;
+
+    output.set(key, value);
+  }
+
+  return output;
+}
+
+function getFollowerOverride(keys: string[]): number {
+  const overrideMap = parseFollowerOverrides(process.env.LINKEDIN_FOLLOWER_OVERRIDES ?? '');
+  if (!overrideMap.size) return 0;
+
+  for (const key of keys) {
+    const candidate = overrideMap.get(key);
+    if (candidate && candidate > 0) {
+      return candidate;
+    }
+  }
+
+  return 0;
+}
+
+function getFollowerCandidatesFromPublicHtml(html: string): number[] {
+  const candidates: number[] = [];
+
+  const jsonFollowerRegex = /"followerCount"\s*:\s*(\d{1,12})/gi;
+  let jsonMatch: RegExpExecArray | null = null;
+  while ((jsonMatch = jsonFollowerRegex.exec(html)) !== null) {
+    const parsed = Number(jsonMatch[1]);
+    if (Number.isFinite(parsed) && parsed > 0) candidates.push(parsed);
+  }
+
+  const localizedRegex = /([\d\s.,\u202f]{1,20}[kmb]?)\s*(?:followers?|abonn[ée]s?)/gi;
+  let localizedMatch: RegExpExecArray | null = null;
+  while ((localizedMatch = localizedRegex.exec(html)) !== null) {
+    const parsed = parseLooseCount(localizedMatch[1] ?? '');
+    if (parsed > 0) candidates.push(parsed);
+  }
+
+  return candidates.filter((value) => value >= 2 && value < 1_000_000_000);
+}
+
+async function fetchPublicFollowerCount(vanityName: string | undefined, organizationId: string): Promise<number> {
+  if (!ENABLE_PUBLIC_FOLLOWER_FALLBACK) return 0;
+
+  const pathCandidates = [
+    vanityName?.trim(),
+    organizationId.trim(),
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0);
+
+  for (const path of pathCandidates) {
+    const url = `https://www.linkedin.com/company/${encodeURIComponent(path)}/`;
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; JumpstartDashboardBot/1.0)',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
+        },
+        redirect: 'follow',
+      });
+
+      if (!response.ok) continue;
+
+      const html = await response.text();
+      const candidates = getFollowerCandidatesFromPublicHtml(html);
+      const best = candidates.length > 0 ? Math.max(...candidates) : 0;
+      if (best > 0) {
+        console.log(`[linkedin-dma] Public page follower fallback matched ${best} (path=${path})`);
+        return best;
+      }
+    } catch {
+      // silent
+    }
+  }
+
+  return 0;
+}
+
 function getNestedValue(input: unknown, path: string[]): unknown {
   let current: unknown = input;
   for (const segment of path) {
@@ -329,6 +461,7 @@ function collectFollowerLikeNumbers(input: unknown, path: string[] = [], results
     const pathJoined = path.join('.').toLowerCase();
     if (
       pathJoined.includes('follower') ||
+      pathJoined.includes('subscriber') ||
       pathJoined.includes('firstdegreesize') ||
       pathJoined.includes('networksize')
     ) {
@@ -348,15 +481,43 @@ function collectFollowerLikeNumbers(input: unknown, path: string[] = [], results
 
 function getPostStatsSignalCount(post?: DmaPostElement): number {
   if (!post) return 0;
+
+  const keywordSignals = new Set<string>();
+  const walk = (input: unknown, path: string[] = []) => {
+    if (input == null) return;
+    if (typeof input === 'number' || typeof input === 'string') {
+      const value = toNumber(input);
+      if (value <= 0) return;
+
+      const joined = path.join('.').toLowerCase();
+      if (joined.includes('impression') || joined.includes('view')) keywordSignals.add('visibility');
+      if (joined.includes('unique') || joined.includes('reach')) keywordSignals.add('reach');
+      if (joined.includes('click')) keywordSignals.add('clicks');
+      if (joined.includes('reaction') || joined.includes('like')) keywordSignals.add('reactions');
+      if (joined.includes('comment')) keywordSignals.add('comments');
+      if (joined.includes('repost') || joined.includes('share')) keywordSignals.add('shares');
+      return;
+    }
+
+    if (typeof input !== 'object') return;
+
+    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+      walk(value, [...path, key]);
+    }
+  };
+
+  walk(post);
+
   const stats = post.socialDetail?.totalShareStatistics;
-  if (!stats) return 0;
-  let score = 0;
-  if (stats.impressionCount !== undefined) score++;
-  if (stats.uniqueImpressionCount !== undefined) score++;
-  if (stats.clickCount !== undefined) score++;
-  if (stats.likeCount !== undefined) score++;
-  if (stats.commentCount !== undefined) score++;
-  if (stats.shareCount !== undefined) score++;
+  let score = keywordSignals.size;
+  if (stats) {
+    if (stats.impressionCount !== undefined) score++;
+    if (stats.uniqueImpressionCount !== undefined) score++;
+    if (stats.clickCount !== undefined) score++;
+    if (stats.likeCount !== undefined) score++;
+    if (stats.commentCount !== undefined) score++;
+    if (stats.shareCount !== undefined) score++;
+  }
   return score;
 }
 
@@ -435,11 +596,14 @@ export async function fetchFollowerTrend(
 /**
  * Fetch total follower count using a cascade of strategies:
  *
+ * 0. Optional env override (LINKEDIN_FOLLOWER_OVERRIDES).
  * 1. organizationalEntityFollowerStatistics (REST API) — gives exact total
  *    but requires r_organization_social scope.
  * 2. networkSizes (v2 API) — lightweight, gives firstDegreeSize.
- * 3. dmaOrganizationalPageFollows with cursor pagination — DMA endpoint,
- *    uses nextPaginationCursor to enumerate ALL followers page by page.
+ * 3. dmaOrganizations/{orgId} (DMA) — some payloads expose follower-like fields.
+ * 4. dmaOrganizationalPageProfiles (DMA) — fallback for follower-like fields.
+ * 5. Public company page HTML fallback (if enabled).
+ * 6. dmaOrganizationalPageFollows first-page total (DMA).
  *
  * Each method is tried silently; first success wins.
  */
@@ -450,6 +614,17 @@ export async function fetchFollowerCount(
 ): Promise<number> {
   const orgUrn = `urn:li:organization:${organizationId}`;
   const pageUrn = resolvedPageUrn ?? `urn:li:organizationalPage:${organizationId}`;
+  let pageVanityName: string | undefined;
+
+  const override = getFollowerOverride([
+    organizationId,
+    orgUrn,
+    pageUrn,
+  ]);
+  if (override > 0) {
+    console.log(`[linkedin-dma] Follower override applied for org=${organizationId}: ${override}`);
+    return override;
+  }
 
   // Strategy 1: organizationalEntityFollowerStatistics (REST)
   try {
@@ -493,7 +668,32 @@ export async function fetchFollowerCount(
     console.log('[linkedin-dma] networkSizes not available (likely missing scope)');
   }
 
-  // Strategy 3: dmaOrganizationalPageProfiles (DMA).
+  // Strategy 3: dmaOrganizations/{orgId} (DMA)
+  try {
+    const orgDetailUrl = `${API_REST_URL}/dmaOrganizations/${encodeURIComponent(organizationId)}`;
+    const orgDetail = await apiRequest<Record<string, unknown>>(
+      'linkedin',
+      orgDetailUrl,
+      { headers },
+      'linkedin_dma_org_detail',
+      true
+    );
+
+    if (typeof orgDetail.vanityName === 'string' && orgDetail.vanityName.trim().length > 0) {
+      pageVanityName = orgDetail.vanityName.trim();
+    }
+
+    const orgCandidates = collectFollowerLikeNumbers(orgDetail);
+    const bestOrgCandidate = orgCandidates.length > 0 ? Math.max(...orgCandidates) : 0;
+    if (bestOrgCandidate > 0) {
+      console.log(`[linkedin-dma] dmaOrganizations follower candidate: ${bestOrgCandidate}`);
+      return bestOrgCandidate;
+    }
+  } catch {
+    // silent
+  }
+
+  // Strategy 4: dmaOrganizationalPageProfiles (DMA).
   // Some tenants expose follower-like counts in profile payload fields.
   try {
     const profileFinderUrl = `${API_REST_URL}/dmaOrganizationalPageProfiles` +
@@ -513,6 +713,11 @@ export async function fetchFollowerCount(
       true
     );
 
+    const profileVanity = detailResponse.vanityName;
+    if (typeof profileVanity === 'string' && profileVanity.trim().length > 0) {
+      pageVanityName = profileVanity.trim();
+    }
+
     const candidates = collectFollowerLikeNumbers([
       ...(finderResponse.elements ?? []),
       detailResponse
@@ -531,7 +736,28 @@ export async function fetchFollowerCount(
     // silent
   }
 
-  // Strategy 4: dmaOrganizationalPageFollows with cursor pagination.
+  const overrideWithVanity = getFollowerOverride([
+    organizationId,
+    orgUrn,
+    pageUrn,
+    pageVanityName ?? '',
+  ]);
+  if (overrideWithVanity > 0) {
+    console.log(`[linkedin-dma] Follower override applied for org=${organizationId} vanity=${pageVanityName ?? 'n/a'}: ${overrideWithVanity}`);
+    return overrideWithVanity;
+  }
+
+  // Strategy 5: Public company page fallback.
+  try {
+    const publicCount = await fetchPublicFollowerCount(pageVanityName, organizationId);
+    if (publicCount > 0) {
+      return publicCount;
+    }
+  } catch {
+    // silent
+  }
+
+  // Strategy 6: dmaOrganizationalPageFollows with first-page total.
   // Use the resolved organizationalPage URN — the page ID may differ from org ID.
   const PAGE_SIZE = 100;
 
@@ -691,6 +917,53 @@ export async function fetchPostDetails(
 
   if (!postUrns.length) return posts;
 
+  const upsertPost = (urn: string, post: DmaPostElement) => {
+    const normalized = normalizePostUrn(urn);
+    const existing = posts.get(normalized) ?? posts.get(urn);
+    if (!existing || getPostStatsSignalCount(post) >= getPostStatsSignalCount(existing)) {
+      posts.set(urn, post);
+      posts.set(normalized, post);
+    }
+  };
+
+  const hasPost = (urn: string) => {
+    const normalized = normalizePostUrn(urn);
+    return posts.has(urn) || posts.has(normalized);
+  };
+
+  const fetchSinglePost = async (urn: string): Promise<DmaPostElement | null> => {
+    const encodedUrn = encodeURIComponent(urn);
+    const urls = [
+      `${API_REST_URL}/dmaPosts/${encodedUrn}?viewContext=AUTHOR`,
+      `${API_REST_URL}/dmaPosts/${encodedUrn}?viewContext=READER`,
+      `${API_REST_URL}/dmaPosts/${encodedUrn}`,
+    ];
+
+    let best: DmaPostElement | null = null;
+    let bestScore = -1;
+
+    for (const url of urls) {
+      try {
+        const post = await apiRequest<DmaPostElement>(
+          'linkedin',
+          url,
+          { headers },
+          'linkedin_dma_post_detail',
+          true
+        );
+        const score = getPostStatsSignalCount(post);
+        if (!best || score >= bestScore) {
+          best = post;
+          bestScore = score;
+        }
+      } catch {
+        // try next URL variant
+      }
+    }
+
+    return best;
+  };
+
   const normalizedUrns = postUrns.map((urn) => normalizePostUrn(urn));
   // BATCH_GET: /dmaPosts?ids=List(encoded_urn1,encoded_urn2,...)&viewContext=AUTHOR
   // Process in chunks of 20 to avoid URL length issues
@@ -716,12 +989,7 @@ export async function fetchPostDetails(
 
         const results = response.results ?? {};
         for (const [resultUrn, post] of Object.entries(results)) {
-          const normalized = normalizePostUrn(resultUrn);
-          const existing = posts.get(normalized) ?? posts.get(resultUrn);
-          if (!existing || getPostStatsSignalCount(post) >= getPostStatsSignalCount(existing)) {
-            posts.set(resultUrn, post);
-            posts.set(normalized, post);
-          }
+          upsertPost(resultUrn, post);
         }
         if (Object.keys(results).length > 0) {
           batchSucceeded = true;
@@ -733,19 +1001,20 @@ export async function fetchPostDetails(
       }
     }
 
-    if (batchSucceeded) continue;
+    const missingUrns = batch.filter((urn) => !hasPost(urn));
+    if (missingUrns.length > 0) {
+      let recovered = 0;
+      for (const urn of missingUrns) {
+        const post = await fetchSinglePost(urn);
+        if (!post) continue;
+        upsertPost(urn, post);
+        recovered++;
+      }
 
-    // Batch failed — fallback to individual fetches
-    for (const urn of batch) {
-      try {
-        const encodedUrn = encodeURIComponent(urn);
-        const fallbackUrl = `${API_REST_URL}/dmaPosts/${encodedUrn}`;
-        const post = await apiRequest<DmaPostElement>(
-          'linkedin', fallbackUrl, { headers }, 'linkedin_dma_post_detail', true
-        );
-        posts.set(urn, post);
-      } catch {
-        // Skip individual post
+      if (recovered > 0) {
+        console.log(`[linkedin-dma] Post detail fallback recovered ${recovered}/${missingUrns.length} missing posts`);
+      } else if (!batchSucceeded) {
+        console.log(`[linkedin-dma] Post batch and detail fallback returned no results for ${missingUrns.length} posts`);
       }
     }
   }
@@ -822,6 +1091,8 @@ export async function fetchPostAnalytics(
     comments: number;
     reposts: number;
   }>();
+
+  if (maxRequests <= 0 || !postUrns.length) return analytics;
 
   const targetUrns = postUrns.slice(0, maxRequests);
   if (postUrns.length > targetUrns.length) {
@@ -1079,6 +1350,10 @@ export const linkedinConnector: Connector = {
     const posts: PostMetric[] = [];
 
     if (postUrns.length > 0) {
+      if (contentTrendRateLimited) {
+        console.log('[linkedin-dma] Content trend is rate-limited; skipping post analytics requests in this sync');
+      }
+
       // 4. Fetch post details and post-level metrics in parallel
       const metricsUrns = postUrns.slice(0, MAX_POST_METRICS_SYNC);
       const [postDetails, socialMetadata, postAnalytics] = await Promise.all([
@@ -1087,7 +1362,7 @@ export const linkedinConnector: Connector = {
         fetchPostAnalytics(
           headers,
           metricsUrns,
-          contentTrendRateLimited ? 3 : MAX_POST_METRICS_SYNC
+          contentTrendRateLimited ? 0 : MAX_POST_METRICS_SYNC
         ),
       ]);
 

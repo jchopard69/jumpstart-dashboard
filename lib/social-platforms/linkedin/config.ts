@@ -19,6 +19,9 @@ export const LINKEDIN_CONFIG = {
 // Default LinkedIn API version (YYYYMM format).
 // LinkedIn REST API requires the LinkedIn-Version header for DMA endpoints.
 const DEFAULT_LINKEDIN_VERSION = '202501';
+// Optional env fallbacks used by the connector:
+// - LINKEDIN_FOLLOWER_OVERRIDES: one entry per line/semicolon, format `orgId=4434`.
+// - LINKEDIN_ENABLE_PUBLIC_FOLLOWER_FALLBACK: set to `0` to disable public-page fallback.
 
 export function getLinkedInVersion(): string {
   const raw = (process.env.LINKEDIN_VERSION || '').trim();
