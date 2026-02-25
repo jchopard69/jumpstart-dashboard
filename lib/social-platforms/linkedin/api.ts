@@ -187,51 +187,88 @@ export async function fetchFollowerTrend(
 }
 
 /**
- * Fetch total follower count via dmaOrganizationalPageFollows.
+ * Fetch total follower count using a cascade of strategies:
  *
- * DMA API's `paging.total` is unreliable — it always equals the number of
- * elements returned on the current page, NOT the real follower total.
- * So the only reliable method is to COUNT the actual elements returned.
+ * 1. organizationalEntityFollowerStatistics (REST API) — gives exact total
+ *    but requires r_organization_social scope. May work with DMA token.
+ * 2. networkSizes (v2 API) — lightweight, gives firstDegreeSize.
+ * 3. dmaOrganizationalPageFollows element enumeration — DMA fallback,
+ *    but only returns a subset of followers (DMA/portability scope).
  *
- * Strategy: fetch up to 500 followers per page, paginate if needed (max 3 pages
- * = 1500 cap). This uses 1-3 API calls depending on follower count.
+ * Each method is tried silently; first success wins.
  */
 export async function fetchFollowerCount(
   headers: Record<string, string>,
   organizationId: string
 ): Promise<number> {
-  const pageUrn = `urn:li:organizationalPage:${organizationId}`;
-  const PAGE_SIZE = 500;
-  const MAX_PAGES = 3; // Cap at 1500 followers to limit API calls
-  let totalElements = 0;
+  const orgUrn = `urn:li:organization:${organizationId}`;
 
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const start = page * PAGE_SIZE;
+  // Strategy 1: organizationalEntityFollowerStatistics (REST)
+  try {
+    const url = `${API_REST_URL}/organizationalEntityFollowerStatistics` +
+      `?q=organizationalEntity` +
+      `&organizationalEntity=${encodeURIComponent(orgUrn)}`;
+
+    const response = await apiRequest<{
+      elements?: Array<{
+        followerCounts?: {
+          organicFollowerCount?: number;
+          paidFollowerCount?: number;
+        };
+      }>;
+    }>('linkedin', url, { headers }, 'linkedin_follower_stats', true);
+
+    const counts = response.elements?.[0]?.followerCounts;
+    if (counts) {
+      const total = (counts.organicFollowerCount ?? 0) + (counts.paidFollowerCount ?? 0);
+      console.log(`[linkedin-dma] followerStatistics: organic=${counts.organicFollowerCount}, paid=${counts.paidFollowerCount}, total=${total}`);
+      if (total > 0) return total;
+    }
+  } catch {
+    console.log('[linkedin-dma] organizationalEntityFollowerStatistics not available (likely missing scope)');
+  }
+
+  // Strategy 2: networkSizes (v2)
+  try {
+    const v2Url = `${LINKEDIN_CONFIG.apiV2Url}/networkSizes/${encodeURIComponent(orgUrn)}` +
+      `?edgeType=CompanyFollowedByMember`;
+
+    const response = await apiRequest<{
+      firstDegreeSize?: number;
+    }>('linkedin', v2Url, { headers }, 'linkedin_network_sizes', true);
+
+    if (response.firstDegreeSize && response.firstDegreeSize > 0) {
+      console.log(`[linkedin-dma] networkSizes: firstDegreeSize=${response.firstDegreeSize}`);
+      return response.firstDegreeSize;
+    }
+  } catch {
+    console.log('[linkedin-dma] networkSizes not available (likely missing scope)');
+  }
+
+  // Strategy 3: DMA element enumeration (partial — only DMA-visible followers)
+  const pageUrn = `urn:li:organizationalPage:${organizationId}`;
+  try {
     const url = `${API_REST_URL}/dmaOrganizationalPageFollows` +
       `?q=followee` +
       `&followee=${encodeURIComponent(pageUrn)}` +
       `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE` +
-      `&start=${start}` +
-      `&maxPaginationCount=${PAGE_SIZE}`;
+      `&maxPaginationCount=1`;
 
     const response = await apiRequest<{
-      paging?: { total?: number; count?: number; start?: number; links?: unknown[] };
+      paging?: { total?: number };
       elements?: unknown[];
-    }>('linkedin', url, { headers }, 'linkedin_dma_follower_count');
+    }>('linkedin', url, { headers }, 'linkedin_dma_follower_count', true);
 
-    const elementsCount = response.elements?.length ?? 0;
-    totalElements += elementsCount;
-
-    console.log(`[linkedin-dma] dmaOrganizationalPageFollows page ${page}: elements=${elementsCount}, cumTotal=${totalElements}, paging=${JSON.stringify(response.paging)}`);
-
-    // If we got fewer elements than the page size, we've reached the end
-    if (elementsCount < PAGE_SIZE) {
-      break;
-    }
+    const dmaCount = response.elements?.length ?? 0;
+    console.warn(`[linkedin-dma] DMA enumeration only: ${dmaCount} followers visible (partial — DMA scope only returns a subset). Real count may be much higher.`);
+    // Don't return partial DMA count — it's misleading (26 vs 4434)
+    // Return 0 so the dashboard shows "—" rather than a wrong number
+  } catch {
+    console.log('[linkedin-dma] dmaOrganizationalPageFollows also failed');
   }
 
-  console.log(`[linkedin-dma] Follower count from element enumeration: ${totalElements}`);
-  return totalElements;
+  console.warn(`[linkedin-dma] Could not determine follower count for org=${organizationId}. Add r_organization_social scope for accurate follower stats.`);
+  return 0;
 }
 
 /**

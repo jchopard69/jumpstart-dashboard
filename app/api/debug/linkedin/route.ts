@@ -127,15 +127,36 @@ export async function GET(request: Request) {
     );
     response.org_acls = orgAclsAttempt;
 
-    // Test dmaOrganizationalPageFollows (total follower count)
-    // Use maxPaginationCount=2 to detect if paging.total is real or page count
-    const followerCountAttempt = await tryLinkedIn(
-      `${API_URL}/dmaOrganizationalPageFollows` +
-        `?q=followee&followee=${encodeURIComponent(pageUrn)}` +
-        `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE&maxPaginationCount=2`,
+    // Test follower count strategies
+    const orgUrn = `urn:li:organization:${orgId}`;
+
+    // Strategy 1: organizationalEntityFollowerStatistics (REST)
+    const followerStatsAttempt = await tryLinkedIn(
+      `${API_URL}/organizationalEntityFollowerStatistics` +
+        `?q=organizationalEntity&organizationalEntity=${encodeURIComponent(orgUrn)}`,
       headers
     );
-    response.follower_count = followerCountAttempt;
+
+    // Strategy 2: networkSizes (v2)
+    const networkSizesAttempt = await tryLinkedIn(
+      `https://api.linkedin.com/v2/networkSizes/${encodeURIComponent(orgUrn)}` +
+        `?edgeType=CompanyFollowedByMember`,
+      headers
+    );
+
+    // Strategy 3: DMA element enumeration
+    const dmaFollowsAttempt = await tryLinkedIn(
+      `${API_URL}/dmaOrganizationalPageFollows` +
+        `?q=followee&followee=${encodeURIComponent(pageUrn)}` +
+        `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE&maxPaginationCount=10`,
+      headers
+    );
+
+    response.follower_count = {
+      strategy1_followerStatistics: followerStatsAttempt,
+      strategy2_networkSizes: networkSizesAttempt,
+      strategy3_dmaFollows: dmaFollowsAttempt
+    };
 
     // Test DMA follower trend (last 7 days)
     const start = new Date();
@@ -164,7 +185,6 @@ export async function GET(request: Request) {
     response.content_analytics = contentAttempt;
 
     // Test DMA feed contents (q=postsByAuthor, author=List(orgUrn))
-    const orgUrn = `urn:li:organization:${orgId}`;
     const feedAttempt = await tryLinkedIn(
       `${API_URL}/dmaFeedContentsExternal` +
         `?q=postsByAuthor&author=List(${encodeURIComponent(orgUrn)})&maxPaginationCount=5`,

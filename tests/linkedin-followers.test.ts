@@ -44,44 +44,80 @@ describe("detectLinkedInMediaType", () => {
   });
 });
 
-// ── Integration-style tests: follower mapping ───────────────────────
+// ── Cascade strategy tests: follower count selection ─────────────────
 
-describe("LinkedIn follower count by element enumeration", () => {
-  // The new approach counts actual elements returned (paging.total is unreliable)
-  // Simulates pagination: each page returns up to PAGE_SIZE elements
-  function simulatePagination(totalFollowers: number, pageSize = 500, maxPages = 3): number {
-    let counted = 0;
-    for (let page = 0; page < maxPages; page++) {
-      const remaining = totalFollowers - counted;
-      const elementsThisPage = Math.min(remaining, pageSize);
-      counted += elementsThisPage;
-      if (elementsThisPage < pageSize) break;
-    }
-    return counted;
+describe("LinkedIn follower count cascade logic", () => {
+  /**
+   * Simulates the cascade strategy used in fetchFollowerCount:
+   * 1. organizationalEntityFollowerStatistics → exact total
+   * 2. networkSizes → firstDegreeSize
+   * 3. DMA element enumeration → partial (ignored, returns 0)
+   */
+  function simulateCascade(
+    strategy1Result: number | null, // null = API error / missing scope
+    strategy2Result: number | null,
+    strategy3DmaCount: number | null
+  ): number {
+    // Strategy 1: followerStatistics
+    if (strategy1Result !== null && strategy1Result > 0) return strategy1Result;
+    // Strategy 2: networkSizes
+    if (strategy2Result !== null && strategy2Result > 0) return strategy2Result;
+    // Strategy 3: DMA enumeration — partial, NOT returned as count
+    // (DMA only sees a subset, e.g. 26 out of 4434)
+    return 0;
   }
 
-  test("2 followers → returns 2 (single page, no ambiguity)", () => {
-    assert.equal(simulatePagination(2), 2);
+  test("strategy 1 wins when available (exact total)", () => {
+    assert.equal(simulateCascade(4434, 4400, 26), 4434);
   });
 
-  test("0 followers → returns 0", () => {
-    assert.equal(simulatePagination(0), 0);
+  test("strategy 2 wins when strategy 1 fails", () => {
+    assert.equal(simulateCascade(null, 4400, 26), 4400);
   });
 
-  test("500 followers → returns 500 (exactly one full page)", () => {
-    assert.equal(simulatePagination(500), 500);
+  test("returns 0 when only DMA enumeration available (partial count is misleading)", () => {
+    assert.equal(simulateCascade(null, null, 26), 0);
   });
 
-  test("750 followers → returns 750 (two pages)", () => {
-    assert.equal(simulatePagination(750), 750);
+  test("returns 0 when all strategies fail", () => {
+    assert.equal(simulateCascade(null, null, null), 0);
   });
 
-  test("1500+ followers → capped at 1500 (max 3 pages)", () => {
-    assert.equal(simulatePagination(5000), 1500);
+  test("strategy 1 returning 0 falls through to strategy 2", () => {
+    assert.equal(simulateCascade(0, 500, 10), 500);
   });
 
-  test("1 follower → returns 1 (not confused with page count)", () => {
-    assert.equal(simulatePagination(1), 1);
+  test("both strategies returning 0 falls through to return 0", () => {
+    assert.equal(simulateCascade(0, 0, 26), 0);
+  });
+});
+
+describe("LinkedIn connector fallback guard (> 1)", () => {
+  /**
+   * Simulates the connector logic that guards against values ≤ 1
+   * from the fallback (fetchFollowerCount). The connector only trusts
+   * values > 1 to avoid the known DMA pagination artifact.
+   */
+  function applyConnectorGuard(edgeAnalyticsTotal: number, fallbackCount: number): number {
+    if (edgeAnalyticsTotal > 0) return edgeAnalyticsTotal;
+    if (fallbackCount > 1) return fallbackCount;
+    return 0;
+  }
+
+  test("uses EdgeAnalytics total when available", () => {
+    assert.equal(applyConnectorGuard(4434, 0), 4434);
+  });
+
+  test("uses fallback when EdgeAnalytics returns 0 and fallback > 1", () => {
+    assert.equal(applyConnectorGuard(0, 4434), 4434);
+  });
+
+  test("rejects fallback value of 1 (known pagination artifact)", () => {
+    assert.equal(applyConnectorGuard(0, 1), 0);
+  });
+
+  test("rejects fallback value of 0", () => {
+    assert.equal(applyConnectorGuard(0, 0), 0);
   });
 });
 
