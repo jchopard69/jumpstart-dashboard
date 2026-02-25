@@ -314,6 +314,33 @@ function getMetricTotalCount(element: ContentAnalyticsElement): number {
   return toNumber(cv?.organicValue) + toNumber(cv?.sponsoredValue);
 }
 
+function collectFollowerLikeNumbers(input: unknown, path: string[] = [], results: number[] = []): number[] {
+  if (input == null) return results;
+
+  if (typeof input === 'number' || typeof input === 'string') {
+    const value = toNumber(input);
+    if (value <= 0) return results;
+
+    const pathJoined = path.join('.').toLowerCase();
+    if (
+      pathJoined.includes('follower') ||
+      pathJoined.includes('firstdegreesize') ||
+      pathJoined.includes('networksize')
+    ) {
+      results.push(value);
+    }
+    return results;
+  }
+
+  if (typeof input !== 'object') return results;
+
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    collectFollowerLikeNumbers(value, [...path, key], results);
+  }
+
+  return results;
+}
+
 // ── API Functions ──────────────────────────────────────────────────────
 
 /**
@@ -378,7 +405,12 @@ export async function fetchFollowerTrend(
   );
 
   console.log(`[linkedin-dma] EdgeAnalytics FOLLOWER: ${response.elements?.length ?? 0} elements`);
-  return parseFollowerTrendElements(response.elements);
+  const parsed = parseFollowerTrendElements(response.elements);
+  if (parsed.totalFollowers === 0 && (response.elements?.length ?? 0) > 0) {
+    const sample = JSON.stringify(response.elements?.[0] ?? {}).slice(0, 800);
+    console.log(`[linkedin-dma] EdgeAnalytics sample element (totalFollowers=0): ${sample}`);
+  }
+  return parsed;
 }
 
 /**
@@ -441,7 +473,28 @@ export async function fetchFollowerCount(
     console.log('[linkedin-dma] networkSizes not available (likely missing scope)');
   }
 
-  // Strategy 3: dmaOrganizationalPageFollows with cursor pagination.
+  // Strategy 3: dmaOrganizationalPageProfiles (DMA).
+  // Some tenants expose follower-like counts in profile payload fields.
+  try {
+    const profileUrl = `${API_REST_URL}/dmaOrganizationalPageProfiles` +
+      `?q=pageEntity` +
+      `&pageEntity=(organization:${encodeURIComponent(orgUrn)})`;
+
+    const response = await apiRequest<{
+      elements?: Array<Record<string, unknown>>;
+    }>('linkedin', profileUrl, { headers }, 'linkedin_dma_page_profiles', true);
+
+    const candidates = collectFollowerLikeNumbers(response.elements ?? []);
+    const best = candidates.length > 0 ? Math.max(...candidates) : 0;
+    if (best > 0) {
+      console.log(`[linkedin-dma] pageProfiles follower candidate: ${best}`);
+      return best;
+    }
+  } catch {
+    // silent
+  }
+
+  // Strategy 4: dmaOrganizationalPageFollows with cursor pagination.
   // Use the resolved organizationalPage URN — the page ID may differ from org ID.
   const pageUrn = resolvedPageUrn ?? `urn:li:organizationalPage:${organizationId}`;
   const PAGE_SIZE = 100;
