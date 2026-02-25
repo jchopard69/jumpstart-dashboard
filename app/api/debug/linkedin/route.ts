@@ -152,10 +152,19 @@ export async function GET(request: Request) {
       headers
     );
 
+    // Strategy 4: DMA EdgeAnalytics snapshot (may return cumulative total)
+    const snapshotAttempt = await tryLinkedIn(
+      `${API_URL}/dmaOrganizationalPageEdgeAnalytics` +
+        `?q=snapshot&organizationalPage=${encodeURIComponent(pageUrn)}` +
+        `&analyticsType=FOLLOWER`,
+      headers
+    );
+
     response.follower_count = {
       strategy1_followerStatistics: followerStatsAttempt,
       strategy2_networkSizes: networkSizesAttempt,
-      strategy3_dmaFollows: dmaFollowsAttempt
+      strategy3_dmaFollows: dmaFollowsAttempt,
+      strategy4_edgeAnalyticsSnapshot: snapshotAttempt
     };
 
     // Test DMA follower trend (last 7 days)
