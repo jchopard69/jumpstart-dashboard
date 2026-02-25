@@ -144,27 +144,37 @@ export async function GET(request: Request) {
       headers
     );
 
-    // Strategy 3: DMA element enumeration
+    // Strategy 3: DMA cursor pagination (first page + check for nextPaginationCursor)
     const dmaFollowsAttempt = await tryLinkedIn(
       `${API_URL}/dmaOrganizationalPageFollows` +
         `?q=followee&followee=${encodeURIComponent(pageUrn)}` +
-        `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE&maxPaginationCount=10`,
+        `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE&maxPaginationCount=500`,
       headers
     );
 
-    // Strategy 4: DMA EdgeAnalytics snapshot (may return cumulative total)
-    const snapshotAttempt = await tryLinkedIn(
-      `${API_URL}/dmaOrganizationalPageEdgeAnalytics` +
-        `?q=snapshot&organizationalPage=${encodeURIComponent(pageUrn)}` +
-        `&analyticsType=FOLLOWER`,
-      headers
-    );
+    // If first page has nextPaginationCursor, fetch second page to confirm pagination works
+    let dmaPage2Attempt: DebugAttempt | null = null;
+    const firstPageData = dmaFollowsAttempt.data as { metadata?: { nextPaginationCursor?: string }; elements?: unknown[] } | undefined;
+    const nextCursor = firstPageData?.metadata?.nextPaginationCursor;
+    if (nextCursor && dmaFollowsAttempt.ok) {
+      dmaPage2Attempt = await tryLinkedIn(
+        `${API_URL}/dmaOrganizationalPageFollows` +
+          `?q=followee&followee=${encodeURIComponent(pageUrn)}` +
+          `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE&maxPaginationCount=500` +
+          `&paginationCursor=${encodeURIComponent(nextCursor)}`,
+        headers
+      );
+    }
 
     response.follower_count = {
       strategy1_followerStatistics: followerStatsAttempt,
       strategy2_networkSizes: networkSizesAttempt,
-      strategy3_dmaFollows: dmaFollowsAttempt,
-      strategy4_edgeAnalyticsSnapshot: snapshotAttempt
+      strategy3_dmaFollows_page1: {
+        ...dmaFollowsAttempt,
+        _elementsCount: firstPageData?.elements?.length ?? 0,
+        _nextCursor: nextCursor ?? null
+      },
+      strategy3_dmaFollows_page2: dmaPage2Attempt
     };
 
     // Test DMA follower trend (last 7 days)

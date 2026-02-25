@@ -51,32 +51,32 @@ describe("LinkedIn follower count cascade logic", () => {
    * Simulates the cascade strategy used in fetchFollowerCount:
    * 1. organizationalEntityFollowerStatistics → exact total
    * 2. networkSizes → firstDegreeSize
-   * 3. DMA element enumeration → partial (ignored, returns 0)
+   * 3. DMA cursor pagination → count all elements across pages
    */
   function simulateCascade(
     strategy1Result: number | null, // null = API error / missing scope
     strategy2Result: number | null,
-    strategy3DmaCount: number | null
+    strategy3DmaCursorTotal: number | null
   ): number {
     // Strategy 1: followerStatistics
     if (strategy1Result !== null && strategy1Result > 0) return strategy1Result;
     // Strategy 2: networkSizes
     if (strategy2Result !== null && strategy2Result > 0) return strategy2Result;
-    // Strategy 3: DMA enumeration — partial, NOT returned as count
-    // (DMA only sees a subset, e.g. 26 out of 4434)
+    // Strategy 3: DMA cursor pagination — enumerate ALL followers
+    if (strategy3DmaCursorTotal !== null && strategy3DmaCursorTotal > 0) return strategy3DmaCursorTotal;
     return 0;
   }
 
   test("strategy 1 wins when available (exact total)", () => {
-    assert.equal(simulateCascade(4434, 4400, 26), 4434);
+    assert.equal(simulateCascade(4434, 4400, 4434), 4434);
   });
 
   test("strategy 2 wins when strategy 1 fails", () => {
-    assert.equal(simulateCascade(null, 4400, 26), 4400);
+    assert.equal(simulateCascade(null, 4400, 4434), 4400);
   });
 
-  test("returns 0 when only DMA enumeration available (partial count is misleading)", () => {
-    assert.equal(simulateCascade(null, null, 26), 0);
+  test("strategy 3 (DMA cursor) wins when strategies 1 & 2 fail", () => {
+    assert.equal(simulateCascade(null, null, 4434), 4434);
   });
 
   test("returns 0 when all strategies fail", () => {
@@ -84,11 +84,53 @@ describe("LinkedIn follower count cascade logic", () => {
   });
 
   test("strategy 1 returning 0 falls through to strategy 2", () => {
-    assert.equal(simulateCascade(0, 500, 10), 500);
+    assert.equal(simulateCascade(0, 500, 4434), 500);
   });
 
-  test("both strategies returning 0 falls through to return 0", () => {
-    assert.equal(simulateCascade(0, 0, 26), 0);
+  test("all returning 0 falls through to return 0", () => {
+    assert.equal(simulateCascade(0, 0, 0), 0);
+  });
+});
+
+describe("DMA cursor pagination simulation", () => {
+  /**
+   * Simulates cursor-based pagination: each page returns up to PAGE_SIZE
+   * elements, with a nextPaginationCursor until all results are returned.
+   */
+  function simulateCursorPagination(totalFollowers: number, pageSize = 500, maxPages = 50): number {
+    let counted = 0;
+    for (let page = 0; page < maxPages; page++) {
+      const remaining = totalFollowers - counted;
+      const elementsThisPage = Math.min(remaining, pageSize);
+      counted += elementsThisPage;
+      // nextPaginationCursor is null when no more results
+      if (elementsThisPage < pageSize || remaining <= 0) break;
+    }
+    return counted;
+  }
+
+  test("4434 followers → returns 4434 (9 pages)", () => {
+    assert.equal(simulateCursorPagination(4434), 4434);
+  });
+
+  test("0 followers → returns 0", () => {
+    assert.equal(simulateCursorPagination(0), 0);
+  });
+
+  test("500 followers → returns 500 (exactly one full page)", () => {
+    assert.equal(simulateCursorPagination(500), 500);
+  });
+
+  test("25000 followers → returns 25000 (50 pages, at safety limit)", () => {
+    assert.equal(simulateCursorPagination(25000), 25000);
+  });
+
+  test("30000 followers → capped at 25000 (safety limit of 50 pages)", () => {
+    assert.equal(simulateCursorPagination(30000), 25000);
+  });
+
+  test("1 follower → returns 1", () => {
+    assert.equal(simulateCursorPagination(1), 1);
   });
 });
 
