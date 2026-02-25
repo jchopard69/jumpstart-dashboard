@@ -178,6 +178,11 @@ function toNumber(value: unknown): number {
   if (typeof value === 'string' && value.trim().length > 0) {
     const parsed = Number(value);
     if (Number.isFinite(parsed)) return parsed;
+    const cleaned = value.replace(/[^\d.-]/g, '');
+    if (cleaned && cleaned !== '-' && cleaned !== '.' && cleaned !== '-.') {
+      const parsedClean = Number(cleaned);
+      if (Number.isFinite(parsedClean)) return parsedClean;
+    }
   }
   if (value && typeof value === 'object') {
     const record = value as Record<string, unknown>;
@@ -341,6 +346,20 @@ function collectFollowerLikeNumbers(input: unknown, path: string[] = [], results
   return results;
 }
 
+function getPostStatsSignalCount(post?: DmaPostElement): number {
+  if (!post) return 0;
+  const stats = post.socialDetail?.totalShareStatistics;
+  if (!stats) return 0;
+  let score = 0;
+  if (stats.impressionCount !== undefined) score++;
+  if (stats.uniqueImpressionCount !== undefined) score++;
+  if (stats.clickCount !== undefined) score++;
+  if (stats.likeCount !== undefined) score++;
+  if (stats.commentCount !== undefined) score++;
+  if (stats.shareCount !== undefined) score++;
+  return score;
+}
+
 // ── API Functions ──────────────────────────────────────────────────────
 
 /**
@@ -430,6 +449,7 @@ export async function fetchFollowerCount(
   resolvedPageUrn?: string
 ): Promise<number> {
   const orgUrn = `urn:li:organization:${organizationId}`;
+  const pageUrn = resolvedPageUrn ?? `urn:li:organizationalPage:${organizationId}`;
 
   // Strategy 1: organizationalEntityFollowerStatistics (REST)
   try {
@@ -476,27 +496,43 @@ export async function fetchFollowerCount(
   // Strategy 3: dmaOrganizationalPageProfiles (DMA).
   // Some tenants expose follower-like counts in profile payload fields.
   try {
-    const profileUrl = `${API_REST_URL}/dmaOrganizationalPageProfiles` +
+    const profileFinderUrl = `${API_REST_URL}/dmaOrganizationalPageProfiles` +
       `?q=pageEntity` +
       `&pageEntity=(organization:${encodeURIComponent(orgUrn)})`;
 
-    const response = await apiRequest<{
+    const finderResponse = await apiRequest<{
       elements?: Array<Record<string, unknown>>;
-    }>('linkedin', profileUrl, { headers }, 'linkedin_dma_page_profiles', true);
+    }>('linkedin', profileFinderUrl, { headers }, 'linkedin_dma_page_profiles', true);
 
-    const candidates = collectFollowerLikeNumbers(response.elements ?? []);
+    const detailUrl = `${API_REST_URL}/dmaOrganizationalPageProfiles/${encodeURIComponent(pageUrn)}`;
+    const detailResponse = await apiRequest<Record<string, unknown>>(
+      'linkedin',
+      detailUrl,
+      { headers },
+      'linkedin_dma_page_profile_detail',
+      true
+    );
+
+    const candidates = collectFollowerLikeNumbers([
+      ...(finderResponse.elements ?? []),
+      detailResponse
+    ]);
     const best = candidates.length > 0 ? Math.max(...candidates) : 0;
     if (best > 0) {
       console.log(`[linkedin-dma] pageProfiles follower candidate: ${best}`);
       return best;
     }
+
+    const sampleFinder = JSON.stringify(finderResponse.elements?.[0] ?? {}).slice(0, 600);
+    const sampleDetail = JSON.stringify(detailResponse ?? {}).slice(0, 600);
+    console.log(`[linkedin-dma] pageProfiles sample (no follower candidate): finder=${sampleFinder}`);
+    console.log(`[linkedin-dma] pageProfile detail sample (no follower candidate): detail=${sampleDetail}`);
   } catch {
     // silent
   }
 
   // Strategy 4: dmaOrganizationalPageFollows with cursor pagination.
   // Use the resolved organizationalPage URN — the page ID may differ from org ID.
-  const pageUrn = resolvedPageUrn ?? `urn:li:organizationalPage:${organizationId}`;
   const PAGE_SIZE = 100;
 
   try {
@@ -681,12 +717,16 @@ export async function fetchPostDetails(
         const results = response.results ?? {};
         for (const [resultUrn, post] of Object.entries(results)) {
           const normalized = normalizePostUrn(resultUrn);
-          posts.set(resultUrn, post);
-          posts.set(normalized, post);
+          const existing = posts.get(normalized) ?? posts.get(resultUrn);
+          if (!existing || getPostStatsSignalCount(post) >= getPostStatsSignalCount(existing)) {
+            posts.set(resultUrn, post);
+            posts.set(normalized, post);
+          }
         }
         if (Object.keys(results).length > 0) {
           batchSucceeded = true;
-          break;
+          // Keep trying AUTHOR after READER to enrich metrics payload.
+          if (viewContext === 'AUTHOR') break;
         }
       } catch {
         // Try next viewContext
@@ -874,7 +914,38 @@ function getPostDetailStats(detail?: DmaPostElement): {
     ['distribution', 'totalShareStatistics', 'shareCount'],
   ]);
 
-  return { impressions, reach, clicks, reactions, comments, reposts };
+  const collectByKeywords = (keywords: string[]): number => {
+    const candidates: number[] = [];
+
+    const walk = (input: unknown, path: string[] = []) => {
+      if (input == null) return;
+      if (typeof input === 'number' || typeof input === 'string') {
+        const value = toNumber(input);
+        if (value <= 0) return;
+        const joined = path.join('.').toLowerCase();
+        if (keywords.some((keyword) => joined.includes(keyword))) {
+          candidates.push(value);
+        }
+        return;
+      }
+      if (typeof input !== 'object') return;
+      for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+        walk(value, [...path, key]);
+      }
+    };
+
+    walk(detail);
+    return candidates.length > 0 ? Math.max(...candidates) : 0;
+  };
+
+  return {
+    impressions: impressions || collectByKeywords(['impression', 'view']),
+    reach: reach || collectByKeywords(['uniqueimpression', 'reach']),
+    clicks: clicks || collectByKeywords(['click']),
+    reactions: reactions || collectByKeywords(['reaction', 'like']),
+    comments: comments || collectByKeywords(['comment']),
+    reposts: reposts || collectByKeywords(['repost', 'share']),
+  };
 }
 
 // ── Connector ──────────────────────────────────────────────────────────
@@ -1013,16 +1084,11 @@ export const linkedinConnector: Connector = {
       const [postDetails, socialMetadata, postAnalytics] = await Promise.all([
         fetchPostDetails(headers, postUrns),
         fetchSocialMetadata(headers, metricsUrns),
-        contentTrendRateLimited
-          ? Promise.resolve(new Map<string, {
-            impressions: number;
-            uniqueImpressions: number;
-            clicks: number;
-            reactions: number;
-            comments: number;
-            reposts: number;
-          }>())
-          : fetchPostAnalytics(headers, metricsUrns, MAX_POST_METRICS_SYNC),
+        fetchPostAnalytics(
+          headers,
+          metricsUrns,
+          contentTrendRateLimited ? 3 : MAX_POST_METRICS_SYNC
+        ),
       ]);
 
       for (const urn of postUrns) {
