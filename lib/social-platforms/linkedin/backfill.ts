@@ -13,8 +13,10 @@ import {
   fetchPageContentTrend,
   fetchDmaPosts,
   fetchPostDetails,
+  fetchSocialMetadata,
   fetchPostAnalytics,
   detectLinkedInMediaType,
+  toLinkedInIsoDate,
 } from "./api";
 
 const MAX_POSTS_BACKFILL = 200;
@@ -109,34 +111,47 @@ export async function fetchLinkedInPostsBackfill(params: {
   }
 
   // Fetch details and analytics in parallel
-  // Post analytics includes reactions/comments/reposts via dmaOrganizationalPageContentAnalytics
-  const [postDetails, postAnalyticsMap] = await Promise.all([
+  const metricsUrns = postUrns.slice(0, 15);
+  const [postDetails, socialMetadataMap, postAnalyticsMap] = await Promise.all([
     fetchPostDetails(headers, postUrns),
-    fetchPostAnalytics(headers, postUrns),
+    fetchSocialMetadata(headers, metricsUrns),
+    fetchPostAnalytics(headers, metricsUrns, 15),
   ]);
 
   const posts: PostMetric[] = [];
 
   for (const urn of postUrns) {
     const detail = postDetails.get(urn);
+    const social = socialMetadataMap.get(urn);
     const analytics = postAnalyticsMap.get(urn);
 
     const createdAt = detail?.publishedAt ?? detail?.created?.time ?? detail?.createdAt ?? Date.now();
-    const postedAt = new Date(createdAt).toISOString();
+    const postedAt = toLinkedInIsoDate(createdAt);
 
     // Skip posts before the since date
     if (new Date(postedAt) < params.since) {
       continue;
     }
 
-    const caption = detail?.commentary?.slice(0, 280) || "LinkedIn post";
-    const reactions = analytics?.reactions ?? 0;
-    const comments = analytics?.comments ?? 0;
-    const reposts = analytics?.reposts ?? 0;
+    const caption = typeof detail?.commentary === "string" && detail.commentary.trim().length > 0
+      ? detail.commentary.slice(0, 280)
+      : "LinkedIn post";
+    const reactions = analytics?.reactions ?? social?.reactions ?? 0;
+    const comments = analytics?.comments ?? social?.comments ?? 0;
+    const reposts = analytics?.reposts ?? social?.reposts ?? 0;
     const impressions = analytics?.impressions ?? 0;
     const uniqueImpressions = analytics?.uniqueImpressions ?? 0;
     const clicks = analytics?.clicks ?? 0;
     const engagements = reactions + comments + reposts + clicks;
+
+    const metrics: Record<string, number> = {};
+    if (impressions > 0) metrics.impressions = impressions;
+    if (uniqueImpressions > 0) metrics.reach = uniqueImpressions;
+    if (engagements > 0) metrics.engagements = engagements;
+    if (reactions > 0) metrics.likes = reactions;
+    if (comments > 0) metrics.comments = comments;
+    if (reposts > 0) metrics.shares = reposts;
+    if (clicks > 0) metrics.clicks = clicks;
 
     posts.push({
       external_post_id: urn,
@@ -144,15 +159,7 @@ export async function fetchLinkedInPostsBackfill(params: {
       url: `https://www.linkedin.com/feed/update/${urn}`,
       caption,
       media_type: detectLinkedInMediaType(detail?.content as Record<string, unknown> | undefined),
-      metrics: {
-        impressions,
-        reach: uniqueImpressions,
-        engagements,
-        likes: reactions,
-        comments,
-        shares: reposts,
-        clicks,
-      },
+      metrics,
       raw_json: (detail as Record<string, unknown>) ?? {},
     });
   }

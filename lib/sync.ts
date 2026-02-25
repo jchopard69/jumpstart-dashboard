@@ -140,6 +140,68 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           console.log(`[sync] LinkedIn cumsum: baseline=${baseline}, gains=${sorted.length}, final=${sorted[sorted.length - 1]?.followers}`);
         }
         result.dailyMetrics = sorted;
+
+        const linkedinContentKeys = ["impressions", "reach", "engagements", "views", "likes", "comments", "shares"] as const;
+        type LinkedInContentSnapshot = {
+          date?: string | null;
+          impressions?: number | null;
+          reach?: number | null;
+          engagements?: number | null;
+          views?: number | null;
+          likes?: number | null;
+          comments?: number | null;
+          shares?: number | null;
+        };
+        const hasContentSignals = sorted.some((metric) =>
+          linkedinContentKeys.some((key) => coerceMetric(metric[key]) > 0)
+        );
+
+        // When DMA analytics is throttled (429), connector can return valid posts but
+        // all content metrics as 0. Keep previous values instead of wiping history.
+        if (!hasContentSignals && result.posts.length > 0) {
+          const startDate = sorted[0]?.date;
+          const endDate = sorted[sorted.length - 1]?.date;
+          if (startDate && endDate) {
+            const { data: existingRows, error: existingRowsError } = await supabase
+              .from("social_daily_metrics")
+              .select("date,impressions,reach,engagements,views,likes,comments,shares")
+              .eq("tenant_id", tenantId)
+              .eq("platform", account.platform)
+              .eq("social_account_id", account.id)
+              .gte("date", startDate)
+              .lte("date", endDate);
+
+            if (existingRowsError) {
+              console.warn(`[sync] Failed to load existing LinkedIn daily metrics fallback: ${existingRowsError.message}`);
+            } else {
+              const existingByDate = new Map(
+                (existingRows ?? []).map((row) => [String(row.date ?? ""), row as LinkedInContentSnapshot])
+              );
+              let restoredDays = 0;
+
+              for (const metric of sorted) {
+                const dateKey = String(metric.date ?? "");
+                const existing = existingByDate.get(dateKey);
+                if (!existing) continue;
+
+                const incomingHasAny = linkedinContentKeys.some((key) => coerceMetric(metric[key]) > 0);
+                if (incomingHasAny) continue;
+
+                const existingHasAny = linkedinContentKeys.some((key) => coerceMetric(existing[key]) > 0);
+                if (!existingHasAny) continue;
+
+                for (const key of linkedinContentKeys) {
+                  metric[key] = coerceMetric(existing[key]);
+                }
+                restoredDays++;
+              }
+
+              if (restoredDays > 0) {
+                console.warn(`[sync] LinkedIn analytics fallback applied: restored content metrics on ${restoredDays} day(s)`);
+              }
+            }
+          }
+        }
       }
 
       if (result.dailyMetrics.length) {
@@ -200,16 +262,26 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
 
         // Insert posts one by one to identify problematic ones
         let successCount = 0;
-        let failedPosts: string[] = [];
+        const failedPosts: string[] = [];
 
         for (const post of result.posts) {
           try {
             const externalPostId = String(post.external_post_id || `unknown_${Date.now()}`);
             const incomingMetrics = (post.metrics as Record<string, unknown> | null) ?? {};
             const existingMetrics = existingMetricsByExternalId.get(externalPostId) ?? {};
+            const incomingHasAnyMetric = Object.values(incomingMetrics).some((value) => coerceMetric(value) > 0);
             const readMetric = (key: string) => {
               if (Object.prototype.hasOwnProperty.call(incomingMetrics, key)) {
-                return coerceMetric(incomingMetrics[key]);
+                const incoming = coerceMetric(incomingMetrics[key]);
+                if (
+                  account.platform === "linkedin" &&
+                  incoming === 0 &&
+                  !incomingHasAnyMetric
+                ) {
+                  const existing = coerceMetric(existingMetrics[key]);
+                  if (existing > 0) return existing;
+                }
+                return incoming;
               }
               return coerceMetric(existingMetrics[key]);
             };

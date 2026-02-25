@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test, describe } from "node:test";
-import { detectLinkedInMediaType, normalizeOrganizationId } from "../lib/social-platforms/linkedin/api";
+import {
+  detectLinkedInMediaType,
+  normalizeOrganizationId,
+  parseFollowerTrendElements,
+  normalizeLinkedInTimestampMs,
+} from "../lib/social-platforms/linkedin/api";
 
 // ── Unit tests: LinkedIn helpers ────────────────────────────────────
 
@@ -278,5 +283,89 @@ describe("LinkedIn cumsum logic", () => {
   test("handles empty metrics array", () => {
     const result = applyCumsum([], 100);
     assert.equal(result.length, 0);
+  });
+});
+
+describe("LinkedIn DMA parsing", () => {
+  test("parses follower values from metric.value payload shape", () => {
+    const jan1 = Date.UTC(2025, 0, 1);
+    const jan2 = Date.UTC(2025, 0, 2);
+
+    const parsed = parseFollowerTrendElements([
+      {
+        timeIntervals: { timeRange: { start: jan1 } },
+        metric: {
+          value: {
+            totalCount: { long: 120 },
+            typeSpecificValue: {
+              followerEdgeAnalyticsValue: {
+                organicValue: 3,
+                sponsoredValue: 2,
+              },
+            },
+          },
+        },
+      } as any,
+      {
+        timeIntervals: { timeRange: { start: jan2 } },
+        metric: {
+          value: {
+            totalCount: { long: 125 },
+            typeSpecificValue: {
+              followerEdgeAnalyticsValue: {
+                organicValue: 4,
+                sponsoredValue: 1,
+              },
+            },
+          },
+        },
+      } as any,
+    ]);
+
+    assert.equal(parsed.totalFollowers, 125);
+    assert.equal(parsed.daily["2025-01-01"], 5);
+    assert.equal(parsed.daily["2025-01-02"], 5);
+  });
+
+  test("derives daily gains from totalCount deltas when gain fields are missing", () => {
+    const jan1 = Date.UTC(2025, 0, 1);
+    const jan2 = Date.UTC(2025, 0, 2);
+    const jan3 = Date.UTC(2025, 0, 3);
+
+    const parsed = parseFollowerTrendElements([
+      {
+        metric: {
+          timeIntervals: { timeRange: { start: jan1 } },
+          value: { totalCount: { long: 100 } },
+        },
+      } as any,
+      {
+        metric: {
+          timeIntervals: { timeRange: { start: jan2 } },
+          value: { totalCount: { long: 104 } },
+        },
+      } as any,
+      {
+        metric: {
+          timeIntervals: { timeRange: { start: jan3 } },
+          value: { totalCount: { long: 110 } },
+        },
+      } as any,
+    ]);
+
+    assert.equal(parsed.totalFollowers, 110);
+    assert.equal(parsed.daily["2025-01-01"], 0);
+    assert.equal(parsed.daily["2025-01-02"], 4);
+    assert.equal(parsed.daily["2025-01-03"], 6);
+  });
+});
+
+describe("LinkedIn timestamps", () => {
+  test("converts epoch seconds to milliseconds", () => {
+    assert.equal(normalizeLinkedInTimestampMs(1735689600), 1735689600000);
+  });
+
+  test("keeps epoch milliseconds unchanged", () => {
+    assert.equal(normalizeLinkedInTimestampMs(1735689600000), 1735689600000);
   });
 });

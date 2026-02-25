@@ -21,24 +21,55 @@ const API_REST_URL = LINKEDIN_CONFIG.apiUrl;
 const API_VERSION = getLinkedInVersion();
 
 const MAX_POSTS_SYNC = 50;
+const MAX_POST_METRICS_SYNC = 15;
 
 // ── Types ──────────────────────────────────────────────────────────────
 
-type EdgeAnalyticsElement = {
-  type: string; // FOLLOWER | VISITOR
-  value: {
-    totalCount?: { long?: number; bigDecimal?: string };
-    typeSpecificValue?: {
-      followerEdgeAnalyticsValue?: { organicValue?: number; sponsoredValue?: number };
-      visitorEdgeAnalyticsValue?: {
-        desktopCount?: number;
-        mobileCount?: number;
-        uniqueCount?: number;
-      };
+type NumericCount = {
+  long?: number | string;
+  bigDecimal?: number | string;
+};
+
+type FollowerEdgeAnalyticsValue = {
+  organicValue?: number | NumericCount;
+  sponsoredValue?: number | NumericCount;
+  organicFollowerGain?: number | NumericCount;
+  sponsoredFollowerGain?: number | NumericCount;
+};
+
+type EdgeAnalyticsValue = {
+  totalCount?: NumericCount;
+  typeSpecificValue?: {
+    followerEdgeAnalyticsValue?: FollowerEdgeAnalyticsValue;
+    visitorEdgeAnalyticsValue?: {
+      desktopCount?: number;
+      mobileCount?: number;
+      uniqueCount?: number;
     };
+  };
+};
+
+type EdgeAnalyticsElement = {
+  type?: string; // FOLLOWER | VISITOR
+  value?: EdgeAnalyticsValue;
+  metric?: {
+    timeIntervals?: {
+      timeRange?: { start?: number; end?: number };
+    };
+    value?: EdgeAnalyticsValue;
   };
   timeIntervals?: {
     timeRange?: { start?: number; end?: number };
+  };
+};
+
+type ContentAnalyticsValue = {
+  totalCount?: NumericCount;
+  typeSpecificValue?: {
+    contentAnalyticsValue?: {
+      organicValue?: NumericCount;
+      sponsoredValue?: NumericCount;
+    };
   };
 };
 
@@ -46,13 +77,10 @@ type ContentAnalyticsElement = {
   type: string; // IMPRESSIONS | UNIQUE_IMPRESSIONS | CLICKS | COMMENTS | REACTIONS | REPOSTS
   metric?: {
     timeIntervals?: { timeRange?: { start?: number; end?: number } };
-    value?: {
-      totalCount?: { long?: number; bigDecimal?: string };
-      typeSpecificValue?: {
-        contentAnalyticsValue?: { organicValue?: { long?: number }; sponsoredValue?: { long?: number } };
-      };
-    };
+    value?: ContentAnalyticsValue;
   };
+  timeIntervals?: { timeRange?: { start?: number; end?: number } };
+  value?: ContentAnalyticsValue;
   sourceEntity?: string;
 };
 
@@ -68,6 +96,16 @@ type DmaPostElement = {
   lifecycleState?: string;
   visibility?: string;
   distribution?: Record<string, unknown>;
+  socialDetail?: {
+    totalShareStatistics?: {
+      shareCount?: number;
+      likeCount?: number;
+      commentCount?: number;
+      impressionCount?: number;
+      uniqueImpressionCount?: number;
+      clickCount?: number;
+    };
+  };
   // Legacy fields kept for compat
   createdAt?: number;
 };
@@ -77,6 +115,12 @@ type FeedContentsElement = {
   // Legacy field name
   contentUrn?: string;
   type?: string;
+};
+
+type SocialMetadataResponse = {
+  reactionSummary?: { totalCount?: number };
+  commentSummary?: { totalCount?: number };
+  shareCount?: number;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -116,13 +160,145 @@ export function normalizeOrganizationId(value: string): string {
     .replace('urn:li:organizationalPage:', '');
 }
 
+function toNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const longValue = record.long;
+    if (typeof longValue === 'number' && Number.isFinite(longValue)) return longValue;
+    if (typeof longValue === 'string' && longValue.trim().length > 0) {
+      const parsedLong = Number(longValue);
+      if (Number.isFinite(parsedLong)) return parsedLong;
+    }
+    const decimalValue = record.bigDecimal;
+    if (typeof decimalValue === 'number' && Number.isFinite(decimalValue)) return decimalValue;
+    if (typeof decimalValue === 'string' && decimalValue.trim().length > 0) {
+      const parsedDecimal = Number(decimalValue);
+      if (Number.isFinite(parsedDecimal)) return parsedDecimal;
+    }
+  }
+  return 0;
+}
+
+function getNestedValue(input: unknown, path: string[]): unknown {
+  let current: unknown = input;
+  for (const segment of path) {
+    if (!current || typeof current !== 'object') return undefined;
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+}
+
+function getFirstNumber(input: unknown, paths: string[][]): number {
+  for (const path of paths) {
+    const value = toNumber(getNestedValue(input, path));
+    if (value !== 0) return value;
+  }
+  return 0;
+}
+
+function getEdgeElementValue(element: EdgeAnalyticsElement): EdgeAnalyticsValue | undefined {
+  return element.value ?? element.metric?.value;
+}
+
+function getEdgeRangeStartMs(element: EdgeAnalyticsElement): number | null {
+  const rawStart = element.timeIntervals?.timeRange?.start ?? element.metric?.timeIntervals?.timeRange?.start;
+  const start = toNumber(rawStart);
+  if (start <= 0) return null;
+  return normalizeLinkedInTimestampMs(start);
+}
+
+function getFollowerTotal(value: EdgeAnalyticsValue | undefined): number {
+  const organicCount = getFirstNumber(value, [
+    ['typeSpecificValue', 'followerEdgeAnalyticsValue', 'organicFollowerCount'],
+  ]);
+  const sponsoredCount = getFirstNumber(value, [
+    ['typeSpecificValue', 'followerEdgeAnalyticsValue', 'sponsoredFollowerCount'],
+  ]);
+  const summedBreakdown = organicCount + sponsoredCount;
+
+  return Math.max(
+    toNumber(value?.totalCount),
+    getFirstNumber(value, [
+      ['typeSpecificValue', 'followerEdgeAnalyticsValue', 'totalCount'],
+    ]),
+    summedBreakdown
+  );
+}
+
+function getFollowerGains(value: EdgeAnalyticsValue | undefined): number {
+  const organic = getFirstNumber(value, [
+    ['typeSpecificValue', 'followerEdgeAnalyticsValue', 'organicValue'],
+    ['typeSpecificValue', 'followerEdgeAnalyticsValue', 'organicFollowerGain'],
+  ]);
+  const sponsored = getFirstNumber(value, [
+    ['typeSpecificValue', 'followerEdgeAnalyticsValue', 'sponsoredValue'],
+    ['typeSpecificValue', 'followerEdgeAnalyticsValue', 'sponsoredFollowerGain'],
+  ]);
+  return organic + sponsored;
+}
+
+export function normalizeLinkedInTimestampMs(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return Date.now();
+  // Some LinkedIn payloads provide epoch seconds, others epoch milliseconds.
+  return value < 1_000_000_000_000 ? value * 1000 : value;
+}
+
+export function toLinkedInIsoDate(value?: number): string {
+  if (!value || !Number.isFinite(value)) return new Date().toISOString();
+  return new Date(normalizeLinkedInTimestampMs(value)).toISOString();
+}
+
+export function parseFollowerTrendElements(elements?: EdgeAnalyticsElement[]): { daily: Record<string, number>; totalFollowers: number } {
+  const rows: Array<{ startMs: number; dateKey: string; total: number; explicitGain: number }> = [];
+
+  for (const element of elements ?? []) {
+    const rangeStart = getEdgeRangeStartMs(element);
+    if (!rangeStart) continue;
+
+    const value = getEdgeElementValue(element);
+    const total = getFollowerTotal(value);
+    const explicitGain = getFollowerGains(value);
+    const dateKey = new Date(rangeStart).toISOString().slice(0, 10);
+    rows.push({ startMs: rangeStart, dateKey, total, explicitGain });
+  }
+
+  rows.sort((a, b) => a.startMs - b.startMs);
+
+  const daily: Record<string, number> = {};
+  let totalFollowers = 0;
+  let previousTotal: number | null = null;
+
+  for (const row of rows) {
+    totalFollowers = Math.max(totalFollowers, row.total);
+
+    let gain = row.explicitGain;
+    // Some payload variants omit daily gains but include cumulative totals.
+    if (gain === 0 && row.total > 0 && previousTotal != null && row.total >= previousTotal) {
+      gain = row.total - previousTotal;
+    }
+
+    daily[row.dateKey] = (daily[row.dateKey] ?? 0) + gain;
+
+    if (row.total > 0) {
+      previousTotal = row.total;
+    }
+  }
+
+  return { daily, totalFollowers };
+}
+
 function getMetricTotalCount(element: ContentAnalyticsElement): number {
-  const totalCount = element.metric?.value?.totalCount;
-  if (totalCount?.long !== undefined) return totalCount.long;
-  if (totalCount?.bigDecimal !== undefined) return parseFloat(totalCount.bigDecimal);
+  const value = element.metric?.value ?? element.value;
+  const totalCount = toNumber(value?.totalCount);
+  if (totalCount > 0) return totalCount;
   // Also try organic + sponsored
-  const cv = element.metric?.value?.typeSpecificValue?.contentAnalyticsValue;
-  return (cv?.organicValue?.long ?? 0) + (cv?.sponsoredValue?.long ?? 0);
+  const cv = value?.typeSpecificValue?.contentAnalyticsValue;
+  return toNumber(cv?.organicValue) + toNumber(cv?.sponsoredValue);
 }
 
 // ── API Functions ──────────────────────────────────────────────────────
@@ -189,31 +365,7 @@ export async function fetchFollowerTrend(
   );
 
   console.log(`[linkedin-dma] EdgeAnalytics FOLLOWER: ${response.elements?.length ?? 0} elements`);
-
-  const daily: Record<string, number> = {};
-  let totalFollowers = 0;
-
-  for (const element of response.elements ?? []) {
-    const rangeStart = element.timeIntervals?.timeRange?.start;
-    if (!rangeStart) continue;
-
-    const dateKey = new Date(rangeStart).toISOString().slice(0, 10);
-    // totalCount may be long or bigDecimal
-    const tc = element.value?.totalCount;
-    const total = tc?.long ?? (tc?.bigDecimal ? parseFloat(tc.bigDecimal) : 0);
-    const organic = element.value?.typeSpecificValue?.followerEdgeAnalyticsValue?.organicValue ?? 0;
-    const sponsored = element.value?.typeSpecificValue?.followerEdgeAnalyticsValue?.sponsoredValue ?? 0;
-
-    // The trend returns gains per interval
-    daily[dateKey] = organic + sponsored;
-
-    // Track the latest total
-    if (total > totalFollowers) {
-      totalFollowers = total;
-    }
-  }
-
-  return { daily, totalFollowers };
+  return parseFollowerTrendElements(response.elements);
 }
 
 /**
@@ -279,8 +431,7 @@ export async function fetchFollowerCount(
   // Strategy 3: dmaOrganizationalPageFollows with cursor pagination.
   // Use the resolved organizationalPage URN — the page ID may differ from org ID.
   const pageUrn = resolvedPageUrn ?? `urn:li:organizationalPage:${organizationId}`;
-  const PAGE_SIZE = 500;
-  const MAX_PAGES = 50; // Safety limit: 50 × 500 = 25,000
+  const PAGE_SIZE = 100;
 
   try {
     const firstUrl = `${API_REST_URL}/dmaOrganizationalPageFollows` +
@@ -299,44 +450,22 @@ export async function fetchFollowerCount(
     const pagingTotal = response.paging?.total;
     console.log(`[linkedin-dma] DMA followers raw paging: ${JSON.stringify(response.paging)}, metadata: ${JSON.stringify(response.metadata)}, elements: ${elementsCount}`);
 
-    // If paging.total is larger than elements on this page, it's the real total
-    if (pagingTotal != null && pagingTotal > elementsCount) {
-      console.log(`[linkedin-dma] DMA follower count from paging.total: ${pagingTotal}`);
-      return pagingTotal;
-    }
-
-    // Otherwise, count elements via cursor pagination
-    let totalCount = elementsCount;
-    let cursor = response.metadata?.nextPaginationCursor ?? null;
-
-    while (cursor) {
-      const cursorParam: string = cursor;
-      const nextUrl = `${API_REST_URL}/dmaOrganizationalPageFollows` +
-        `?q=followee` +
-        `&followee=${encodeURIComponent(pageUrn)}` +
-        `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE` +
-        `&maxPaginationCount=${PAGE_SIZE}` +
-        `&paginationCursor=${encodeURIComponent(cursorParam)}`;
-
-      const pageResponse = await apiRequest<{
-        metadata?: { nextPaginationCursor?: string | null };
-        elements?: unknown[];
-      }>('linkedin', nextUrl, { headers }, 'linkedin_dma_follower_count', true);
-
-      const pageElements = pageResponse.elements?.length ?? 0;
-      totalCount += pageElements;
-
-      cursor = pageResponse.metadata?.nextPaginationCursor ?? null;
-      console.log(`[linkedin-dma] DMA followers page: ${pageElements} elements, running total=${totalCount}`);
-
-      if (pageElements === 0 || totalCount > PAGE_SIZE * MAX_PAGES) break;
-    }
-
-    // Use the best value: paging.total if available, otherwise element count
-    const best = (pagingTotal != null && pagingTotal > totalCount) ? pagingTotal : totalCount;
-    if (best > 0) {
-      console.log(`[linkedin-dma] DMA follower count: ${best} (paging.total=${pagingTotal}, enumerated=${totalCount})`);
+    // The endpoint has strict per-minute limits. Prefer paging.total from the
+    // first page and avoid high-frequency cursor loops that trigger 429.
+    if (pagingTotal != null && pagingTotal > 0) {
+      const best = Math.max(pagingTotal, elementsCount);
+      console.log(`[linkedin-dma] DMA follower count from first page: ${best} (paging.total=${pagingTotal}, elements=${elementsCount})`);
       return best;
+    }
+
+    const hasMore = !!response.metadata?.nextPaginationCursor;
+    if (hasMore) {
+      console.log('[linkedin-dma] DMA follows has pagination cursor but paging.total is unavailable; skipping extra pages to avoid endpoint throttle.');
+    }
+
+    if (elementsCount > 0) {
+      console.log(`[linkedin-dma] DMA follower count from first page elements: ${elementsCount}`);
+      return elementsCount;
     }
   } catch (error) {
     console.log('[linkedin-dma] DMA follower count failed:', error instanceof Error ? error.message : error);
@@ -387,7 +516,7 @@ export async function fetchPageContentTrend(
   }>();
 
   for (const element of response.elements ?? []) {
-    const rangeStart = element.metric?.timeIntervals?.timeRange?.start;
+    const rangeStart = element.metric?.timeIntervals?.timeRange?.start ?? element.timeIntervals?.timeRange?.start;
     if (!rangeStart) continue;
 
     const dateKey = new Date(rangeStart).toISOString().slice(0, 10);
@@ -499,13 +628,57 @@ export async function fetchPostDetails(
 
 
 /**
+ * Fetch social metadata (reaction/comment/share counts) for posts.
+ * This endpoint can be unavailable with some DMA configurations (404).
+ */
+export async function fetchSocialMetadata(
+  headers: Record<string, string>,
+  postUrns: string[]
+): Promise<Map<string, { reactions: number; comments: number; reposts: number }>> {
+  const metadata = new Map<string, { reactions: number; comments: number; reposts: number }>();
+  if (!postUrns.length) return metadata;
+
+  for (let i = 0; i < postUrns.length; i++) {
+    const urn = postUrns[i];
+    try {
+      const encodedUrn = encodeURIComponent(urn);
+      const url = `${API_REST_URL}/dmaSocialMetadata/${encodedUrn}`;
+      const response = await apiRequest<SocialMetadataResponse>(
+        'linkedin',
+        url,
+        { headers },
+        'linkedin_dma_social_metadata',
+        true
+      );
+      metadata.set(urn, {
+        reactions: response.reactionSummary?.totalCount ?? 0,
+        comments: response.commentSummary?.totalCount ?? 0,
+        reposts: response.shareCount ?? 0,
+      });
+    } catch (error) {
+      if (error instanceof SocialApiError && error.statusCode === 404 && i === 0) {
+        console.log(`[linkedin-dma] dmaSocialMetadata not available (404), skipping ${postUrns.length} posts`);
+        return metadata;
+      }
+      if (error instanceof SocialApiError && error.statusCode === 429) {
+        console.log('[linkedin-dma] dmaSocialMetadata rate-limited, stopping post metadata fetch');
+        break;
+      }
+      // Ignore errors on individual posts.
+    }
+  }
+
+  return metadata;
+}
+
+/**
  * Fetch post-level analytics via dmaOrganizationalPageContentAnalytics.
- * Includes impressions, clicks, AND reactions/comments/reposts — replaces
- * the broken dmaSocialMetadata endpoint (404 with DMA scope).
+ * Limited to a small subset to reduce DMA resource throttle pressure.
  */
 export async function fetchPostAnalytics(
   headers: Record<string, string>,
-  postUrns: string[]
+  postUrns: string[],
+  maxRequests = MAX_POST_METRICS_SYNC
 ): Promise<Map<string, {
   impressions: number;
   uniqueImpressions: number;
@@ -523,7 +696,12 @@ export async function fetchPostAnalytics(
     reposts: number;
   }>();
 
-  for (const urn of postUrns) {
+  const targetUrns = postUrns.slice(0, maxRequests);
+  if (postUrns.length > targetUrns.length) {
+    console.log(`[linkedin-dma] Post analytics limited to ${targetUrns.length}/${postUrns.length} posts to reduce DMA throttling`);
+  }
+
+  for (const urn of targetUrns) {
     try {
       const metrics = 'List(IMPRESSIONS,UNIQUE_IMPRESSIONS,CLICKS,REACTIONS,COMMENTS,REPOSTS)';
       const url = `${API_REST_URL}/dmaOrganizationalPageContentAnalytics` +
@@ -548,12 +726,68 @@ export async function fetchPostAnalytics(
         }
       }
       analytics.set(urn, data);
-    } catch {
-      // Silently skip — post analytics may not be available for all posts
+    } catch (error) {
+      if (error instanceof SocialApiError && error.statusCode === 429) {
+        console.log('[linkedin-dma] Post analytics rate-limited, stopping post analytics fetch');
+        break;
+      }
+      // Silently skip — post analytics may not be available for all posts.
     }
   }
 
   return analytics;
+}
+
+function getPostCaption(detail?: DmaPostElement): string {
+  if (!detail) return 'LinkedIn post';
+  if (typeof detail.commentary === 'string' && detail.commentary.trim().length > 0) {
+    return detail.commentary.slice(0, 280);
+  }
+  const commentaryText = getNestedValue(detail.commentary, ['text']);
+  if (typeof commentaryText === 'string' && commentaryText.trim().length > 0) {
+    return commentaryText.slice(0, 280);
+  }
+  return 'LinkedIn post';
+}
+
+function getPostDetailStats(detail?: DmaPostElement): {
+  impressions: number;
+  reach: number;
+  clicks: number;
+  reactions: number;
+  comments: number;
+  reposts: number;
+} {
+  if (!detail) {
+    return { impressions: 0, reach: 0, clicks: 0, reactions: 0, comments: 0, reposts: 0 };
+  }
+
+  const impressions = getFirstNumber(detail, [
+    ['socialDetail', 'totalShareStatistics', 'impressionCount'],
+    ['distribution', 'totalShareStatistics', 'impressionCount'],
+  ]);
+  const reach = getFirstNumber(detail, [
+    ['socialDetail', 'totalShareStatistics', 'uniqueImpressionCount'],
+    ['distribution', 'totalShareStatistics', 'uniqueImpressionCount'],
+  ]);
+  const clicks = getFirstNumber(detail, [
+    ['socialDetail', 'totalShareStatistics', 'clickCount'],
+    ['distribution', 'totalShareStatistics', 'clickCount'],
+  ]);
+  const reactions = getFirstNumber(detail, [
+    ['socialDetail', 'totalShareStatistics', 'likeCount'],
+    ['distribution', 'totalShareStatistics', 'likeCount'],
+  ]);
+  const comments = getFirstNumber(detail, [
+    ['socialDetail', 'totalShareStatistics', 'commentCount'],
+    ['distribution', 'totalShareStatistics', 'commentCount'],
+  ]);
+  const reposts = getFirstNumber(detail, [
+    ['socialDetail', 'totalShareStatistics', 'shareCount'],
+    ['distribution', 'totalShareStatistics', 'shareCount'],
+  ]);
+
+  return { impressions, reach, clicks, reactions, comments, reposts };
 }
 
 // ── Connector ──────────────────────────────────────────────────────────
@@ -652,6 +886,8 @@ export const linkedinConnector: Connector = {
     console.log(`[linkedin-dma] Final: totalFollowers=${totalFollowers}, dailyGainsTotal=${dailyGainsTotal}, orgId=${organizationId}`);
 
     // 2. Fetch page-level content analytics (daily impressions, reactions, etc.)
+    let contentTrendLoaded = false;
+    let contentTrendRateLimited = false;
     try {
       const contentTrend = await fetchPageContentTrend(headers, organizationId, since, now);
       for (const [dateKey, counts] of contentTrend) {
@@ -665,7 +901,11 @@ export const linkedinConnector: Connector = {
         entry.engagements = (entry.engagements ?? 0) + counts.reactions + counts.comments + counts.reposts + counts.clicks;
         entry.views = (entry.views ?? 0) + counts.impressions;
       }
+      contentTrendLoaded = true;
     } catch (error) {
+      if (error instanceof SocialApiError && error.statusCode === 429) {
+        contentTrendRateLimited = true;
+      }
       console.log('[linkedin-dma] Failed to fetch content trend:', error instanceof Error ? error.message : error);
     }
 
@@ -681,29 +921,49 @@ export const linkedinConnector: Connector = {
     const posts: PostMetric[] = [];
 
     if (postUrns.length > 0) {
-      // 4. Fetch post details and analytics in parallel
-      // Post analytics includes reactions/comments/reposts via
-      // dmaOrganizationalPageContentAnalytics (replaces broken dmaSocialMetadata)
-      const [postDetails, postAnalytics] = await Promise.all([
+      // 4. Fetch post details and post-level metrics in parallel
+      const metricsUrns = postUrns.slice(0, MAX_POST_METRICS_SYNC);
+      const [postDetails, socialMetadata, postAnalytics] = await Promise.all([
         fetchPostDetails(headers, postUrns),
-        fetchPostAnalytics(headers, postUrns),
+        fetchSocialMetadata(headers, metricsUrns),
+        contentTrendRateLimited
+          ? Promise.resolve(new Map<string, {
+            impressions: number;
+            uniqueImpressions: number;
+            clicks: number;
+            reactions: number;
+            comments: number;
+            reposts: number;
+          }>())
+          : fetchPostAnalytics(headers, metricsUrns, MAX_POST_METRICS_SYNC),
       ]);
 
       for (const urn of postUrns) {
         const detail = postDetails.get(urn);
+        const social = socialMetadata.get(urn);
         const analytics = postAnalytics.get(urn);
+        const detailStats = getPostDetailStats(detail);
 
         const createdAt = detail?.publishedAt ?? detail?.created?.time ?? detail?.createdAt ?? Date.now();
-        const postedAt = new Date(createdAt).toISOString();
-        const caption = detail?.commentary?.slice(0, 280) || 'LinkedIn post';
+        const postedAt = toLinkedInIsoDate(createdAt);
+        const caption = getPostCaption(detail);
 
-        const reactions = analytics?.reactions ?? 0;
-        const comments = analytics?.comments ?? 0;
-        const reposts = analytics?.reposts ?? 0;
-        const impressions = analytics?.impressions ?? 0;
-        const uniqueImpressions = analytics?.uniqueImpressions ?? 0;
-        const clicks = analytics?.clicks ?? 0;
+        const reactions = analytics?.reactions ?? social?.reactions ?? detailStats.reactions;
+        const comments = analytics?.comments ?? social?.comments ?? detailStats.comments;
+        const reposts = analytics?.reposts ?? social?.reposts ?? detailStats.reposts;
+        const impressions = analytics?.impressions ?? detailStats.impressions;
+        const uniqueImpressions = analytics?.uniqueImpressions ?? detailStats.reach;
+        const clicks = analytics?.clicks ?? detailStats.clicks;
         const engagements = reactions + comments + reposts + clicks;
+
+        const metrics: Record<string, number> = {};
+        if (impressions > 0) metrics.impressions = impressions;
+        if (uniqueImpressions > 0) metrics.reach = uniqueImpressions;
+        if (engagements > 0) metrics.engagements = engagements;
+        if (reactions > 0) metrics.likes = reactions;
+        if (comments > 0) metrics.comments = comments;
+        if (reposts > 0) metrics.shares = reposts;
+        if (clicks > 0) metrics.clicks = clicks;
 
         posts.push({
           external_post_id: urn,
@@ -711,15 +971,7 @@ export const linkedinConnector: Connector = {
           url: `https://www.linkedin.com/feed/update/${urn}`,
           caption,
           media_type: detectLinkedInMediaType(detail?.content),
-          metrics: {
-            impressions,
-            reach: uniqueImpressions,
-            engagements,
-            likes: reactions,
-            comments,
-            shares: reposts,
-            clicks
-          },
+          metrics,
           raw_json: detail as Record<string, unknown> ?? {}
         });
 
@@ -728,6 +980,16 @@ export const linkedinConnector: Connector = {
         const entry = dailyMap.get(dateKey);
         if (entry) {
           entry.posts_count = (entry.posts_count ?? 0) + 1;
+          // If page-level trend is unavailable, fallback to post-level metrics.
+          if (!contentTrendLoaded) {
+            entry.impressions = (entry.impressions ?? 0) + impressions;
+            entry.reach = (entry.reach ?? 0) + (uniqueImpressions || impressions);
+            entry.likes = (entry.likes ?? 0) + reactions;
+            entry.comments = (entry.comments ?? 0) + comments;
+            entry.shares = (entry.shares ?? 0) + reposts;
+            entry.engagements = (entry.engagements ?? 0) + engagements;
+            entry.views = (entry.views ?? 0) + impressions;
+          }
         }
       }
     }
