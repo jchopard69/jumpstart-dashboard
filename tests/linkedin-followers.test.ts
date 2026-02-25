@@ -46,41 +46,42 @@ describe("detectLinkedInMediaType", () => {
 
 // ── Integration-style tests: follower mapping ───────────────────────
 
-describe("LinkedIn follower count mapping (paging.total vs elements heuristic)", () => {
-  // Replicates fetchFollowerCount logic: trust paging.total only if > elementsCount
-  function evaluateFollowerCount(pagingTotal: number, elementsCount: number): number {
-    if (pagingTotal > elementsCount) return pagingTotal;
-    return 0; // ambiguous — likely page count bug
+describe("LinkedIn follower count by element enumeration", () => {
+  // The new approach counts actual elements returned (paging.total is unreliable)
+  // Simulates pagination: each page returns up to PAGE_SIZE elements
+  function simulatePagination(totalFollowers: number, pageSize = 500, maxPages = 3): number {
+    let counted = 0;
+    for (let page = 0; page < maxPages; page++) {
+      const remaining = totalFollowers - counted;
+      const elementsThisPage = Math.min(remaining, pageSize);
+      counted += elementsThisPage;
+      if (elementsThisPage < pageSize) break;
+    }
+    return counted;
   }
 
-  test("paging.total=5000 with 2 elements → trusted (real total)", () => {
-    assert.equal(evaluateFollowerCount(5000, 2), 5000);
+  test("2 followers → returns 2 (single page, no ambiguity)", () => {
+    assert.equal(simulatePagination(2), 2);
   });
 
-  test("paging.total=2 with 2 elements → unreliable (page count bug)", () => {
-    assert.equal(evaluateFollowerCount(2, 2), 0);
+  test("0 followers → returns 0", () => {
+    assert.equal(simulatePagination(0), 0);
   });
 
-  test("paging.total=1 with 1 element → unreliable (page count bug)", () => {
-    assert.equal(evaluateFollowerCount(1, 1), 0);
+  test("500 followers → returns 500 (exactly one full page)", () => {
+    assert.equal(simulatePagination(500), 500);
   });
 
-  test("paging.total=0 with 0 elements → returns 0", () => {
-    assert.equal(evaluateFollowerCount(0, 0), 0);
+  test("750 followers → returns 750 (two pages)", () => {
+    assert.equal(simulatePagination(750), 750);
   });
 
-  test("paging.total=100 with 2 elements → trusted", () => {
-    assert.equal(evaluateFollowerCount(100, 2), 100);
+  test("1500+ followers → capped at 1500 (max 3 pages)", () => {
+    assert.equal(simulatePagination(5000), 1500);
   });
 
-  test("paging.total=3 with 2 elements → trusted (real total > page)", () => {
-    assert.equal(evaluateFollowerCount(3, 2), 3);
-  });
-
-  test("undefined paging should return 0", () => {
-    const paging = undefined as { total?: number } | undefined;
-    const pagingTotal = paging?.total ?? 0;
-    assert.equal(evaluateFollowerCount(pagingTotal, 0), 0);
+  test("1 follower → returns 1 (not confused with page count)", () => {
+    assert.equal(simulatePagination(1), 1);
   });
 });
 

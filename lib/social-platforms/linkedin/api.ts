@@ -187,49 +187,51 @@ export async function fetchFollowerTrend(
 }
 
 /**
- * Fetch total follower count via dmaOrganizationalPageFollows paging.total
+ * Fetch total follower count via dmaOrganizationalPageFollows.
  *
- * IMPORTANT: DMA API requires `maxPaginationCount` (400 error without it).
- * With maxPaginationCount=N, `paging.total` may reflect just the page element
- * count instead of the real follower total.  We request 2 elements so we can
- * distinguish: if paging.total > elements returned, it's the real total.
- * If paging.total == elements returned, it's ambiguous (likely page count bug).
+ * DMA API's `paging.total` is unreliable — it always equals the number of
+ * elements returned on the current page, NOT the real follower total.
+ * So the only reliable method is to COUNT the actual elements returned.
+ *
+ * Strategy: fetch up to 500 followers per page, paginate if needed (max 3 pages
+ * = 1500 cap). This uses 1-3 API calls depending on follower count.
  */
 export async function fetchFollowerCount(
   headers: Record<string, string>,
   organizationId: string
 ): Promise<number> {
   const pageUrn = `urn:li:organizationalPage:${organizationId}`;
+  const PAGE_SIZE = 500;
+  const MAX_PAGES = 3; // Cap at 1500 followers to limit API calls
+  let totalElements = 0;
 
-  // Request 2 elements so we can compare paging.total vs elements.length
-  // If paging.total > 2 → it's the real total (trustworthy)
-  // If paging.total <= elements.length → likely the page count bug
-  const url = `${API_REST_URL}/dmaOrganizationalPageFollows` +
-    `?q=followee` +
-    `&followee=${encodeURIComponent(pageUrn)}` +
-    `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE` +
-    `&maxPaginationCount=2`;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const start = page * PAGE_SIZE;
+    const url = `${API_REST_URL}/dmaOrganizationalPageFollows` +
+      `?q=followee` +
+      `&followee=${encodeURIComponent(pageUrn)}` +
+      `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE` +
+      `&start=${start}` +
+      `&maxPaginationCount=${PAGE_SIZE}`;
 
-  const response = await apiRequest<{
-    paging?: { total?: number; count?: number; start?: number };
-    elements?: unknown[];
-  }>('linkedin', url, { headers }, 'linkedin_dma_follower_count');
+    const response = await apiRequest<{
+      paging?: { total?: number; count?: number; start?: number; links?: unknown[] };
+      elements?: unknown[];
+    }>('linkedin', url, { headers }, 'linkedin_dma_follower_count');
 
-  const pagingTotal = response.paging?.total ?? 0;
-  const elementsCount = response.elements?.length ?? 0;
+    const elementsCount = response.elements?.length ?? 0;
+    totalElements += elementsCount;
 
-  console.log(`[linkedin-dma] dmaOrganizationalPageFollows: paging.total=${pagingTotal}, elements=${elementsCount}, paging=${JSON.stringify(response.paging)}`);
+    console.log(`[linkedin-dma] dmaOrganizationalPageFollows page ${page}: elements=${elementsCount}, cumTotal=${totalElements}, paging=${JSON.stringify(response.paging)}`);
 
-  // If paging.total > elements returned, it's the real total
-  if (pagingTotal > elementsCount) {
-    return pagingTotal;
+    // If we got fewer elements than the page size, we've reached the end
+    if (elementsCount < PAGE_SIZE) {
+      break;
+    }
   }
 
-  // paging.total == elementsCount → ambiguous, likely the page count bug
-  // For a real company page, having exactly 0-2 followers is extremely rare,
-  // so returning 0 is safer than returning a bogus page count
-  console.warn(`[linkedin-dma] paging.total=${pagingTotal} == elements=${elementsCount} — unreliable (likely page count, not follower total). Returning 0.`);
-  return 0;
+  console.log(`[linkedin-dma] Follower count from element enumeration: ${totalElements}`);
+  return totalElements;
 }
 
 /**
