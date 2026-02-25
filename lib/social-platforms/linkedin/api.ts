@@ -128,15 +128,53 @@ function getMetricTotalCount(element: ContentAnalyticsElement): number {
 // ── API Functions ──────────────────────────────────────────────────────
 
 /**
+ * Resolve organization ID to organizationalPage URN via DMA Page Profiles.
+ * LinkedIn docs say: "convert it to an organizationalPage using the
+ * OrganizationalPage pageEntity finder". The page URN may differ from org ID.
+ */
+export async function resolveOrganizationalPageUrn(
+  headers: Record<string, string>,
+  organizationId: string
+): Promise<string> {
+  const orgUrn = `urn:li:organization:${organizationId}`;
+  const defaultPageUrn = `urn:li:organizationalPage:${organizationId}`;
+
+  try {
+    const url = `${API_REST_URL}/dmaOrganizationalPageProfiles` +
+      `?q=pageEntity` +
+      `&pageEntity=(organization:${encodeURIComponent(orgUrn)})`;
+
+    const response = await apiRequest<{
+      elements?: Array<{
+        entityUrn?: string;
+        primaryPageEntity?: { organization?: string };
+      }>;
+    }>('linkedin', url, { headers }, 'linkedin_dma_page_resolve', true);
+
+    const resolved = response.elements?.[0]?.entityUrn;
+    if (resolved) {
+      console.log(`[linkedin-dma] Resolved page URN: ${resolved} (org=${orgUrn})`);
+      return resolved;
+    }
+  } catch {
+    // Fallback to default
+  }
+
+  console.log(`[linkedin-dma] Using default page URN: ${defaultPageUrn}`);
+  return defaultPageUrn;
+}
+
+/**
  * Fetch follower trend (daily gains) via DMA Edge Analytics
  */
 export async function fetchFollowerTrend(
   headers: Record<string, string>,
   organizationId: string,
   start: Date,
-  end: Date
+  end: Date,
+  pageUrn?: string
 ): Promise<{ daily: Record<string, number>; totalFollowers: number }> {
-  const pageUrn = `urn:li:organizationalPage:${organizationId}`;
+  if (!pageUrn) pageUrn = `urn:li:organizationalPage:${organizationId}`;
   const startMs = start.getTime();
   const endMs = end.getTime();
 
@@ -191,7 +229,8 @@ export async function fetchFollowerTrend(
  */
 export async function fetchFollowerCount(
   headers: Record<string, string>,
-  organizationId: string
+  organizationId: string,
+  resolvedPageUrn?: string
 ): Promise<number> {
   const orgUrn = `urn:li:organization:${organizationId}`;
 
@@ -238,10 +277,8 @@ export async function fetchFollowerCount(
   }
 
   // Strategy 3: dmaOrganizationalPageFollows with cursor pagination.
-  // First request uses a full page size so paging.total (if present) reflects
-  // the real follower count (LinkedIn DMA returns paging.total = elements on
-  // page when maxPaginationCount is too small).
-  const pageUrn = `urn:li:organizationalPage:${organizationId}`;
+  // Use the resolved organizationalPage URN — the page ID may differ from org ID.
+  const pageUrn = resolvedPageUrn ?? `urn:li:organizationalPage:${organizationId}`;
   const PAGE_SIZE = 500;
   const MAX_PAGES = 50; // Safety limit: 50 × 500 = 25,000
 
@@ -557,11 +594,14 @@ export const linkedinConnector: Connector = {
 
     const organizationId = normalizeOrganizationId(externalAccountId);
 
+    // Resolve the organizationalPage URN (may differ from org ID)
+    const resolvedPageUrn = await resolveOrganizationalPageUrn(headers, organizationId);
+
     // 1. Fetch follower data via EdgeAnalytics (primary)
     let totalFollowers = 0;
     let dailyGainsTotal = 0;
     try {
-      const followerData = await fetchFollowerTrend(headers, organizationId, since, now);
+      const followerData = await fetchFollowerTrend(headers, organizationId, since, now, resolvedPageUrn);
       totalFollowers = followerData.totalFollowers;
       console.log(`[linkedin-dma] EdgeAnalytics: totalFollowers=${totalFollowers}, daily entries=${Object.keys(followerData.daily).length}`);
       for (const [dateKey, count] of Object.entries(followerData.daily)) {
@@ -582,7 +622,7 @@ export const linkedinConnector: Connector = {
     // Fallback: use fetchFollowerCount cascade if EdgeAnalytics returned 0
     if (totalFollowers === 0) {
       try {
-        const fallbackCount = await fetchFollowerCount(headers, organizationId);
+        const fallbackCount = await fetchFollowerCount(headers, organizationId, resolvedPageUrn);
         if (fallbackCount > 1) {
           totalFollowers = fallbackCount;
           console.log(`[linkedin-dma] Follower count fallback: ${fallbackCount}`);
