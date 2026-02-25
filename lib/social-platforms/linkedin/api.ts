@@ -240,49 +240,69 @@ export async function fetchFollowerCount(
     console.log('[linkedin-dma] networkSizes not available (likely missing scope)');
   }
 
-  // Strategy 3: DMA cursor-based pagination — enumerate ALL followers
-  // Uses metadata.nextPaginationCursor (NOT paging.start/count) per DMA docs.
+  // Strategy 3: dmaOrganizationalPageFollows — use paging.total from response
+  // The API returns { paging: { total: N }, elements: [...] } where total is the
+  // full follower count, so we only need a single request.
   const pageUrn = `urn:li:organizationalPage:${organizationId}`;
-  const PAGE_SIZE = 500;
-  const MAX_PAGES = 50; // Safety limit: 50 × 500 = 25,000 followers max
-  let totalCount = 0;
-  let cursor: string | null = null;
 
   try {
-    for (let page = 0; page < MAX_PAGES; page++) {
-      let url = `${API_REST_URL}/dmaOrganizationalPageFollows` +
-        `?q=followee` +
-        `&followee=${encodeURIComponent(pageUrn)}` +
-        `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE` +
-        `&maxPaginationCount=${PAGE_SIZE}`;
+    const url = `${API_REST_URL}/dmaOrganizationalPageFollows` +
+      `?q=followee` +
+      `&followee=${encodeURIComponent(pageUrn)}` +
+      `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE` +
+      `&maxPaginationCount=1`;
 
-      if (cursor) {
-        url += `&paginationCursor=${encodeURIComponent(cursor)}`;
-      }
+    const response = await apiRequest<{
+      paging?: { total?: number };
+      elements?: unknown[];
+    }>('linkedin', url, { headers }, 'linkedin_dma_follower_count', true);
 
-      const response = await apiRequest<{
-        metadata?: { nextPaginationCursor?: string | null };
-        elements?: unknown[];
-      }>('linkedin', url, { headers }, 'linkedin_dma_follower_count', true);
+    const pagingTotal = response.paging?.total;
+    const elementsCount = response.elements?.length ?? 0;
+    console.log(`[linkedin-dma] DMA followers paging.total=${pagingTotal}, elements=${elementsCount}`);
 
-      const elementsCount = response.elements?.length ?? 0;
-      totalCount += elementsCount;
-
-      const nextCursor = response.metadata?.nextPaginationCursor;
-      console.log(`[linkedin-dma] DMA followers page ${page}: ${elementsCount} elements, nextCursor=${nextCursor ? 'yes' : 'null'}, running total=${totalCount}`);
-
-      if (!nextCursor || elementsCount === 0) {
-        break; // End of results
-      }
-      cursor = nextCursor;
+    if (pagingTotal != null && pagingTotal > 0) {
+      console.log(`[linkedin-dma] DMA follower count from paging.total: ${pagingTotal}`);
+      return pagingTotal;
     }
 
-    if (totalCount > 0) {
+    // Fallback: if paging.total is missing, count elements via cursor pagination
+    if (elementsCount > 0) {
+      const PAGE_SIZE = 500;
+      const MAX_PAGES = 50;
+      let totalCount = elementsCount;
+      let cursor = (response as { metadata?: { nextPaginationCursor?: string | null } }).metadata?.nextPaginationCursor;
+
+      if (cursor) {
+        for (let page = 1; page < MAX_PAGES; page++) {
+          const pageUrl = `${API_REST_URL}/dmaOrganizationalPageFollows` +
+            `?q=followee` +
+            `&followee=${encodeURIComponent(pageUrn)}` +
+            `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE` +
+            `&maxPaginationCount=${PAGE_SIZE}` +
+            `&paginationCursor=${encodeURIComponent(cursor)}`;
+
+          const pageResponse = await apiRequest<{
+            metadata?: { nextPaginationCursor?: string | null };
+            elements?: unknown[];
+          }>('linkedin', pageUrl, { headers }, 'linkedin_dma_follower_count', true);
+
+          const pageElements = pageResponse.elements?.length ?? 0;
+          totalCount += pageElements;
+
+          const nextCursor = pageResponse.metadata?.nextPaginationCursor;
+          console.log(`[linkedin-dma] DMA followers page ${page}: ${pageElements} elements, nextCursor=${nextCursor ? 'yes' : 'null'}, running total=${totalCount}`);
+
+          if (!nextCursor || pageElements === 0) break;
+          cursor = nextCursor;
+        }
+      }
+
       console.log(`[linkedin-dma] DMA cursor pagination complete: ${totalCount} total followers`);
       return totalCount;
     }
   } catch (error) {
-    console.log('[linkedin-dma] DMA cursor pagination failed:', error instanceof Error ? error.message : error);
+    console.log('[linkedin-dma] DMA follower count failed:', error instanceof Error ? error.message : error);
   }
 
   console.log(`[linkedin-dma] Could not determine follower count for org=${organizationId}`);
