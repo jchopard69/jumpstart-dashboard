@@ -103,14 +103,11 @@ export function detectLinkedInMediaType(content?: Record<string, unknown>): stri
 }
 
 export function buildHeaders(accessToken: string): Record<string, string> {
-  const headers: Record<string, string> = {
+  return {
     Authorization: `Bearer ${accessToken}`,
-    'X-Restli-Protocol-Version': '2.0.0'
+    'X-Restli-Protocol-Version': '2.0.0',
+    'LinkedIn-Version': API_VERSION,
   };
-  if (API_VERSION) {
-    headers['LinkedIn-Version'] = API_VERSION;
-  }
-  return headers;
 }
 
 export function normalizeOrganizationId(value: string): string {
@@ -263,7 +260,7 @@ export async function fetchFollowerCount(
 
     const elementsCount = response.elements?.length ?? 0;
     const pagingTotal = response.paging?.total;
-    console.log(`[linkedin-dma] DMA followers page 0: ${elementsCount} elements, paging.total=${pagingTotal}`);
+    console.log(`[linkedin-dma] DMA followers raw paging: ${JSON.stringify(response.paging)}, metadata: ${JSON.stringify(response.metadata)}, elements: ${elementsCount}`);
 
     // If paging.total is larger than elements on this page, it's the real total
     if (pagingTotal != null && pagingTotal > elementsCount) {
@@ -532,7 +529,7 @@ export const linkedinConnector: Connector = {
       throw new Error('Missing LinkedIn access token — needs_reauth');
     }
 
-    console.log(`[linkedin-dma] Starting sync for org=${externalAccountId}`);
+    console.log(`[linkedin-dma] Starting sync for org=${externalAccountId}, LinkedIn-Version=${API_VERSION}`);
     const headers = buildHeaders(accessToken);
 
     const now = new Date();

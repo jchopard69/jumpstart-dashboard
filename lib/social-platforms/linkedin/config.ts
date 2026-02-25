@@ -16,9 +16,13 @@ export const LINKEDIN_CONFIG = {
   ],
 };
 
-export function getLinkedInVersion(): string | undefined {
+// Default LinkedIn API version (YYYYMM format).
+// LinkedIn REST API requires the LinkedIn-Version header for DMA endpoints.
+const DEFAULT_LINKEDIN_VERSION = '202501';
+
+export function getLinkedInVersion(): string {
   const raw = (process.env.LINKEDIN_VERSION || '').trim();
-  if (!raw || raw.toLowerCase() === 'auto') return undefined;
+  if (!raw || raw.toLowerCase() === 'auto') return DEFAULT_LINKEDIN_VERSION;
   // Normalize to YYYYMM to avoid accidental YYYYMMDD values from envs.
   const digits = raw.replace(/\D/g, '');
   if (digits.length >= 6) {
