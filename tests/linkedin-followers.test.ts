@@ -46,38 +46,41 @@ describe("detectLinkedInMediaType", () => {
 
 // ── Integration-style tests: follower mapping ───────────────────────
 
-describe("LinkedIn follower count mapping", () => {
-  test("paging.total=1 should be treated as unreliable (not a real follower count)", () => {
-    // Simulates what fetchFollowerCount should do when paging.total=1
-    const pagingTotal = 1;
-    // The fix: values <= 1 are considered unreliable pagination artifacts
-    const result = pagingTotal > 1 ? pagingTotal : 0;
-    assert.equal(result, 0, "paging.total=1 should produce 0, not 1");
+describe("LinkedIn follower count mapping (paging.total vs elements heuristic)", () => {
+  // Replicates fetchFollowerCount logic: trust paging.total only if > elementsCount
+  function evaluateFollowerCount(pagingTotal: number, elementsCount: number): number {
+    if (pagingTotal > elementsCount) return pagingTotal;
+    return 0; // ambiguous — likely page count bug
+  }
+
+  test("paging.total=5000 with 2 elements → trusted (real total)", () => {
+    assert.equal(evaluateFollowerCount(5000, 2), 5000);
   });
 
-  test("paging.total=5000 should be trusted", () => {
-    const pagingTotal = 5000;
-    const result = pagingTotal > 1 ? pagingTotal : 0;
-    assert.equal(result, 5000);
+  test("paging.total=2 with 2 elements → unreliable (page count bug)", () => {
+    assert.equal(evaluateFollowerCount(2, 2), 0);
   });
 
-  test("paging.total=0 should return 0", () => {
-    const pagingTotal = 0;
-    const result = pagingTotal > 1 ? pagingTotal : 0;
-    assert.equal(result, 0);
+  test("paging.total=1 with 1 element → unreliable (page count bug)", () => {
+    assert.equal(evaluateFollowerCount(1, 1), 0);
   });
 
-  test("paging.total=2 should be trusted (edge case)", () => {
-    const pagingTotal = 2;
-    const result = pagingTotal > 1 ? pagingTotal : 0;
-    assert.equal(result, 2);
+  test("paging.total=0 with 0 elements → returns 0", () => {
+    assert.equal(evaluateFollowerCount(0, 0), 0);
+  });
+
+  test("paging.total=100 with 2 elements → trusted", () => {
+    assert.equal(evaluateFollowerCount(100, 2), 100);
+  });
+
+  test("paging.total=3 with 2 elements → trusted (real total > page)", () => {
+    assert.equal(evaluateFollowerCount(3, 2), 3);
   });
 
   test("undefined paging should return 0", () => {
     const paging = undefined as { total?: number } | undefined;
     const pagingTotal = paging?.total ?? 0;
-    const result = pagingTotal > 1 ? pagingTotal : 0;
-    assert.equal(result, 0);
+    assert.equal(evaluateFollowerCount(pagingTotal, 0), 0);
   });
 });
 

@@ -189,11 +189,11 @@ export async function fetchFollowerTrend(
 /**
  * Fetch total follower count via dmaOrganizationalPageFollows paging.total
  *
- * IMPORTANT: DMA pagination uses `maxPaginationCount` to limit returned elements.
- * With maxPaginationCount=1, `paging.total` reflects the page element count (1),
- * NOT the real follower total.  We use count=0&start=0 (standard LinkedIn REST
- * pagination) to request zero elements while still receiving the true total, then
- * fall back to counting returned elements if paging.total is missing or ≤ 1.
+ * IMPORTANT: DMA API requires `maxPaginationCount` (400 error without it).
+ * With maxPaginationCount=N, `paging.total` may reflect just the page element
+ * count instead of the real follower total.  We request 2 elements so we can
+ * distinguish: if paging.total > elements returned, it's the real total.
+ * If paging.total == elements returned, it's ambiguous (likely page count bug).
  */
 export async function fetchFollowerCount(
   headers: Record<string, string>,
@@ -201,12 +201,14 @@ export async function fetchFollowerCount(
 ): Promise<number> {
   const pageUrn = `urn:li:organizationalPage:${organizationId}`;
 
-  // Attempt 1: count=0 to get only paging metadata with real total
+  // Request 2 elements so we can compare paging.total vs elements.length
+  // If paging.total > 2 → it's the real total (trustworthy)
+  // If paging.total <= elements.length → likely the page count bug
   const url = `${API_REST_URL}/dmaOrganizationalPageFollows` +
     `?q=followee` +
     `&followee=${encodeURIComponent(pageUrn)}` +
     `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE` +
-    `&start=0&count=0`;
+    `&maxPaginationCount=2`;
 
   const response = await apiRequest<{
     paging?: { total?: number; count?: number; start?: number };
@@ -218,13 +220,15 @@ export async function fetchFollowerCount(
 
   console.log(`[linkedin-dma] dmaOrganizationalPageFollows: paging.total=${pagingTotal}, elements=${elementsCount}, paging=${JSON.stringify(response.paging)}`);
 
-  // Trust paging.total only if > 1 (value of 1 is likely the page element count bug)
-  if (pagingTotal > 1) {
+  // If paging.total > elements returned, it's the real total
+  if (pagingTotal > elementsCount) {
     return pagingTotal;
   }
 
-  // paging.total is 0 or 1 — unreliable, return 0 so caller uses other sources
-  console.warn(`[linkedin-dma] paging.total=${pagingTotal} is unreliable (likely page count, not follower total). Returning 0.`);
+  // paging.total == elementsCount → ambiguous, likely the page count bug
+  // For a real company page, having exactly 0-2 followers is extremely rare,
+  // so returning 0 is safer than returning a bogus page count
+  console.warn(`[linkedin-dma] paging.total=${pagingTotal} == elements=${elementsCount} — unreliable (likely page count, not follower total). Returning 0.`);
   return 0;
 }
 
