@@ -158,7 +158,7 @@ export async function fetchFollowerTrend(
     'linkedin', url, { headers }, 'linkedin_dma_follower_trend'
   );
 
-  console.log(`[linkedin-dma] EdgeAnalytics FOLLOWER raw: ${JSON.stringify(response).slice(0, 1000)}`);
+  console.log(`[linkedin-dma] EdgeAnalytics FOLLOWER: ${response.elements?.length ?? 0} elements`);
 
   const daily: Record<string, number> = {};
   let totalFollowers = 0;
@@ -287,10 +287,10 @@ export async function fetchFollowerCount(
       return totalCount;
     }
   } catch (error) {
-    console.warn('[linkedin-dma] DMA cursor pagination failed:', error instanceof Error ? error.message : error);
+    console.log('[linkedin-dma] DMA cursor pagination failed:', error instanceof Error ? error.message : error);
   }
 
-  console.warn(`[linkedin-dma] Could not determine follower count for org=${organizationId}`);
+  console.log(`[linkedin-dma] Could not determine follower count for org=${organizationId}`);
   return 0;
 }
 
@@ -389,7 +389,7 @@ export async function fetchDmaPosts(
       .filter((urn): urn is string => !!urn)
       .slice(0, limit);
   } catch (error) {
-    console.error('[linkedin-dma] Failed to fetch feed contents:', error);
+    console.log('[linkedin-dma] Failed to fetch feed contents:', error instanceof Error ? error.message : error);
     return [];
   }
 }
@@ -425,19 +425,18 @@ export async function fetchPostDetails(
           posts.set(urn, post);
         }
       }
-    } catch (error) {
-      console.error(`[linkedin-dma] Failed to batch fetch posts:`, error);
-      // Fallback: fetch individually
+    } catch {
+      // Batch failed — fallback to individual fetches
       for (const urn of batch) {
         try {
           const encodedUrn = encodeURIComponent(urn);
           const fallbackUrl = `${API_REST_URL}/dmaPosts/${encodedUrn}`;
           const post = await apiRequest<DmaPostElement>(
-            'linkedin', fallbackUrl, { headers }, 'linkedin_dma_post_detail'
+            'linkedin', fallbackUrl, { headers }, 'linkedin_dma_post_detail', true
           );
           posts.set(urn, post);
-        } catch (innerError) {
-          console.warn(`[linkedin-dma] Failed to fetch post ${urn}:`, innerError);
+        } catch {
+          // Skip individual post
         }
       }
     }
@@ -447,20 +446,24 @@ export async function fetchPostDetails(
 }
 
 /**
- * Fetch social metadata (reaction/comment counts) for posts
+ * Fetch social metadata (reaction/comment counts) for posts.
+ * This endpoint may not be available with DMA-only scope — if the first
+ * call returns 404, we skip the rest to avoid spamming logs.
  */
 export async function fetchSocialMetadata(
   headers: Record<string, string>,
   postUrns: string[]
 ): Promise<Map<string, { reactions: number; comments: number; reposts: number }>> {
   const metadata = new Map<string, { reactions: number; comments: number; reposts: number }>();
+  if (!postUrns.length) return metadata;
 
-  for (const urn of postUrns) {
+  for (let i = 0; i < postUrns.length; i++) {
+    const urn = postUrns[i];
     try {
       const encodedUrn = encodeURIComponent(urn);
       const url = `${API_REST_URL}/dmaSocialMetadata/${encodedUrn}`;
       const response = await apiRequest<SocialMetadataResponse>(
-        'linkedin', url, { headers }, 'linkedin_dma_social_metadata'
+        'linkedin', url, { headers }, 'linkedin_dma_social_metadata', true
       );
       metadata.set(urn, {
         reactions: response.reactionSummary?.totalCount ?? 0,
@@ -468,8 +471,12 @@ export async function fetchSocialMetadata(
         reposts: response.shareCount ?? 0,
       });
     } catch (error) {
-      // Social metadata may not be available for all posts
-      console.warn(`[linkedin-dma] Failed to fetch social metadata for ${urn}:`, error);
+      if (error instanceof SocialApiError && error.statusCode === 404 && i === 0) {
+        // Endpoint not available (DMA scope limitation) — skip all remaining posts
+        console.log(`[linkedin-dma] dmaSocialMetadata not available (404), skipping ${postUrns.length} posts`);
+        return metadata;
+      }
+      // Other errors on individual posts — silently skip
     }
   }
 
@@ -507,8 +514,8 @@ export async function fetchPostAnalytics(
         }
       }
       analytics.set(urn, data);
-    } catch (error) {
-      console.warn(`[linkedin-dma] Failed to fetch analytics for ${urn}:`, error);
+    } catch {
+      // Silently skip — post analytics may not be available for all posts
     }
   }
 
@@ -572,22 +579,19 @@ export const linkedinConnector: Connector = {
         console.error(`[linkedin-dma] Auth error fetching follower trend (${error.statusCode}): needs_reauth or missing_permission`);
         throw new Error(`LinkedIn auth error (${error.statusCode}) — needs_reauth`);
       }
-      console.error('[linkedin-dma] Failed to fetch follower trend:', error);
+      console.log('[linkedin-dma] Failed to fetch follower trend:', error instanceof Error ? error.message : error);
     }
 
-    // Fallback: use dmaOrganizationalPageFollows if EdgeAnalytics returned 0
+    // Fallback: use fetchFollowerCount cascade if EdgeAnalytics returned 0
     if (totalFollowers === 0) {
       try {
         const fallbackCount = await fetchFollowerCount(headers, organizationId);
-        console.log(`[linkedin-dma] Follows API fallback: returned=${fallbackCount}`);
-        // Only trust values > 1 (value of 1 is a known DMA pagination bug)
         if (fallbackCount > 1) {
           totalFollowers = fallbackCount;
-        } else {
-          console.warn(`[linkedin-dma] Follows API returned ${fallbackCount} — ignoring (likely pagination artifact)`);
+          console.log(`[linkedin-dma] Follower count fallback: ${fallbackCount}`);
         }
       } catch (error) {
-        console.error('[linkedin-dma] Failed to fetch follower count (fallback):', error);
+        console.log('[linkedin-dma] Follower count fallback failed:', error instanceof Error ? error.message : error);
       }
     }
 
@@ -625,7 +629,7 @@ export const linkedinConnector: Connector = {
         entry.views = (entry.views ?? 0) + counts.impressions;
       }
     } catch (error) {
-      console.warn('[linkedin-dma] Failed to fetch content trend:', error);
+      console.log('[linkedin-dma] Failed to fetch content trend:', error instanceof Error ? error.message : error);
     }
 
     // 3. Fetch posts
@@ -634,7 +638,7 @@ export const linkedinConnector: Connector = {
       postUrns = await fetchDmaPosts(headers, organizationId, MAX_POSTS_SYNC);
       console.log(`[linkedin-dma] Fetched ${postUrns.length} post URNs for org ${organizationId}`);
     } catch (error) {
-      console.error('[linkedin-dma] Failed to fetch posts list:', error);
+      console.log('[linkedin-dma] Failed to fetch posts list:', error instanceof Error ? error.message : error);
     }
 
     const posts: PostMetric[] = [];

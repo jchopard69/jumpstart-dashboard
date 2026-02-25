@@ -78,7 +78,7 @@ export async function apiRequest<T>(
           errorBody = await response.text();
         }
 
-        if (platform === 'linkedin') {
+        if (platform === 'linkedin' && !silentErrors) {
           console.warn(`[linkedin] API error details for ${endpoint}:`, JSON.stringify(errorBody, null, 2));
         }
 
