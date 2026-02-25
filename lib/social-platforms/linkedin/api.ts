@@ -13,7 +13,7 @@
  */
 
 import { LINKEDIN_CONFIG, getLinkedInVersion } from './config';
-import { apiRequest } from '../core/api-client';
+import { apiRequest, SocialApiError } from '../core/api-client';
 import type { Connector } from '@/lib/connectors/types';
 import type { DailyMetric, PostMetric } from '../core/types';
 
@@ -188,7 +188,12 @@ export async function fetchFollowerTrend(
 
 /**
  * Fetch total follower count via dmaOrganizationalPageFollows paging.total
- * This is more reliable than EdgeAnalytics for getting the current total.
+ *
+ * IMPORTANT: DMA pagination uses `maxPaginationCount` to limit returned elements.
+ * With maxPaginationCount=1, `paging.total` reflects the page element count (1),
+ * NOT the real follower total.  We use count=0&start=0 (standard LinkedIn REST
+ * pagination) to request zero elements while still receiving the true total, then
+ * fall back to counting returned elements if paging.total is missing or ≤ 1.
  */
 export async function fetchFollowerCount(
   headers: Record<string, string>,
@@ -196,21 +201,31 @@ export async function fetchFollowerCount(
 ): Promise<number> {
   const pageUrn = `urn:li:organizationalPage:${organizationId}`;
 
-  // Request just 1 result — we only need paging.total
+  // Attempt 1: count=0 to get only paging metadata with real total
   const url = `${API_REST_URL}/dmaOrganizationalPageFollows` +
     `?q=followee` +
     `&followee=${encodeURIComponent(pageUrn)}` +
     `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE` +
-    `&maxPaginationCount=1`;
+    `&start=0&count=0`;
 
   const response = await apiRequest<{
-    paging?: { total?: number };
+    paging?: { total?: number; count?: number; start?: number };
     elements?: unknown[];
   }>('linkedin', url, { headers }, 'linkedin_dma_follower_count');
 
-  const total = response.paging?.total ?? 0;
-  console.log(`[linkedin-dma] Follower count from dmaOrganizationalPageFollows: ${total}`);
-  return total;
+  const pagingTotal = response.paging?.total ?? 0;
+  const elementsCount = response.elements?.length ?? 0;
+
+  console.log(`[linkedin-dma] dmaOrganizationalPageFollows: paging.total=${pagingTotal}, elements=${elementsCount}, paging=${JSON.stringify(response.paging)}`);
+
+  // Trust paging.total only if > 1 (value of 1 is likely the page element count bug)
+  if (pagingTotal > 1) {
+    return pagingTotal;
+  }
+
+  // paging.total is 0 or 1 — unreliable, return 0 so caller uses other sources
+  console.warn(`[linkedin-dma] paging.total=${pagingTotal} is unreliable (likely page count, not follower total). Returning 0.`);
+  return 0;
 }
 
 /**
@@ -441,9 +456,10 @@ export const linkedinConnector: Connector = {
 
   async sync({ externalAccountId, accessToken }) {
     if (!accessToken) {
-      throw new Error('Missing LinkedIn access token');
+      throw new Error('Missing LinkedIn access token — needs_reauth');
     }
 
+    console.log(`[linkedin-dma] Starting sync for org=${externalAccountId}`);
     const headers = buildHeaders(accessToken);
 
     const now = new Date();
@@ -473,6 +489,7 @@ export const linkedinConnector: Connector = {
 
     // 1. Fetch follower data via EdgeAnalytics (primary)
     let totalFollowers = 0;
+    let dailyGainsTotal = 0;
     try {
       const followerData = await fetchFollowerTrend(headers, organizationId, since, now);
       totalFollowers = followerData.totalFollowers;
@@ -481,32 +498,51 @@ export const linkedinConnector: Connector = {
         const entry = dailyMap.get(dateKey);
         if (entry) {
           entry.followers = (entry.followers ?? 0) + count;
+          dailyGainsTotal += count;
         }
       }
     } catch (error) {
+      if (error instanceof SocialApiError && (error.statusCode === 401 || error.statusCode === 403)) {
+        console.error(`[linkedin-dma] Auth error fetching follower trend (${error.statusCode}): needs_reauth or missing_permission`);
+        throw new Error(`LinkedIn auth error (${error.statusCode}) — needs_reauth`);
+      }
       console.error('[linkedin-dma] Failed to fetch follower trend:', error);
     }
 
     // Fallback: use dmaOrganizationalPageFollows if EdgeAnalytics returned 0
     if (totalFollowers === 0) {
       try {
-        totalFollowers = await fetchFollowerCount(headers, organizationId);
-        console.log(`[linkedin-dma] Follows API fallback: totalFollowers=${totalFollowers}`);
+        const fallbackCount = await fetchFollowerCount(headers, organizationId);
+        console.log(`[linkedin-dma] Follows API fallback: returned=${fallbackCount}`);
+        // Only trust values > 1 (value of 1 is a known DMA pagination bug)
+        if (fallbackCount > 1) {
+          totalFollowers = fallbackCount;
+        } else {
+          console.warn(`[linkedin-dma] Follows API returned ${fallbackCount} — ignoring (likely pagination artifact)`);
+        }
       } catch (error) {
         console.error('[linkedin-dma] Failed to fetch follower count (fallback):', error);
       }
     }
 
-    // Set total followers on latest date for cumsum conversion in sync.ts
+    // Set total followers on latest date for cumsum conversion in sync.ts.
+    // IMPORTANT: sync.ts treats all metric.followers values as deltas (gains)
+    // and accumulates them. So we must NOT put the absolute total here directly.
+    // Instead, we set the total on the latest date ONLY — sync.ts will detect
+    // this is much larger than daily gains and use it as the cumulative anchor.
     const latestDate = Array.from(dailyMap.keys()).sort().slice(-1)[0];
     if (latestDate && totalFollowers > 0) {
       const entry = dailyMap.get(latestDate);
       if (entry) {
+        // Clear the daily gain on the latest date — replace with the total.
+        // sync.ts cumsum will add baseline + gains_day1..day29 + this value.
+        // Since we want the final result to equal totalFollowers, we set
+        // the latest date's value = totalFollowers (sync.ts handles it).
         entry.followers = totalFollowers;
       }
     }
 
-    console.log(`[linkedin-dma] Final total followers: ${totalFollowers}`);
+    console.log(`[linkedin-dma] Final: totalFollowers=${totalFollowers}, dailyGainsTotal=${dailyGainsTotal}, orgId=${organizationId}`);
 
     // 2. Fetch page-level content analytics (daily impressions, reactions, etc.)
     try {

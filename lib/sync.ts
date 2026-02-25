@@ -96,11 +96,48 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           baseline = baselineRow?.followers ?? 0;
         }
 
-        let cumulative = baseline;
-        for (const metric of sorted) {
-          const delta = metric.followers ?? 0;
-          cumulative += delta;
-          metric.followers = cumulative;
+        // The connector puts an absolute total on the latest date (much larger
+        // than daily gains on other dates).  Detect this: if the last entry's
+        // followers value is significantly larger than the typical daily gain,
+        // treat it as the absolute total rather than a delta.
+        const lastEntry = sorted[sorted.length - 1];
+        const lastValue = lastEntry?.followers ?? 0;
+        const dailyGains = sorted.slice(0, -1);
+        const maxDailyGain = dailyGains.reduce((max, m) => Math.max(max, m.followers ?? 0), 0);
+
+        // Heuristic: if lastValue > 10× the max daily gain AND lastValue > 1,
+        // it's the absolute total, not a gain.
+        const lastIsAbsoluteTotal = lastValue > 1 && (dailyGains.length === 0 || lastValue > maxDailyGain * 10);
+
+        if (lastIsAbsoluteTotal && lastValue > 0) {
+          // Use the absolute total for the latest date, cumsum gains for earlier dates
+          let cumulative = baseline;
+          for (const metric of dailyGains) {
+            const delta = metric.followers ?? 0;
+            cumulative += delta;
+            metric.followers = cumulative;
+          }
+          // Latest date gets the absolute total (or baseline if it's higher —
+          // guard against regression to a suspiciously low value).
+          lastEntry.followers = Math.max(lastValue, baseline);
+          console.log(`[sync] LinkedIn cumsum: baseline=${baseline}, gains=${dailyGains.length}, absoluteTotal=${lastValue}, final=${lastEntry.followers}`);
+        } else {
+          // Standard cumsum: all values are daily gains
+          let cumulative = baseline;
+          for (const metric of sorted) {
+            const delta = metric.followers ?? 0;
+            cumulative += delta;
+            metric.followers = cumulative;
+          }
+          // Guard: never regress below the baseline
+          if (sorted.length > 0) {
+            const finalValue = sorted[sorted.length - 1].followers ?? 0;
+            if (finalValue < baseline && baseline > 0) {
+              console.warn(`[sync] LinkedIn cumsum result (${finalValue}) < baseline (${baseline}), keeping baseline`);
+              sorted[sorted.length - 1].followers = baseline;
+            }
+          }
+          console.log(`[sync] LinkedIn cumsum: baseline=${baseline}, gains=${sorted.length}, final=${sorted[sorted.length - 1]?.followers}`);
         }
         result.dailyMetrics = sorted;
       }

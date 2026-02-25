@@ -128,10 +128,11 @@ export async function GET(request: Request) {
     response.org_acls = orgAclsAttempt;
 
     // Test dmaOrganizationalPageFollows (total follower count)
+    // Use count=0 to avoid the maxPaginationCount=1 bug where paging.total=1
     const followerCountAttempt = await tryLinkedIn(
       `${API_URL}/dmaOrganizationalPageFollows` +
         `?q=followee&followee=${encodeURIComponent(pageUrn)}` +
-        `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE&maxPaginationCount=1`,
+        `&edgeType=MEMBER_FOLLOWS_ORGANIZATIONAL_PAGE&start=0&count=0`,
       headers
     );
     response.follower_count = followerCountAttempt;
