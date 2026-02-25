@@ -10,22 +10,16 @@ export const LINKEDIN_CONFIG = {
 
   // OAuth scopes (Community Management / Organizations)
   // See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations
-  // Pages Data Portability API (DMA) — single scope for read-only page analytics
   scopes: [
-    'r_dma_admin_pages_content'
+    'r_organization_admin',
+    'rw_organization_admin',
+    'r_organization_social'
   ],
 };
 
-// Default LinkedIn API version (YYYYMM format).
-// LinkedIn REST API requires the LinkedIn-Version header for DMA endpoints.
-const DEFAULT_LINKEDIN_VERSION = '202501';
-// Optional env fallbacks used by the connector:
-// - LINKEDIN_FOLLOWER_OVERRIDES: one entry per line/semicolon, format `orgId=4434`.
-// - LINKEDIN_ENABLE_PUBLIC_FOLLOWER_FALLBACK: set to `0` to disable public-page fallback.
-
-export function getLinkedInVersion(): string {
+export function getLinkedInVersion(): string | undefined {
   const raw = (process.env.LINKEDIN_VERSION || '').trim();
-  if (!raw || raw.toLowerCase() === 'auto') return DEFAULT_LINKEDIN_VERSION;
+  if (!raw || raw.toLowerCase() === 'auto') return undefined;
   // Normalize to YYYYMM to avoid accidental YYYYMMDD values from envs.
   const digits = raw.replace(/\D/g, '');
   if (digits.length >= 6) {
