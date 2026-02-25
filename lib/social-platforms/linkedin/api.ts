@@ -160,6 +160,19 @@ export function normalizeOrganizationId(value: string): string {
     .replace('urn:li:organizationalPage:', '');
 }
 
+function normalizePostUrn(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  let decoded = trimmed;
+  try {
+    const once = decodeURIComponent(decoded);
+    if (once) decoded = once;
+  } catch {
+    // keep original
+  }
+  return decoded;
+}
+
 function toNumber(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim().length > 0) {
@@ -565,10 +578,13 @@ export async function fetchDmaPosts(
 
     console.log(`[linkedin-dma] dmaFeedContentsExternal returned ${response.elements?.length ?? 0} elements`);
 
-    return (response.elements ?? [])
+    const urns = (response.elements ?? [])
       .map(e => e.id ?? e.contentUrn)
       .filter((urn): urn is string => !!urn)
-      .slice(0, limit);
+      .map((urn) => normalizePostUrn(urn))
+      .filter((urn) => urn.startsWith('urn:li:share:') || urn.startsWith('urn:li:ugcPost:'));
+
+    return Array.from(new Set(urns)).slice(0, limit);
   } catch (error) {
     console.log('[linkedin-dma] Failed to fetch feed contents:', error instanceof Error ? error.message : error);
     return [];
@@ -586,39 +602,57 @@ export async function fetchPostDetails(
 
   if (!postUrns.length) return posts;
 
+  const normalizedUrns = postUrns.map((urn) => normalizePostUrn(urn));
   // BATCH_GET: /dmaPosts?ids=List(encoded_urn1,encoded_urn2,...)&viewContext=AUTHOR
   // Process in chunks of 20 to avoid URL length issues
   const BATCH_SIZE = 20;
-  for (let i = 0; i < postUrns.length; i += BATCH_SIZE) {
-    const batch = postUrns.slice(i, i + BATCH_SIZE);
-    const encodedIds = batch.map(urn => encodeURIComponent(urn)).join(',');
-    const url = `${API_REST_URL}/dmaPosts?ids=List(${encodedIds})&viewContext=AUTHOR`;
+  for (let i = 0; i < normalizedUrns.length; i += BATCH_SIZE) {
+    const batch = normalizedUrns.slice(i, i + BATCH_SIZE);
+    const encodedIds = batch.map((urn) => encodeURIComponent(urn)).join(',');
 
-    try {
-      const response = await apiRequest<{
-        results?: Record<string, DmaPostElement>;
-        statuses?: Record<string, number>;
-        errors?: Record<string, unknown>;
-      }>('linkedin', url, { headers }, 'linkedin_dma_post_batch');
+    let batchSucceeded = false;
+    for (const viewContext of ['READER', 'AUTHOR'] as const) {
+      const url = `${API_REST_URL}/dmaPosts?ids=List(${encodedIds})&viewContext=${viewContext}`;
+      const batchHeaders = {
+        ...headers,
+        'X-RestLi-Method': 'BATCH_GET',
+      };
 
-      if (response.results) {
-        for (const [urn, post] of Object.entries(response.results)) {
-          posts.set(urn, post);
+      try {
+        const response = await apiRequest<{
+          results?: Record<string, DmaPostElement>;
+          statuses?: Record<string, number>;
+          errors?: Record<string, unknown>;
+        }>('linkedin', url, { headers: batchHeaders }, `linkedin_dma_post_batch_${viewContext.toLowerCase()}`, true);
+
+        const results = response.results ?? {};
+        for (const [resultUrn, post] of Object.entries(results)) {
+          const normalized = normalizePostUrn(resultUrn);
+          posts.set(resultUrn, post);
+          posts.set(normalized, post);
         }
+        if (Object.keys(results).length > 0) {
+          batchSucceeded = true;
+          break;
+        }
+      } catch {
+        // Try next viewContext
       }
-    } catch {
-      // Batch failed — fallback to individual fetches
-      for (const urn of batch) {
-        try {
-          const encodedUrn = encodeURIComponent(urn);
-          const fallbackUrl = `${API_REST_URL}/dmaPosts/${encodedUrn}`;
-          const post = await apiRequest<DmaPostElement>(
-            'linkedin', fallbackUrl, { headers }, 'linkedin_dma_post_detail', true
-          );
-          posts.set(urn, post);
-        } catch {
-          // Skip individual post
-        }
+    }
+
+    if (batchSucceeded) continue;
+
+    // Batch failed — fallback to individual fetches
+    for (const urn of batch) {
+      try {
+        const encodedUrn = encodeURIComponent(urn);
+        const fallbackUrl = `${API_REST_URL}/dmaPosts/${encodedUrn}`;
+        const post = await apiRequest<DmaPostElement>(
+          'linkedin', fallbackUrl, { headers }, 'linkedin_dma_post_detail', true
+        );
+        posts.set(urn, post);
+      } catch {
+        // Skip individual post
       }
     }
   }
@@ -939,7 +973,8 @@ export const linkedinConnector: Connector = {
       ]);
 
       for (const urn of postUrns) {
-        const detail = postDetails.get(urn);
+        const normalizedUrn = normalizePostUrn(urn);
+        const detail = postDetails.get(urn) ?? postDetails.get(normalizedUrn);
         const social = socialMetadata.get(urn);
         const analytics = postAnalytics.get(urn);
         const detailStats = getPostDetailStats(detail);
@@ -993,6 +1028,19 @@ export const linkedinConnector: Connector = {
         }
       }
     }
+
+    const postsWithMetrics = posts.filter((post) => {
+      const metrics = post.metrics ?? {};
+      return (
+        toNumber(metrics.impressions) > 0 ||
+        toNumber(metrics.reach) > 0 ||
+        toNumber(metrics.engagements) > 0 ||
+        toNumber(metrics.likes) > 0 ||
+        toNumber(metrics.comments) > 0 ||
+        toNumber(metrics.shares) > 0
+      );
+    }).length;
+    console.log(`[linkedin-dma] Post metrics coverage: ${postsWithMetrics}/${posts.length} posts with non-zero metrics`);
 
     const dailyMetrics = Array.from(dailyMap.values());
     dailyMetrics.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
