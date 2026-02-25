@@ -56,11 +56,6 @@ type ContentAnalyticsElement = {
   sourceEntity?: string;
 };
 
-type SocialMetadataResponse = {
-  reactionSummary?: { totalCount?: number };
-  commentSummary?: { totalCount?: number };
-  shareCount?: number;
-};
 
 type DmaPostElement = {
   id?: string;
@@ -445,72 +440,54 @@ export async function fetchPostDetails(
   return posts;
 }
 
-/**
- * Fetch social metadata (reaction/comment counts) for posts.
- * This endpoint may not be available with DMA-only scope — if the first
- * call returns 404, we skip the rest to avoid spamming logs.
- */
-export async function fetchSocialMetadata(
-  headers: Record<string, string>,
-  postUrns: string[]
-): Promise<Map<string, { reactions: number; comments: number; reposts: number }>> {
-  const metadata = new Map<string, { reactions: number; comments: number; reposts: number }>();
-  if (!postUrns.length) return metadata;
-
-  for (let i = 0; i < postUrns.length; i++) {
-    const urn = postUrns[i];
-    try {
-      const encodedUrn = encodeURIComponent(urn);
-      const url = `${API_REST_URL}/dmaSocialMetadata/${encodedUrn}`;
-      const response = await apiRequest<SocialMetadataResponse>(
-        'linkedin', url, { headers }, 'linkedin_dma_social_metadata', true
-      );
-      metadata.set(urn, {
-        reactions: response.reactionSummary?.totalCount ?? 0,
-        comments: response.commentSummary?.totalCount ?? 0,
-        reposts: response.shareCount ?? 0,
-      });
-    } catch (error) {
-      if (error instanceof SocialApiError && error.statusCode === 404 && i === 0) {
-        // Endpoint not available (DMA scope limitation) — skip all remaining posts
-        console.log(`[linkedin-dma] dmaSocialMetadata not available (404), skipping ${postUrns.length} posts`);
-        return metadata;
-      }
-      // Other errors on individual posts — silently skip
-    }
-  }
-
-  return metadata;
-}
 
 /**
- * Fetch post-level analytics (impressions, clicks) for individual posts
+ * Fetch post-level analytics via dmaOrganizationalPageContentAnalytics.
+ * Includes impressions, clicks, AND reactions/comments/reposts — replaces
+ * the broken dmaSocialMetadata endpoint (404 with DMA scope).
  */
 export async function fetchPostAnalytics(
   headers: Record<string, string>,
   postUrns: string[]
-): Promise<Map<string, { impressions: number; uniqueImpressions: number; clicks: number }>> {
-  const analytics = new Map<string, { impressions: number; uniqueImpressions: number; clicks: number }>();
+): Promise<Map<string, {
+  impressions: number;
+  uniqueImpressions: number;
+  clicks: number;
+  reactions: number;
+  comments: number;
+  reposts: number;
+}>> {
+  const analytics = new Map<string, {
+    impressions: number;
+    uniqueImpressions: number;
+    clicks: number;
+    reactions: number;
+    comments: number;
+    reposts: number;
+  }>();
 
   for (const urn of postUrns) {
     try {
-      const metrics = 'List(IMPRESSIONS,UNIQUE_IMPRESSIONS,CLICKS)';
+      const metrics = 'List(IMPRESSIONS,UNIQUE_IMPRESSIONS,CLICKS,REACTIONS,COMMENTS,REPOSTS)';
       const url = `${API_REST_URL}/dmaOrganizationalPageContentAnalytics` +
         `?q=trend` +
         `&sourceEntity=${encodeURIComponent(urn)}` +
         `&metricTypes=${metrics}`;
 
       const response = await apiRequest<{ elements?: ContentAnalyticsElement[] }>(
-        'linkedin', url, { headers }, 'linkedin_dma_post_analytics'
+        'linkedin', url, { headers }, 'linkedin_dma_post_analytics', true
       );
 
-      const data = { impressions: 0, uniqueImpressions: 0, clicks: 0 };
+      const data = { impressions: 0, uniqueImpressions: 0, clicks: 0, reactions: 0, comments: 0, reposts: 0 };
       for (const element of response.elements ?? []) {
         const count = getMetricTotalCount(element);
         switch (element.type) {
           case 'IMPRESSIONS': data.impressions += count; break;
           case 'UNIQUE_IMPRESSIONS': data.uniqueImpressions += count; break;
           case 'CLICKS': data.clicks += count; break;
+          case 'REACTIONS': data.reactions += count; break;
+          case 'COMMENTS': data.comments += count; break;
+          case 'REPOSTS': data.reposts += count; break;
         }
       }
       analytics.set(urn, data);
@@ -644,32 +621,29 @@ export const linkedinConnector: Connector = {
     const posts: PostMetric[] = [];
 
     if (postUrns.length > 0) {
-      // 4. Fetch post details, social metadata, and analytics in parallel
-      const [postDetails, socialMeta, postAnalytics] = await Promise.all([
+      // 4. Fetch post details and analytics in parallel
+      // Post analytics includes reactions/comments/reposts via
+      // dmaOrganizationalPageContentAnalytics (replaces broken dmaSocialMetadata)
+      const [postDetails, postAnalytics] = await Promise.all([
         fetchPostDetails(headers, postUrns),
-        fetchSocialMetadata(headers, postUrns),
         fetchPostAnalytics(headers, postUrns),
       ]);
 
       for (const urn of postUrns) {
         const detail = postDetails.get(urn);
-        const meta = socialMeta.get(urn);
         const analytics = postAnalytics.get(urn);
 
         const createdAt = detail?.publishedAt ?? detail?.created?.time ?? detail?.createdAt ?? Date.now();
         const postedAt = new Date(createdAt).toISOString();
         const caption = detail?.commentary?.slice(0, 280) || 'LinkedIn post';
 
-        const reactions = meta?.reactions ?? 0;
-        const comments = meta?.comments ?? 0;
-        const reposts = meta?.reposts ?? 0;
+        const reactions = analytics?.reactions ?? 0;
+        const comments = analytics?.comments ?? 0;
+        const reposts = analytics?.reposts ?? 0;
         const impressions = analytics?.impressions ?? 0;
         const uniqueImpressions = analytics?.uniqueImpressions ?? 0;
         const clicks = analytics?.clicks ?? 0;
         const engagements = reactions + comments + reposts + clicks;
-
-        // Extract share/ugcPost ID for URL
-        const postId = urn.replace('urn:li:share:', '').replace('urn:li:ugcPost:', '');
 
         posts.push({
           external_post_id: urn,

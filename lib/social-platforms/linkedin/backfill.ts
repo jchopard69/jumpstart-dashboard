@@ -13,7 +13,6 @@ import {
   fetchPageContentTrend,
   fetchDmaPosts,
   fetchPostDetails,
-  fetchSocialMetadata,
   fetchPostAnalytics,
   detectLinkedInMediaType,
 } from "./api";
@@ -61,7 +60,7 @@ export async function fetchLinkedInDailyStats(params: {
       }
     }
   } catch (error) {
-    console.warn("[linkedin-backfill] Failed to fetch follower trend:", error);
+    console.log("[linkedin-backfill] Failed to fetch follower trend:", error instanceof Error ? error.message : error);
   }
 
   // Fetch page-level content analytics (daily impressions, reactions, etc.)
@@ -80,7 +79,7 @@ export async function fetchLinkedInDailyStats(params: {
       entry.views = (entry.views ?? 0) + counts.impressions;
     }
   } catch (error) {
-    console.warn("[linkedin-backfill] Failed to fetch content trend:", error);
+    console.log("[linkedin-backfill] Failed to fetch content trend:", error instanceof Error ? error.message : error);
   }
 
   const dailyMetrics = Array.from(dailyMap.values());
@@ -101,7 +100,7 @@ export async function fetchLinkedInPostsBackfill(params: {
   try {
     postUrns = await fetchDmaPosts(headers, organizationId, MAX_POSTS_BACKFILL);
   } catch (error) {
-    console.warn("[linkedin-backfill] Failed to fetch posts list:", error);
+    console.log("[linkedin-backfill] Failed to fetch posts list:", error instanceof Error ? error.message : error);
     return [];
   }
 
@@ -109,10 +108,10 @@ export async function fetchLinkedInPostsBackfill(params: {
     return [];
   }
 
-  // Fetch details, social metadata, and analytics in parallel
-  const [postDetails, socialMeta, postAnalyticsMap] = await Promise.all([
+  // Fetch details and analytics in parallel
+  // Post analytics includes reactions/comments/reposts via dmaOrganizationalPageContentAnalytics
+  const [postDetails, postAnalyticsMap] = await Promise.all([
     fetchPostDetails(headers, postUrns),
-    fetchSocialMetadata(headers, postUrns),
     fetchPostAnalytics(headers, postUrns),
   ]);
 
@@ -120,7 +119,6 @@ export async function fetchLinkedInPostsBackfill(params: {
 
   for (const urn of postUrns) {
     const detail = postDetails.get(urn);
-    const meta = socialMeta.get(urn);
     const analytics = postAnalyticsMap.get(urn);
 
     const createdAt = detail?.publishedAt ?? detail?.created?.time ?? detail?.createdAt ?? Date.now();
@@ -132,9 +130,9 @@ export async function fetchLinkedInPostsBackfill(params: {
     }
 
     const caption = detail?.commentary?.slice(0, 280) || "LinkedIn post";
-    const reactions = meta?.reactions ?? 0;
-    const comments = meta?.comments ?? 0;
-    const reposts = meta?.reposts ?? 0;
+    const reactions = analytics?.reactions ?? 0;
+    const comments = analytics?.comments ?? 0;
+    const reposts = analytics?.reposts ?? 0;
     const impressions = analytics?.impressions ?? 0;
     const uniqueImpressions = analytics?.uniqueImpressions ?? 0;
     const clicks = analytics?.clicks ?? 0;
