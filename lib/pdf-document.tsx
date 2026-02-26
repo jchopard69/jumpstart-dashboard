@@ -428,6 +428,16 @@ export function PdfDocument(props: PdfDocumentProps) {
           </View>
         )}
 
+        {/* Score Methodology */}
+        {score && (
+          <View style={{ marginBottom: 12, borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 6, padding: 8, backgroundColor: "#f8fafc" }}>
+            <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#64748b", marginBottom: 3 }}>Methodologie JumpStart Score</Text>
+            <Text style={{ fontSize: 7, color: "#64748b", lineHeight: 1.4 }}>
+              Indice composite (0-100) sur 5 axes : Croissance (25%), Portee (25%), Engagement (25%), Regularite (15%), Momentum (10%). Chaque axe est normalise selon des benchmarks sectoriels. La note ({score.grade}) resume la performance globale.
+            </Text>
+          </View>
+        )}
+
         {/* Strategic Insights */}
         {insights && insights.length > 0 && (
           <>
@@ -455,6 +465,9 @@ export function PdfDocument(props: PdfDocumentProps) {
         {contentDna && contentDna.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>ADN de contenu</Text>
+            <Text style={{ fontSize: 7, color: "#64748b", marginBottom: 6 }}>
+              Analyse des patterns gagnants (format, creneau horaire, longueur de legende) par comparaison des engagements moyens par categorie. La barre de confiance mesure la surperformance vs la moyenne.
+            </Text>
             <View style={{ flexDirection: "row", gap: 8 }}>
               {contentDna.map((pattern, i) => (
                 <View key={i} style={{ flex: 1, borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 8, padding: 10 }}>

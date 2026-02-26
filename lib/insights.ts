@@ -61,7 +61,6 @@ export function generateStrategicInsights(input: InsightsInput): StrategicInsigh
 
   insights.push(...analyzeGrowth(input));
   insights.push(...analyzeEngagement(input));
-  insights.push(...analyzeBestFormats(input));
   insights.push(...analyzeCrossPlatform(input));
   insights.push(...analyzeConsistency(input));
   insights.push(...generateRecommendations(input));
@@ -277,61 +276,6 @@ function analyzeEngagement(input: InsightsInput): StrategicInsight[] {
   return results;
 }
 
-function analyzeBestFormats(input: InsightsInput): StrategicInsight[] {
-  const results: StrategicInsight[] = [];
-
-  // Group posts by media type
-  const byType = new Map<string, { count: number; totalEng: number; totalViews: number }>();
-  for (const post of input.posts) {
-    const type = normalizeMediaType(post.media_type);
-    const existing = byType.get(type) ?? { count: 0, totalEng: 0, totalViews: 0 };
-    existing.count++;
-    existing.totalEng += post.metrics?.engagements ?? (post.metrics?.likes ?? 0) + (post.metrics?.comments ?? 0);
-    existing.totalViews += post.metrics?.impressions ?? post.metrics?.views ?? 0;
-    byType.set(type, existing);
-  }
-
-  if (byType.size < 2) return results;
-
-  // Find best format by avg engagement
-  const formats = Array.from(byType.entries())
-    .filter(([, data]) => data.count >= 2)
-    .map(([type, data]) => ({
-      type,
-      avgEng: data.totalEng / data.count,
-      avgViews: data.totalViews / data.count,
-      count: data.count,
-    }))
-    .sort((a, b) => b.avgEng - a.avgEng);
-
-  if (formats.length >= 2) {
-    const best = formats[0];
-    const comparison = [...formats]
-      .slice(1)
-      .reverse()
-      .find((format) => format.avgEng > 0);
-
-    const typeLabels: Record<string, string> = {
-      reel: "Reels", video: "Videos", image: "Images",
-      carousel: "Carrousels", text: "Publications texte", link: "Liens",
-    };
-
-    const bestLabel = typeLabels[best.type] ?? best.type;
-    const comparisonLabel = comparison ? (typeLabels[comparison.type] ?? comparison.type) : null;
-    const ratio = comparison ? (best.avgEng / comparison.avgEng).toFixed(1) : null;
-
-    results.push({
-      type: "opportunity", category: "content", priority: 3,
-      title: `${bestLabel} : votre format le plus performant`,
-      description: ratio && comparisonLabel
-        ? `Les ${bestLabel.toLowerCase()} generent ${ratio}x plus d'engagement que les ${comparisonLabel.toLowerCase()}. Privilegiez ce format dans votre planning.`
-        : `Les ${bestLabel.toLowerCase()} sont votre format avec le meilleur engagement moyen. Privilegiez ce format dans votre planning.`,
-    });
-  }
-
-  return results;
-}
-
 function analyzeCrossPlatform(input: InsightsInput): StrategicInsight[] {
   const results: StrategicInsight[] = [];
 
@@ -425,16 +369,4 @@ function generateRecommendations(input: InsightsInput): StrategicInsight[] {
   }
 
   return results;
-}
-
-function normalizeMediaType(type?: string): string {
-  if (!type) return "other";
-  const lower = type.toLowerCase();
-  if (lower.includes("reel")) return "reel";
-  if (lower.includes("carousel") || lower.includes("album")) return "carousel";
-  if (lower.includes("video")) return "video";
-  if (lower.includes("image") || lower.includes("photo")) return "image";
-  if (lower.includes("text") || lower.includes("status")) return "text";
-  if (lower.includes("link")) return "link";
-  return lower;
 }

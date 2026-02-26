@@ -101,9 +101,18 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
         // followers value is significantly larger than the typical daily gain,
         // treat it as the absolute total rather than a delta.
         const lastEntry = sorted[sorted.length - 1];
-        const lastValue = lastEntry?.followers ?? 0;
+        let lastValue = lastEntry?.followers ?? 0;
         const dailyGains = sorted.slice(0, -1);
         const maxDailyGain = dailyGains.reduce((max, m) => Math.max(max, m.followers ?? 0), 0);
+
+        // Validate networkSize: if it's suspiciously low compared to baseline, discard it
+        if (lastValue > 0 && baseline > 100 && lastValue < baseline * 0.5) {
+          console.warn(
+            `[sync] LinkedIn networkSize anomaly: networkSize=${lastValue} is <50% of baseline=${baseline} for tenant=${tenantId}, account=${account.id}. Keeping baseline.`
+          );
+          lastValue = 0; // Treat as if networkSize was unavailable
+          if (lastEntry) lastEntry.followers = 0;
+        }
 
         // Heuristic: if lastValue > 10× the max daily gain AND lastValue > 1,
         // it's the absolute total, not a gain.
@@ -120,7 +129,7 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           // Latest date gets the absolute total (or baseline if it's higher —
           // guard against regression to a suspiciously low value).
           lastEntry.followers = Math.max(lastValue, baseline);
-          console.log(`[sync] LinkedIn cumsum: baseline=${baseline}, gains=${dailyGains.length}, absoluteTotal=${lastValue}, final=${lastEntry.followers}`);
+          console.log(`[sync] LinkedIn cumsum: tenant=${tenantId}, account=${account.id}, baseline=${baseline}, gains=${dailyGains.length}, networkSize=${lastValue}, final=${lastEntry.followers}`);
         } else {
           // Standard cumsum: all values are daily gains
           let cumulative = baseline;
@@ -129,15 +138,23 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
             cumulative += delta;
             metric.followers = cumulative;
           }
+          const finalValue = sorted[sorted.length - 1]?.followers ?? 0;
           // Guard: never regress below the baseline
-          if (sorted.length > 0) {
-            const finalValue = sorted[sorted.length - 1].followers ?? 0;
-            if (finalValue < baseline && baseline > 0) {
-              console.warn(`[sync] LinkedIn cumsum result (${finalValue}) < baseline (${baseline}), keeping baseline`);
-              sorted[sorted.length - 1].followers = baseline;
+          if (sorted.length > 0 && finalValue < baseline && baseline > 0) {
+            console.warn(`[sync] LinkedIn cumsum result (${finalValue}) < baseline (${baseline}) for tenant=${tenantId}, account=${account.id}. Keeping baseline.`);
+            sorted[sorted.length - 1].followers = baseline;
+          }
+          // Validate cumul result against networkSize when available
+          if (lastValue > 0 && sorted.length > 0) {
+            const cumulResult = sorted[sorted.length - 1].followers ?? 0;
+            if (Math.abs(cumulResult - lastValue) > lastValue * 0.5) {
+              console.warn(
+                `[sync] LinkedIn cumul/networkSize mismatch: cumulResult=${cumulResult}, networkSize=${lastValue} for tenant=${tenantId}, account=${account.id}. Preferring networkSize.`
+              );
+              sorted[sorted.length - 1].followers = lastValue;
             }
           }
-          console.log(`[sync] LinkedIn cumsum: baseline=${baseline}, gains=${sorted.length}, final=${sorted[sorted.length - 1]?.followers}`);
+          console.log(`[sync] LinkedIn cumsum: tenant=${tenantId}, account=${account.id}, baseline=${baseline}, gains=${sorted.length}, final=${sorted[sorted.length - 1]?.followers}`);
         }
         result.dailyMetrics = sorted;
 

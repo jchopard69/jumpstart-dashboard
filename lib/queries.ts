@@ -529,3 +529,49 @@ export async function fetchDashboardAccounts(params: {
 
   return accounts ?? [];
 }
+
+/**
+ * Shared top posts selection: dedup by platform:external_post_id, sort by visibility+engagement, take top N.
+ * Used by both the dashboard page and the PDF export to ensure identical "Contenus phares".
+ */
+export function selectTopPosts<T extends {
+  id?: string;
+  external_post_id?: string | null;
+  platform?: string | null;
+  created_at?: string | null;
+  metrics?: unknown;
+  media_type?: string | null;
+}>(posts: T[], limit: number): T[] {
+  // Dedup by platform:external_post_id
+  const byKey = new Map<string, T>();
+  for (const post of posts) {
+    const key = `${post.platform ?? ""}:${post.external_post_id ?? post.id ?? ""}`;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, post);
+      continue;
+    }
+
+    const postVis = getPostVisibility(post.metrics as any, post.media_type).value;
+    const existingVis = getPostVisibility(existing.metrics as any, existing.media_type).value;
+    const postEng = getPostEngagements(post.metrics as any);
+    const existingEng = getPostEngagements(existing.metrics as any);
+
+    if (
+      postVis > existingVis ||
+      (postVis === existingVis && postEng > existingEng)
+    ) {
+      byKey.set(key, post);
+    }
+  }
+
+  return Array.from(byKey.values())
+    .sort((a, b) => {
+      const aVis = getPostVisibility(a.metrics as any, a.media_type).value;
+      const bVis = getPostVisibility(b.metrics as any, b.media_type).value;
+      const aEng = getPostEngagements(a.metrics as any);
+      const bEng = getPostEngagements(b.metrics as any);
+      return bVis - aVis || bEng - aEng;
+    })
+    .slice(0, limit);
+}

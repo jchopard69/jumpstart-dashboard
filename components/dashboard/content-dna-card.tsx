@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { ContentDnaResult, ContentPattern } from "@/lib/content-dna";
@@ -35,11 +38,13 @@ function getStrengthStyle(strength: number) {
 }
 
 export function ContentDnaCard({ dna }: ContentDnaCardProps) {
+  const [open, setOpen] = useState(false);
+
   if (dna.patterns.length === 0) return null;
 
   return (
     <Card className="card-surface p-6 fade-in-up">
-      <div className="flex items-center gap-2 mb-5">
+      <div className="flex items-center gap-2 mb-1">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10">
           <svg className="h-4.5 w-4.5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
@@ -47,8 +52,39 @@ export function ContentDnaCard({ dna }: ContentDnaCardProps) {
         </div>
         <div>
           <h2 className="section-title">Content DNA</h2>
-          <p className="text-xs text-muted-foreground">Vos patterns de contenu gagnants.</p>
+          <p className="text-xs text-muted-foreground">
+            Analyse des patterns gagnants sur vos {dna.postsAnalyzed} dernieres publications.
+          </p>
         </div>
+      </div>
+
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <svg
+            className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90")}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+          Comment c'est calcule ?
+        </button>
+        {open && (
+          <div className="mt-2 text-xs text-muted-foreground leading-relaxed space-y-1.5 ml-5">
+            <p>
+              L'analyse porte sur 3 dimensions : <span className="font-medium text-foreground/80">format</span> (type de media),{" "}
+              <span className="font-medium text-foreground/80">creneau horaire</span> et{" "}
+              <span className="font-medium text-foreground/80">longueur de legende</span>.
+            </p>
+            <p>
+              Pour chaque dimension, les engagements moyens par categorie sont compares.
+              La barre de confiance represente la surperformance du pattern vs la moyenne.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">

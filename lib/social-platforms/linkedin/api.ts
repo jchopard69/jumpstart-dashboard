@@ -232,11 +232,13 @@ async function fetchNetworkSize(headers: Record<string, string>, organizationId:
         if (typeof response.firstDegreeSize === 'number') {
           return response.firstDegreeSize;
         }
-      } catch {
+      } catch (error) {
+        console.warn(`[linkedin] fetchNetworkSize failed for org=${organizationId}, edgeType=${edgeType}:`, error);
         continue;
       }
     }
   }
+  console.warn(`[linkedin] fetchNetworkSize returned 0 for org=${organizationId} — all attempts failed`);
   return 0;
 }
 

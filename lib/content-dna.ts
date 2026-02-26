@@ -21,6 +21,7 @@ export type ContentDnaResult = {
   topFormat: string | null;
   bestTimeWindow: string | null;
   optimalCaptionLength: string | null;
+  postsAnalyzed: number;
 };
 
 export type ContentDnaInput = {
@@ -68,7 +69,7 @@ export function analyzeContentDna(input: ContentDnaInput): ContentDnaResult {
   const { posts } = input;
 
   if (posts.length < 3) {
-    return { patterns: [], topFormat: null, bestTimeWindow: null, optimalCaptionLength: null };
+    return { patterns: [], topFormat: null, bestTimeWindow: null, optimalCaptionLength: null, postsAnalyzed: posts.length };
   }
 
   const formatPattern = analyzeFormats(posts);
@@ -87,6 +88,7 @@ export function analyzeContentDna(input: ContentDnaInput): ContentDnaResult {
     topFormat: formatPattern ? formatPattern.label : null,
     bestTimeWindow: timingPattern ? timingPattern.label : null,
     optimalCaptionLength: captionPattern ? captionPattern.label : null,
+    postsAnalyzed: posts.length,
   };
 }
 

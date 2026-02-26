@@ -6,6 +6,7 @@ import { coerceMetric, getPostEngagements, getPostVisibility } from "@/lib/metri
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
 import { generateStrategicInsights, generateKeyTakeaways, generateExecutiveSummary, type InsightsInput } from "@/lib/insights";
 import { analyzeContentDna } from "@/lib/content-dna";
+import { selectTopPosts } from "@/lib/queries";
 import type { Platform } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -224,28 +225,22 @@ export async function GET(request: Request) {
     };
   });
 
-  // Fetch top posts
+  // Fetch top posts — same pool size (100) and dedup logic as dashboard
   const { data: posts } = await supabase
     .from("social_posts")
-    .select("caption,posted_at,metrics,media_type,platform")
+    .select("id,external_post_id,caption,posted_at,metrics,media_type,platform")
     .eq("tenant_id", tenantId)
     .gte("posted_at", range.start.toISOString())
     .lte("posted_at", range.end.toISOString())
     .order("posted_at", { ascending: false })
-    .limit(20);
+    .limit(100);
 
-  const sortedPosts = (posts ?? [])
-    .sort((a, b) => {
-      const aImp = getPostVisibility(a.metrics, a.media_type).value;
-      const bImp = getPostVisibility(b.metrics, b.media_type).value;
-      const aEng = getPostEngagements(a.metrics);
-      const bEng = getPostEngagements(b.metrics);
-      return bImp - aImp || bEng - aEng;
-    })
+  const topPosts = selectTopPosts(posts ?? [], 8);
+
+  const displayPosts = topPosts
     .filter((post) => {
       return getPostVisibility(post.metrics, post.media_type).value > 0 || getPostEngagements(post.metrics) > 0;
     })
-    .slice(0, 8)
     .map((post) => ({
       caption: post.caption ?? "Sans titre",
       date: post.posted_at
@@ -254,26 +249,6 @@ export async function GET(request: Request) {
       visibility: getPostVisibility(post.metrics, post.media_type),
       engagements: getPostEngagements(post.metrics),
     }));
-
-  const displayPosts = sortedPosts.length
-    ? sortedPosts
-    : (posts ?? [])
-        .sort((a, b) => {
-          const aImp = getPostVisibility(a.metrics, a.media_type).value;
-          const bImp = getPostVisibility(b.metrics, b.media_type).value;
-          const aEng = getPostEngagements(a.metrics);
-          const bEng = getPostEngagements(b.metrics);
-          return bImp - aImp || bEng - aEng;
-        })
-        .slice(0, 8)
-        .map((post) => ({
-          caption: post.caption ?? "Sans titre",
-          date: post.posted_at
-            ? new Date(post.posted_at).toLocaleDateString("fr-FR")
-            : "-",
-          visibility: getPostVisibility(post.metrics, post.media_type),
-          engagements: getPostEngagements(post.metrics),
-        }));
 
   // Fetch collaboration data
   const { data: collaboration } = await supabase

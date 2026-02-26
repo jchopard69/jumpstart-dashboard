@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { JumpStartScore } from "@/lib/scoring";
@@ -89,6 +90,52 @@ function SubScoreBar({ label, value, description }: { label: string; value: numb
   );
 }
 
+function ScoreMethodology({ subScores }: { subScores: JumpStartScore["subScores"] }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="border-t border-border/40 mt-6 pt-4">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <svg
+          className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90")}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+        </svg>
+        Comment est calcule ce score ?
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3 text-xs text-muted-foreground leading-relaxed">
+          <p>
+            Le JumpStart Score est un indice composite (0-100) mesurant votre performance digitale
+            sur la periode selectionnee. Il est calcule a partir de 5 composantes :
+          </p>
+          <ul className="space-y-1.5 ml-1">
+            {subScores.map((sub) => (
+              <li key={sub.key} className="flex items-start gap-2">
+                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-purple-400" />
+                <span>
+                  <span className="font-medium text-foreground/80">{sub.label}</span>{" "}
+                  ({Math.round(sub.weight * 100)}%) — {sub.description}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p>
+            Chaque composante est normalisee sur 100 selon des benchmarks sectoriels
+            (ex : taux d'engagement de 3% = 70/100). Le score global est la moyenne
+            ponderee des 5 composantes. La note (A+ a D) facilite la lecture rapide.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps) {
   return (
     <Card className="card-surface p-6 fade-in-up overflow-hidden relative">
@@ -126,7 +173,7 @@ export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps
           ))}
         </div>
 
-        {/* Takeaways */}
+        {/* Takeaways + Methodology */}
         <div className="flex-1 min-w-0 space-y-4">
           <div>
             <p className="section-label mb-3">A retenir</p>
@@ -146,6 +193,8 @@ export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps
           )}
         </div>
       </div>
+
+      <ScoreMethodology subScores={score.subScores} />
     </Card>
   );
 }
