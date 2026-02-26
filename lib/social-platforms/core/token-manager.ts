@@ -337,7 +337,7 @@ export async function refreshAllExpiringTokens(): Promise<{
 
   const { data: expiringAccounts, error } = await supabase
     .from('social_accounts')
-    .select('id, platform')
+    .select('id, platform, tenant_id')
     .lt('token_expires_at', tomorrow.toISOString())
     .eq('auth_status', 'active')
     .not('platform', 'in', '(facebook,instagram)'); // Meta tokens don't need proactive refresh
@@ -346,9 +346,21 @@ export async function refreshAllExpiringTokens(): Promise<{
     throw new Error(`Failed to fetch expiring accounts: ${error.message}`);
   }
 
+  const tenantIds = Array.from(
+    new Set((expiringAccounts ?? []).map((account) => account.tenant_id).filter(Boolean))
+  );
+  const { data: demoTenants } = tenantIds.length
+    ? await supabase.from("tenants").select("id").in("id", tenantIds).eq("is_demo", true)
+    : { data: [] as Array<{ id: string }> };
+  const demoTenantIds = new Set((demoTenants ?? []).map((tenant) => tenant.id));
+
   const results: Array<{ accountId: string; status: 'success' | 'error'; error?: string }> = [];
 
   for (const account of expiringAccounts || []) {
+    if (demoTenantIds.has(account.tenant_id)) {
+      results.push({ accountId: account.id, status: 'success' });
+      continue;
+    }
     try {
       await getValidAccessToken(account.id);
       results.push({ accountId: account.id, status: 'success' });

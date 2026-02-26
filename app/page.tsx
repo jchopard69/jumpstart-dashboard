@@ -22,6 +22,9 @@ export default function HomePage() {
             <Link href="/login" className={cn(buttonVariants({ variant: "default" }))}>
               Se connecter
             </Link>
+            <Link href="/demo" className={cn(buttonVariants({ variant: "secondary" }))}>
+              Tester la démo
+            </Link>
             <Link href="/privacy" className={cn(buttonVariants({ variant: "outline" }))}>
               Politique de confidentialité
             </Link>

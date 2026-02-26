@@ -1,12 +1,22 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
-import { resolveDateRange, buildPreviousRange } from "@/lib/date";
-import { coerceMetric, getPostEngagements, getPostVisibility } from "@/lib/metrics";
+import { getPostEngagements, getPostVisibility } from "@/lib/metrics";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
-import { generateStrategicInsights, generateKeyTakeaways, generateExecutiveSummary, type InsightsInput } from "@/lib/insights";
+import {
+  generateStrategicInsights,
+  generateKeyTakeaways,
+  generateExecutiveSummary,
+  type InsightsInput,
+} from "@/lib/insights";
 import { analyzeContentDna } from "@/lib/content-dna";
-import { selectTopPosts } from "@/lib/queries";
+import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
+import { selectDisplayTopPosts } from "@/lib/top-posts";
+import {
+  getDemoPdfWatermarkText,
+  shouldUseDemoPdfWatermark,
+  isDemoTenant,
+} from "@/lib/demo";
 import type { Platform } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -30,271 +40,81 @@ export async function GET(request: Request) {
     return Response.json({ error: "Profile missing" }, { status: 403 });
   }
 
-  const isAdmin = profile.role === "agency_admin" && searchParams.get("tenantId");
-  const tenantId = isAdmin
-    ? searchParams.get("tenantId")
-    : profile.tenant_id;
-
-  // Use service client for admins viewing client data (bypasses RLS)
-  const supabase = isAdmin ? createSupabaseServiceClient() : authClient;
+  const requestedTenantId = searchParams.get("tenantId") ?? undefined;
+  const isAdmin = profile.role === "agency_admin" && !!requestedTenantId;
+  const tenantId = isAdmin ? requestedTenantId! : profile.tenant_id;
 
   if (!tenantId) {
     return Response.json({ error: "Tenant missing" }, { status: 403 });
   }
 
+  const supabase = isAdmin ? createSupabaseServiceClient() : authClient;
+
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("name")
+    .select("name,is_demo")
     .eq("id", tenantId)
     .single();
 
   const preset = (searchParams.get("preset") ?? "last_30_days") as any;
-  const range = resolveDateRange(
+  const accountId = searchParams.get("accountId") ?? undefined;
+  const platformParam = searchParams.get("platform") as Platform | "all" | null;
+
+  const accounts = await fetchDashboardAccounts({
+    profile,
+    tenantId: requestedTenantId,
+  });
+  const platformList = Array.from(new Set(accounts.map((account) => account.platform)));
+
+  const data = await fetchDashboardData({
     preset,
-    searchParams.get("from") ?? undefined,
-    searchParams.get("to") ?? undefined
-  );
-  const prevRange = buildPreviousRange(range);
+    from: searchParams.get("from") ?? undefined,
+    to: searchParams.get("to") ?? undefined,
+    platform: (platformParam as Platform | "all") ?? "all",
+    socialAccountId: accountId,
+    platforms: platformList,
+    profile,
+    tenantId: requestedTenantId,
+  });
 
-  const platformParam = searchParams.get("platform");
-  const platform =
-    platformParam && platformParam !== "all" ? (platformParam as Platform) : null;
-
-  // Fetch current period metrics
-  let metricsQuery = supabase
-    .from("social_daily_metrics")
-    .select(
-      "date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform"
-    )
-    .eq("tenant_id", tenantId)
-    .gte("date", range.start.toISOString().slice(0, 10))
-    .lte("date", range.end.toISOString().slice(0, 10));
-
-  // Fetch previous period metrics
-  let prevMetricsQuery = supabase
-    .from("social_daily_metrics")
-    .select(
-      "date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform"
-    )
-    .eq("tenant_id", tenantId)
-    .gte("date", prevRange.start.toISOString().slice(0, 10))
-    .lte("date", prevRange.end.toISOString().slice(0, 10));
-
-  if (platform) {
-    metricsQuery = metricsQuery.eq("platform", platform);
-    prevMetricsQuery = prevMetricsQuery.eq("platform", platform);
-  }
-
-  const [{ data: metrics }, { data: prevMetrics }] = await Promise.all([
-    metricsQuery.order("date", { ascending: true }),
-    prevMetricsQuery.order("date", { ascending: true }),
-  ]);
-
-  // Calculate followers (latest value per account)
-  const sumLatestFollowers = (
-    rows?: Array<{
-      social_account_id?: string | null;
-      date?: string | null;
-      followers?: number | string | null;
-    }>
-  ) => {
-    if (!rows?.length) return 0;
-    const latestByAccount = new Map<string, { date: string; followers: number }>();
-    for (const row of rows) {
-      if (!row.social_account_id || row.followers == null || !row.date) continue;
-      const existing = latestByAccount.get(row.social_account_id);
-      if (!existing || row.date > existing.date) {
-        latestByAccount.set(row.social_account_id, {
-          date: row.date,
-          followers: coerceMetric(row.followers),
-        });
-      }
-    }
-    let total = 0;
-    for (const entry of latestByAccount.values()) {
-      total += entry.followers;
-    }
-    return total;
+  const totals = {
+    followers: data.totals?.followers ?? 0,
+    views: data.totals?.views ?? 0,
+    reach: data.totals?.reach ?? 0,
+    engagements: data.totals?.engagements ?? 0,
+    posts_count: data.totals?.posts_count ?? 0,
   };
 
-  const followersCurrent = sumLatestFollowers(metrics ?? undefined);
-  const followersPrev = sumLatestFollowers(prevMetrics ?? undefined);
-
-  // Calculate totals
-  const totals = (metrics ?? []).reduce(
+  const prevTotals = (data.prevMetrics ?? []).reduce(
     (acc, row) => {
-      acc.impressions += coerceMetric(row.impressions);
-      acc.reach += coerceMetric(row.reach);
-      acc.engagements += coerceMetric(row.engagements);
-      acc.views += coerceMetric(row.views);
-      acc.watch_time += coerceMetric(row.watch_time);
-      acc.posts_count += coerceMetric(row.posts_count);
+      acc.views += row.views ?? 0;
+      acc.reach += row.reach ?? 0;
+      acc.engagements += row.engagements ?? 0;
       return acc;
     },
-    {
-      followers: followersCurrent,
-      impressions: 0,
-      reach: 0,
-      engagements: 0,
-      views: 0,
-      watch_time: 0,
-      posts_count: 0,
-    }
+    { followers: 0, views: 0, reach: 0, engagements: 0, postsCount: 0 }
   );
+  const prevFollowers =
+    data.delta.followers !== 0 && totals.followers
+      ? Math.round(totals.followers / (1 + data.delta.followers / 100))
+      : totals.followers;
+  prevTotals.followers = prevFollowers;
 
-  const prevTotals = (prevMetrics ?? []).reduce(
-    (acc, row) => {
-      acc.impressions += coerceMetric(row.impressions);
-      acc.reach += coerceMetric(row.reach);
-      acc.engagements += coerceMetric(row.engagements);
-      acc.views += coerceMetric(row.views);
-      acc.watch_time += coerceMetric(row.watch_time);
-      acc.posts_count += coerceMetric(row.posts_count);
-      return acc;
-    },
-    {
-      followers: followersPrev,
-      impressions: 0,
-      reach: 0,
-      engagements: 0,
-      views: 0,
-      watch_time: 0,
-      posts_count: 0,
-    }
-  );
-
-  // Calculate deltas
   const calcDelta = (current: number, previous: number) =>
     previous ? ((current - previous) / previous) * 100 : 0;
 
-  const delta = {
-    followers: calcDelta(totals.followers, prevTotals.followers),
-    impressions: calcDelta(totals.impressions, prevTotals.impressions),
-    reach: calcDelta(totals.reach, prevTotals.reach),
-    engagements: calcDelta(totals.engagements, prevTotals.engagements),
-    views: calcDelta(totals.views, prevTotals.views),
-    posts_count: calcDelta(totals.posts_count, prevTotals.posts_count),
-  };
-
-
-  // Build platform summaries
-  const platformsSet = new Set(
-    (metrics ?? []).map((row) => row.platform).filter(Boolean)
-  );
-  const platforms = Array.from(platformsSet).map((p) => {
-    const currentRows = (metrics ?? []).filter((row) => row.platform === p);
-    const prevRows = (prevMetrics ?? []).filter((row) => row.platform === p);
-
-    const currentFollowers = sumLatestFollowers(currentRows);
-    const prevFollowers = sumLatestFollowers(prevRows);
-
-    const platformTotals = currentRows.reduce(
-      (acc, row) => {
-        acc.impressions += coerceMetric(row.impressions);
-        acc.reach += coerceMetric(row.reach);
-        acc.engagements += coerceMetric(row.engagements);
-        acc.views += coerceMetric(row.views);
-        acc.posts_count += coerceMetric(row.posts_count);
-        return acc;
-      },
-      { followers: currentFollowers, impressions: 0, reach: 0, engagements: 0, views: 0, posts_count: 0 }
-    );
-
-    const platformPrevTotals = prevRows.reduce(
-      (acc, row) => {
-        acc.impressions += coerceMetric(row.impressions);
-        acc.reach += coerceMetric(row.reach);
-        acc.engagements += coerceMetric(row.engagements);
-        acc.views += coerceMetric(row.views);
-        acc.posts_count += coerceMetric(row.posts_count);
-        return acc;
-      },
-      { followers: prevFollowers, impressions: 0, reach: 0, engagements: 0, views: 0, posts_count: 0 }
-    );
-
-    return {
-      platform: p as string,
-      totals: platformTotals,
-      delta: {
-        followers: calcDelta(platformTotals.followers, platformPrevTotals.followers),
-        views: calcDelta(platformTotals.views, platformPrevTotals.views),
-        reach: calcDelta(platformTotals.reach, platformPrevTotals.reach),
-        engagements: calcDelta(platformTotals.engagements, platformPrevTotals.engagements),
-        posts_count: calcDelta(platformTotals.posts_count, platformPrevTotals.posts_count),
-      },
-    };
-  });
-
-  // Fetch top posts — same pool size (100), platform filter, and dedup logic as dashboard
-  let postsQuery = supabase
-    .from("social_posts")
-    .select("id,external_post_id,caption,posted_at,metrics,media_type,platform,created_at")
-    .eq("tenant_id", tenantId)
-    .gte("posted_at", range.start.toISOString())
-    .lte("posted_at", range.end.toISOString());
-
-  if (platform) {
-    postsQuery = postsQuery.eq("platform", platform);
-  }
-
-  const { data: posts } = await postsQuery
-    .order("posted_at", { ascending: false })
-    .limit(100);
-
-  const topPosts = selectTopPosts(posts ?? [], 8);
-
-  // Filter posts with metrics, with fallback to unfiltered (same as dashboard TopPosts component)
-  const postsWithMetrics = topPosts.filter((post) => {
-    return getPostVisibility(post.metrics, post.media_type).value > 0 || getPostEngagements(post.metrics) > 0;
-  });
-  const displayPosts = (postsWithMetrics.length > 0 ? postsWithMetrics : topPosts)
-    .map((post) => ({
-      caption: post.caption ?? "Sans titre",
-      date: post.posted_at
-        ? new Date(post.posted_at).toLocaleDateString("fr-FR")
-        : "-",
-      visibility: getPostVisibility(post.metrics, post.media_type),
-      engagements: getPostEngagements(post.metrics),
-    }));
-
-  // Fetch collaboration data
-  const { data: collaboration } = await supabase
-    .from("collaboration")
-    .select("shoot_days_remaining")
-    .eq("tenant_id", tenantId)
-    .single();
-
-  const { data: shoots } = await supabase
-    .from("upcoming_shoots")
-    .select("shoot_date,location")
-    .eq("tenant_id", tenantId)
-    .order("shoot_date", { ascending: true })
-    .limit(5);
-
-  const { data: documents } = await supabase
-    .from("documents")
-    .select("file_name,tag")
-    .eq("tenant_id", tenantId)
-    .order("pinned", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(6);
-
-  // Format rate for engagement
-  const engagementRate = totals.views
-    ? (totals.engagements / totals.views) * 100
-    : 0;
+  const engagementRate = totals.views ? (totals.engagements / totals.views) * 100 : 0;
   const prevEngagementRate = prevTotals.views
     ? (prevTotals.engagements / prevTotals.views) * 100
     : 0;
   const engagementDelta = calcDelta(engagementRate, prevEngagementRate);
 
-  // Build KPIs
   const kpis = [
-    { label: "Abonnés", value: totals.followers, delta: delta.followers },
-    { label: "Vues", value: totals.views, delta: delta.views },
-    { label: "Portée", value: totals.reach, delta: delta.reach },
-    { label: "Engagements", value: totals.engagements, delta: delta.engagements },
-    { label: "Publications", value: totals.posts_count, delta: delta.posts_count },
+    { label: "Abonnés", value: totals.followers, delta: data.delta.followers },
+    { label: "Vues", value: totals.views, delta: data.delta.views },
+    { label: "Portée", value: totals.reach, delta: data.delta.reach },
+    { label: "Engagements", value: totals.engagements, delta: data.delta.engagements },
+    { label: "Publications", value: totals.posts_count, delta: data.delta.posts_count },
     {
       label: "Taux d'engagement",
       value: Math.round(engagementRate * 10) / 10,
@@ -303,9 +123,11 @@ export async function GET(request: Request) {
     },
   ];
 
-  // Compute JumpStart Score for PDF
   const msDay = 24 * 60 * 60 * 1000;
-  const periodDays = Math.max(1, Math.round((range.end.getTime() - range.start.getTime()) / msDay));
+  const periodDays = data.range
+    ? Math.max(1, Math.round((data.range.end.getTime() - data.range.start.getTime()) / msDay))
+    : 30;
+
   const scoreInput: ScoreInput = {
     followers: totals.followers,
     views: totals.views,
@@ -316,70 +138,122 @@ export async function GET(request: Request) {
     prevViews: prevTotals.views,
     prevReach: prevTotals.reach,
     prevEngagements: prevTotals.engagements,
-    prevPostsCount: prevTotals.posts_count,
+    prevPostsCount: prevTotals.postsCount,
     periodDays,
   };
   const jumpStartScore = computeJumpStartScore(scoreInput);
 
-  // Generate insights for PDF
   const insightsInput: InsightsInput = {
-    totals: { followers: totals.followers, views: totals.views, reach: totals.reach, engagements: totals.engagements, postsCount: totals.posts_count },
-    prevTotals: { followers: prevTotals.followers, views: prevTotals.views, reach: prevTotals.reach, engagements: prevTotals.engagements, postsCount: prevTotals.posts_count },
-    platforms: platforms.map(p => ({ platform: p.platform as Platform, totals: p.totals, delta: p.delta })),
-    posts: (posts ?? []).map(p => ({ metrics: p.metrics as any, posted_at: p.posted_at })),
+    totals: {
+      followers: totals.followers,
+      views: totals.views,
+      reach: totals.reach,
+      engagements: totals.engagements,
+      postsCount: totals.posts_count,
+    },
+    prevTotals: {
+      followers: prevTotals.followers,
+      views: prevTotals.views,
+      reach: prevTotals.reach,
+      engagements: prevTotals.engagements,
+      postsCount: prevTotals.postsCount,
+    },
+    platforms: data.perPlatform.map((platform) => ({
+      platform: platform.platform,
+      totals: platform.totals,
+      delta:
+        platform.delta ?? {
+          followers: 0,
+          views: 0,
+          reach: 0,
+          engagements: 0,
+          posts_count: 0,
+        },
+    })),
+    posts: data.posts.map((post) => ({
+      platform: post.platform as Platform,
+      media_type: post.media_type,
+      posted_at: post.posted_at,
+      metrics: post.metrics as any,
+    })),
     score: jumpStartScore,
     periodDays,
   };
+
   const pdfInsights = generateStrategicInsights(insightsInput);
   const pdfTakeaways = generateKeyTakeaways(insightsInput);
   const pdfSummary = generateExecutiveSummary(insightsInput);
 
-  // Content DNA analysis
   const contentDna = analyzeContentDna({
-    posts: (posts ?? []).map(p => ({
-      platform: p.platform as Platform | undefined,
-      media_type: p.media_type,
-      posted_at: p.posted_at,
-      caption: p.caption,
-      metrics: p.metrics as any,
+    posts: data.posts.map((post) => ({
+      platform: post.platform as Platform,
+      media_type: post.media_type,
+      posted_at: post.posted_at,
+      caption: post.caption,
+      metrics: post.metrics as any,
     })),
   });
 
+  const displayTopPosts = selectDisplayTopPosts(data.posts.slice(0, 10), 10)
+    .slice(0, 8)
+    .map((post) => ({
+      caption: post.caption ?? "Sans titre",
+      date: post.posted_at ? new Date(post.posted_at).toLocaleDateString("fr-FR") : "-",
+      visibility: getPostVisibility(post.metrics, post.media_type),
+      engagements: getPostEngagements(post.metrics),
+    }));
+
+  const isDemo = Boolean(tenant?.is_demo) || (await isDemoTenant(tenantId));
+  const watermark = isDemo && shouldUseDemoPdfWatermark() ? getDemoPdfWatermarkText() : undefined;
+
   const documentProps: PdfDocumentProps = {
     tenantName: tenant?.name ?? "Client",
-    rangeLabel: `${range.start.toLocaleDateString("fr-FR")} - ${range.end.toLocaleDateString("fr-FR")}`,
-    prevRangeLabel: `${prevRange.start.toLocaleDateString("fr-FR")} - ${prevRange.end.toLocaleDateString("fr-FR")}`,
+    rangeLabel: `${data.range.start.toLocaleDateString("fr-FR")} - ${data.range.end.toLocaleDateString("fr-FR")}`,
+    prevRangeLabel: `${data.prevRange.start.toLocaleDateString("fr-FR")} - ${data.prevRange.end.toLocaleDateString("fr-FR")}`,
     generatedAt: new Date().toLocaleString("fr-FR"),
     kpis,
-    platforms,
-    posts: displayPosts,
-    shootDays: collaboration?.shoot_days_remaining ?? 0,
-    shoots: (shoots ?? []).map((shoot) => ({
+    platforms: data.perPlatform.map((item) => ({
+      platform: item.platform,
+      totals: item.totals,
+      delta: item.delta,
+    })),
+    posts: displayTopPosts,
+    shootDays: data.collaboration?.shoot_days_remaining ?? 0,
+    shoots: (data.shoots ?? []).slice(0, 5).map((shoot) => ({
       date: new Date(shoot.shoot_date).toLocaleDateString("fr-FR"),
       location: shoot.location ?? "",
     })),
-    documents: (documents ?? []).map((doc) => ({
+    documents: (data.documents ?? []).slice(0, 6).map((doc) => ({
       name: doc.file_name,
       tag: doc.tag,
     })),
     score: jumpStartScore,
     keyTakeaways: pdfTakeaways,
     executiveSummary: pdfSummary,
-    insights: pdfInsights.map(i => ({ title: i.title, description: i.description })),
-    contentDna: contentDna.patterns.length > 0 ? contentDna.patterns.map(p => ({
-      label: p.label,
-      insight: p.insight,
-      detail: p.detail,
-      strength: p.strength,
-    })) : undefined,
+    insights: pdfInsights.map((insight) => ({
+      title: insight.title,
+      description: insight.description,
+    })),
+    contentDna:
+      contentDna.patterns.length > 0
+        ? contentDna.patterns.map((pattern) => ({
+            label: pattern.label,
+            insight: pattern.insight,
+            detail: pattern.detail,
+            strength: pattern.strength,
+          }))
+        : undefined,
+    watermark,
   };
 
   try {
     const pdfBuffer = await renderToBuffer(PdfDocument(documentProps));
-
-    const safeName = (tenant?.name ?? "client").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "");
-    const dateFrom = range.start.toISOString().slice(0, 10);
-    const dateTo = range.end.toISOString().slice(0, 10);
+    const safeName = (tenant?.name ?? "client")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/-+$/, "");
+    const dateFrom = data.range.start.toISOString().slice(0, 10);
+    const dateTo = data.range.end.toISOString().slice(0, 10);
 
     return new Response(new Uint8Array(pdfBuffer), {
       headers: {
@@ -389,7 +263,10 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("[pdf] generation failed", error);
-    return Response.json({ error: "Une erreur est survenue lors de la génération du PDF." }, { status: 500 });
+    return Response.json(
+      { error: "Une erreur est survenue lors de la génération du PDF." },
+      { status: 500 }
+    );
   }
 }
 

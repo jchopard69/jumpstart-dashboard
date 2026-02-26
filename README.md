@@ -118,7 +118,12 @@ npm run build         # Production build
 npm run start         # Start production server
 npm run lint          # ESLint
 npm run security-check # Vérification isolation tenant
+npm run seed:demo     # Seed du workspace demo
 ```
+
+## Compte demo
+
+La documentation complete est disponible dans `README-DEMO.md`.
 
 ## Déploiement Vercel
 

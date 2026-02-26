@@ -5,6 +5,7 @@ import { fetchInstagramMediaBackfill, fetchInstagramReachSeries, fetchInstagramT
 import { fetchLinkedInDailyStats, fetchLinkedInPostsBackfill } from "@/lib/social-platforms/linkedin/backfill";
 import { apiRequest, buildUrl } from "@/lib/social-platforms/core/api-client";
 import { META_CONFIG } from "@/lib/social-platforms/meta/config";
+import { isDemoTenant, logDemoAccess } from "@/lib/demo";
 
 function validateAuth(request: Request): boolean {
   const cronSecret = process.env.CRON_SECRET;
@@ -64,6 +65,8 @@ export async function POST(request: Request) {
     return true;
   });
 
+  const tenantDemoCache = new Map<string, boolean>();
+
   const secret = process.env.ENCRYPTION_SECRET;
   if (!secret) {
     console.error("[backfill] ENCRYPTION_SECRET not configured");
@@ -73,6 +76,17 @@ export async function POST(request: Request) {
   const results: Array<{ id: string; platform: string; status: string; message?: string }> = [];
 
   for (const account of filtered) {
+    let tenantIsDemo = tenantDemoCache.get(account.tenant_id);
+    if (tenantIsDemo === undefined) {
+      tenantIsDemo = await isDemoTenant(account.tenant_id, supabase);
+      tenantDemoCache.set(account.tenant_id, tenantIsDemo);
+    }
+    if (tenantIsDemo) {
+      logDemoAccess("backfill_skipped", { tenantId: account.tenant_id, socialAccountId: account.id });
+      results.push({ id: account.id, platform: account.platform, status: "skipped", message: "demo_tenant" });
+      continue;
+    }
+
     if (account.platform !== "instagram" && account.platform !== "linkedin") {
       results.push({ id: account.id, platform: account.platform, status: "skipped" });
       continue;

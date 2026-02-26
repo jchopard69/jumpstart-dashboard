@@ -82,11 +82,12 @@ const PLATFORMS: PlatformConfig[] = [
 
 interface Props {
   tenantId: string;
+  isDemo?: boolean;
   accounts: ConnectedAccount[];
   onDelete: (accountId: string) => void;
 }
 
-export function PlatformConnections({ tenantId, accounts, onDelete }: Props) {
+export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Props) {
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<{
     type: "success" | "error";
@@ -277,7 +278,7 @@ export function PlatformConnections({ tenantId, accounts, onDelete }: Props) {
                         size="sm"
                         className="text-rose-600 hover:text-rose-700 hover:bg-rose-100"
                         onClick={() => handleDelete(account.id)}
-                        disabled={deleting === account.id}
+                        disabled={Boolean(isDemo) || deleting === account.id}
                       >
                         {deleting === account.id ? "..." : "✕"}
                       </Button>
@@ -288,14 +289,24 @@ export function PlatformConnections({ tenantId, accounts, onDelete }: Props) {
 
               {/* Connect Button */}
               <div className="mt-4">
-                <a href={`${platform.oauthPath}?tenantId=${tenantId}`}>
+                {isDemo ? (
                   <Button
-                    variant={isConnected ? "secondary" : "default"}
+                    variant="secondary"
                     className="w-full"
+                    disabled
                   >
-                    {isConnected ? "Ajouter un autre compte" : "Connecter"}
+                    Désactivé en démo
                   </Button>
-                </a>
+                ) : (
+                  <a href={`${platform.oauthPath}?tenantId=${tenantId}`}>
+                    <Button
+                      variant={isConnected ? "secondary" : "default"}
+                      className="w-full"
+                    >
+                      {isConnected ? "Ajouter un autre compte" : "Connecter"}
+                    </Button>
+                  </a>
+                )}
               </div>
             </Card>
           );

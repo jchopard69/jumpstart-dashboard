@@ -1,9 +1,8 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,39 +23,36 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
 
+  useEffect(() => {
+    const fromUrl = searchParams.get("email");
+    if (fromUrl) {
+      setEmail(fromUrl);
+    }
+  }, [searchParams]);
+
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
-    const supabase = createSupabaseBrowserClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    setLoading(false);
-    if (signInError) {
-      if (signInError.message === "Invalid login credentials") {
-        setError(
-          "Identifiants incorrects. Si vous venez de recevoir une invitation, cliquez d'abord sur le lien dans l'email pour creer votre mot de passe."
-        );
-      } else if (signInError.message === "Email not confirmed") {
-        setError("Votre email n'a pas encore ete confirme. Verifiez votre boite de reception.");
-      } else {
-        setError(signInError.message);
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(payload?.error || "Échec de la connexion.");
+        return;
       }
-      return;
-    }
-    // Fetch profile by auth user id (more robust than email)
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role,tenant_id")
-      .eq("id", user?.id ?? "")
-      .single();
-    if (profile?.role === "agency_admin") {
-      router.push("/admin");
-    } else {
-      router.push("/client/dashboard");
+      router.push(payload?.redirectTo || "/client/dashboard");
+      router.refresh();
+    } catch {
+      setError("Échec de la connexion.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -102,6 +98,11 @@ function LoginForm() {
           <Button className="w-full" disabled={loading}>
             {loading ? "Connexion..." : "Se connecter"}
           </Button>
+          <div className="pt-1 text-center">
+            <Link href="/demo" className="text-xs text-muted-foreground underline hover:text-foreground">
+              Tester le compte démo
+            </Link>
+          </div>
         </form>
       </CardContent>
     </Card>

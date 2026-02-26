@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getSessionProfile } from "@/lib/auth";
+import { getSessionProfile, getUserTenants } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
@@ -24,6 +24,9 @@ import { analyzeBestTime } from "@/lib/best-time";
 import { fetchTenantGoals } from "@/lib/goals";
 import { ScoreTrend } from "@/components/dashboard/score-trend";
 import { BestTimeHeatmap } from "@/components/dashboard/best-time-heatmap";
+import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { getDemoContactHref } from "@/lib/demo";
+import { cookies } from "next/headers";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -44,6 +47,25 @@ export default async function ClientDashboardPage({
   const profile = await getSessionProfile();
   if (profile.role === "agency_admin" && !searchParams.tenantId) {
     redirect("/admin");
+  }
+
+  const tenantAccess = profile.role === "agency_admin" ? [] : await getUserTenants(profile.id);
+  const cookieStore = cookies();
+  const cookieTenantId = cookieStore.get("active_tenant_id")?.value;
+  const fallbackTenantId =
+    searchParams.tenantId ||
+    ((cookieTenantId && tenantAccess.some((t) => t.id === cookieTenantId))
+      ? cookieTenantId
+      : profile.tenant_id || tenantAccess[0]?.id || "");
+  let isDemoTenant = Boolean(tenantAccess.find((tenant) => tenant.id === fallbackTenantId)?.is_demo);
+  if (profile.role === "agency_admin" && searchParams.tenantId) {
+    const supabase = createSupabaseServiceClient();
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("is_demo")
+      .eq("id", searchParams.tenantId)
+      .maybeSingle();
+    isDemoTenant = Boolean(tenant?.is_demo);
   }
 
   const preset = (searchParams.preset ?? "last_30_days") as any;
@@ -349,6 +371,25 @@ export default async function ClientDashboardPage({
           />
         </div>
       </section>
+
+      {isDemoTenant && (
+        <section className="rounded-2xl border border-amber-200/70 bg-amber-50/85 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Mode démo</p>
+              <p className="mt-1 text-sm text-amber-900">
+                Ce workspace utilise des données fictives premium, anonymisées et non contractuelles.
+              </p>
+            </div>
+            <a
+              href={getDemoContactHref()}
+              className="text-sm font-semibold text-amber-800 underline underline-offset-4"
+            >
+              Demander une démo personnalisée
+            </a>
+          </div>
+        </section>
+      )}
 
       {showMissingDataWarning && (
         <section className="rounded-2xl border border-amber-200/60 bg-amber-50/80 p-4">

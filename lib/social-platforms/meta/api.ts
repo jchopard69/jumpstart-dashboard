@@ -549,7 +549,7 @@ export const facebookConnector: Connector = {
     console.log(`[facebook] Page info: followers=${pageInfo.followers_count ?? pageInfo.fan_count ?? 0}`);
 
     // Fetch page insights with pagination
-    let insights: MetaInsight[] = [];
+    const insights: MetaInsight[] = [];
     let insightsError: string | null = null;
 
     // Try each metric individually to handle unavailable metrics gracefully

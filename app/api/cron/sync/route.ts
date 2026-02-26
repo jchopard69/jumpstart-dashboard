@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runGlobalSync, runTenantSync } from "@/lib/sync";
 import type { Platform } from "@/lib/types";
+import { isDemoTenant, logDemoAccess } from "@/lib/demo";
 
 /**
  * Validate authorization using Bearer token
@@ -45,6 +46,16 @@ export async function POST(request: Request) {
     console.log("[cron] Starting sync", { tenantId, platform });
 
     if (tenantId) {
+      if (await isDemoTenant(tenantId)) {
+        logDemoAccess("cron_sync_skipped", { tenantId, platform: platform ?? "all" });
+        return NextResponse.json({
+          ok: true,
+          duration: Date.now() - startTime,
+          scope: `tenant:${tenantId}`,
+          platform: platform || "all",
+          skipped: "demo_tenant",
+        });
+      }
       await runTenantSync(tenantId, platform ?? undefined);
     } else {
       await runGlobalSync();

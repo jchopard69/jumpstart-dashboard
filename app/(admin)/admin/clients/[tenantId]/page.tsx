@@ -42,7 +42,12 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
   const profile = await getSessionProfile();
   requireAdmin(profile);
   const supabase = createSupabaseServiceClient();
-  const { data: tenant } = await supabase.from("tenants").select("id,name,slug").eq("id", params.tenantId).single();
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("id,name,slug,is_demo")
+    .eq("id", params.tenantId)
+    .single();
+  const isDemoTenant = Boolean(tenant?.is_demo);
   const { data: users } = await supabase
     .from("profiles")
     .select("id,email,full_name,role,created_at")
@@ -113,6 +118,7 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="secondary">Workspace client</Badge>
+            {isDemoTenant && <Badge variant="outline">MODE DÉMO</Badge>}
             <a
               className="text-sm font-medium text-primary underline"
               href={`/client/dashboard?tenantId=${params.tenantId}`}
@@ -130,16 +136,20 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="section-title">Synchronisation immédiate</h2>
-            <p className="text-sm text-muted-foreground">Lancer un refresh complet pour ce client.</p>
+            <p className="text-sm text-muted-foreground">
+              {isDemoTenant
+                ? "Le mode démo est en lecture seule: la synchro et les connexions externes sont bloquées."
+                : "Lancer un refresh complet pour ce client."}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <form action={triggerTenantSync}>
               <input type="hidden" name="tenant_id" value={params.tenantId} />
-              <Button type="submit">Lancer la synchro</Button>
+              <Button type="submit" disabled={isDemoTenant}>Lancer la synchro</Button>
             </form>
             <form action={resetLinkedInData}>
               <input type="hidden" name="tenant_id" value={params.tenantId} />
-              <Button variant="outline" type="submit">Reset LinkedIn</Button>
+              <Button variant="outline" type="submit" disabled={isDemoTenant}>Reset LinkedIn</Button>
             </form>
           </div>
         </div>
@@ -147,7 +157,13 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
 
       <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Inviter un utilisateur</h2>
-        <InviteUserForm tenantId={params.tenantId} action={inviteUser} />
+        {isDemoTenant ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Les invitations sont désactivées pour le workspace démo.
+          </p>
+        ) : (
+          <InviteUserForm tenantId={params.tenantId} action={inviteUser} />
+        )}
 
         <div className="mt-6">
           <Table className="table-premium">
@@ -173,6 +189,7 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
 
       <SocialAccountsSection
         tenantId={params.tenantId}
+        isDemo={isDemoTenant}
         accounts={(accounts ?? []).map((a) => ({
           ...a,
           platform: a.platform as Platform,
@@ -186,26 +203,26 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
         <form action={updateTenantGoals} className="mt-4 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
           <div>
             <Label>Abonnés cible</Label>
-            <Input name="followers_target" type="number" placeholder="Ex: 10000" defaultValue={goals?.followers_target ?? ""} />
+            <Input name="followers_target" type="number" placeholder="Ex: 10000" defaultValue={goals?.followers_target ?? ""} disabled={isDemoTenant} />
           </div>
           <div>
             <Label>Taux d'engagement cible (%)</Label>
-            <Input name="engagement_rate_target" type="number" step="0.1" placeholder="Ex: 3.5" defaultValue={goals?.engagement_rate_target ?? ""} />
+            <Input name="engagement_rate_target" type="number" step="0.1" placeholder="Ex: 3.5" defaultValue={goals?.engagement_rate_target ?? ""} disabled={isDemoTenant} />
           </div>
           <div>
             <Label>Posts / semaine</Label>
-            <Input name="posts_per_week_target" type="number" placeholder="Ex: 4" defaultValue={goals?.posts_per_week_target ?? ""} />
+            <Input name="posts_per_week_target" type="number" placeholder="Ex: 4" defaultValue={goals?.posts_per_week_target ?? ""} disabled={isDemoTenant} />
           </div>
           <div>
             <Label>Portée cible</Label>
-            <Input name="reach_target" type="number" placeholder="Ex: 50000" defaultValue={goals?.reach_target ?? ""} />
+            <Input name="reach_target" type="number" placeholder="Ex: 50000" defaultValue={goals?.reach_target ?? ""} disabled={isDemoTenant} />
           </div>
           <div>
             <Label>Vues cible</Label>
-            <Input name="views_target" type="number" placeholder="Ex: 100000" defaultValue={goals?.views_target ?? ""} />
+            <Input name="views_target" type="number" placeholder="Ex: 100000" defaultValue={goals?.views_target ?? ""} disabled={isDemoTenant} />
           </div>
           <input type="hidden" name="tenant_id" value={params.tenantId} />
-          <Button type="submit">Sauvegarder les objectifs</Button>
+          <Button type="submit" disabled={isDemoTenant}>Sauvegarder les objectifs</Button>
         </form>
       </Card>
 
@@ -214,24 +231,24 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
         <form action={updateCollaboration} className="mt-4 grid gap-4 md:grid-cols-3">
           <div>
             <Label>Jours de shooting restants</Label>
-            <Input name="shoot_days_remaining" type="number" defaultValue={collaboration?.shoot_days_remaining ?? 0} />
+            <Input name="shoot_days_remaining" type="number" defaultValue={collaboration?.shoot_days_remaining ?? 0} disabled={isDemoTenant} />
           </div>
           <div className="md:col-span-2">
             <Label>Notes internes</Label>
-            <Input name="notes" defaultValue={collaboration?.notes ?? ""} />
+            <Input name="notes" defaultValue={collaboration?.notes ?? ""} disabled={isDemoTenant} />
           </div>
           <input type="hidden" name="tenant_id" value={params.tenantId} />
-          <Button type="submit">Mettre à jour</Button>
+          <Button type="submit" disabled={isDemoTenant}>Mettre à jour</Button>
         </form>
 
         <div className="mt-6">
           <h3 className="text-sm font-semibold">Shootings à venir</h3>
           <form action={addUpcomingShoot} className="mt-2 grid gap-3 md:grid-cols-4">
-            <Input name="shoot_date" type="datetime-local" required />
-            <Input name="location" placeholder="Lieu" />
-            <Input name="notes" placeholder="Notes" />
+            <Input name="shoot_date" type="datetime-local" required disabled={isDemoTenant} />
+            <Input name="location" placeholder="Lieu" disabled={isDemoTenant} />
+            <Input name="notes" placeholder="Notes" disabled={isDemoTenant} />
             <input type="hidden" name="tenant_id" value={params.tenantId} />
-            <Button type="submit">Ajouter un shooting</Button>
+            <Button type="submit" disabled={isDemoTenant}>Ajouter un shooting</Button>
           </form>
           <div className="mt-4 space-y-2">
             {(shoots ?? []).map((shoot) => (
@@ -247,7 +264,11 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
 
       <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Documents</h2>
-        <DocumentManager tenantId={params.tenantId} uploadAction={uploadDocumentMetadata} />
+        {isDemoTenant ? (
+          <p className="mt-2 text-sm text-muted-foreground">Le dépôt de documents est verrouillé en mode démo.</p>
+        ) : (
+          <DocumentManager tenantId={params.tenantId} uploadAction={uploadDocumentMetadata} />
+        )}
         <div className="mt-6">
           <Table className="table-premium">
             <TableHeader>
@@ -272,13 +293,15 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
         </div>
       </Card>
 
-      <MultiTenantAccess
-        tenantId={params.tenantId}
-        tenantName={tenant?.name ?? ""}
-        usersWithAccess={usersWithAccess}
-        addAction={addTenantAccess}
-        removeAction={removeTenantAccess}
-      />
+      {!isDemoTenant && (
+        <MultiTenantAccess
+          tenantId={params.tenantId}
+          tenantName={tenant?.name ?? ""}
+          usersWithAccess={usersWithAccess}
+          addAction={addTenantAccess}
+          removeAction={removeTenantAccess}
+        />
+      )}
 
       <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Logs de synchronisation</h2>

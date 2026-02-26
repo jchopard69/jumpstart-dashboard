@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "./supabase/server";
 import type { UserRole } from "./types";
+import { enforceDemoTenantIsolation } from "./demo";
 
 export type Profile = {
   id: string;
@@ -14,6 +15,7 @@ export type AccessibleTenant = {
   id: string;
   name: string;
   slug: string;
+  is_demo?: boolean;
 };
 
 export async function getSessionProfile() {
@@ -88,7 +90,7 @@ export async function getUserTenants(userId: string): Promise<AccessibleTenant[]
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("tenant_id")
+    .select("tenant_id,role")
     .eq("id", userId)
     .single();
 
@@ -113,10 +115,14 @@ export async function getUserTenants(userId: string): Promise<AccessibleTenant[]
 
   const { data: tenants } = await supabase
     .from("tenants")
-    .select("id,name,slug")
+    .select("id,name,slug,is_demo")
     .in("id", Array.from(tenantIds))
     .eq("is_active", true)
     .order("name");
 
-  return (tenants ?? []) as AccessibleTenant[];
+  return enforceDemoTenantIsolation(
+    (tenants ?? []) as AccessibleTenant[],
+    profile?.tenant_id ?? null,
+    profile?.role ?? null
+  );
 }

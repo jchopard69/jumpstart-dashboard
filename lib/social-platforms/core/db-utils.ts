@@ -4,6 +4,7 @@
 
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { encryptToken } from "@/lib/crypto";
+import { assertTenantNotDemoWritable } from "@/lib/demo";
 import type { SocialAccount } from "./types";
 
 /**
@@ -16,6 +17,7 @@ export async function upsertSocialAccount(
   status: "active" | "pending" = "active"
 ): Promise<void> {
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "oauth_upsert_social_account", supabase);
   const secret = process.env.ENCRYPTION_SECRET;
 
   if (!secret) {

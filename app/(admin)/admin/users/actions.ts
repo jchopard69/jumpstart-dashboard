@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
+import { assertTenantNotDemoWritable } from "@/lib/demo";
 import type { UserRole } from "@/lib/types";
 
 export async function createUserWithPassword(
@@ -27,6 +28,9 @@ export async function createUserWithPassword(
   }
 
   const supabase = createSupabaseServiceClient();
+  if (tenantId) {
+    await assertTenantNotDemoWritable(tenantId, "create_user_for_tenant", supabase);
+  }
 
   // Check if user already exists
   const { data: existingProfile } = await supabase
@@ -75,6 +79,9 @@ export async function updateUserPrimaryTenant(formData: FormData) {
   const tenantId = String(formData.get("tenant_id") ?? "") || null;
 
   const supabase = createSupabaseServiceClient();
+  if (tenantId) {
+    await assertTenantNotDemoWritable(tenantId, "update_user_primary_tenant", supabase);
+  }
 
   await supabase
     .from("profiles")
@@ -92,6 +99,7 @@ export async function addTenantAccess(formData: FormData) {
   const tenantId = String(formData.get("tenant_id") ?? "");
 
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "add_user_tenant_access", supabase);
 
   const { error } = await supabase.from("user_tenant_access").insert({
     user_id: userId,
@@ -113,6 +121,7 @@ export async function removeTenantAccess(formData: FormData) {
   const tenantId = String(formData.get("tenant_id") ?? "");
 
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "remove_user_tenant_access", supabase);
 
   await supabase
     .from("user_tenant_access")

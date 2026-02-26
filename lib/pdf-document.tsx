@@ -200,6 +200,17 @@ const styles = StyleSheet.create({
     textAlign: "right",
     marginBottom: 16,
   },
+  watermark: {
+    position: "absolute",
+    top: "46%",
+    left: "24%",
+    fontSize: 72,
+    fontFamily: "Helvetica-Bold",
+    color: "#94a3b8",
+    opacity: 0.15,
+    letterSpacing: 6,
+    zIndex: 0,
+  },
 });
 
 type KpiData = {
@@ -276,6 +287,7 @@ export type PdfDocumentProps = {
   executiveSummary?: string;
   insights?: Array<{ title: string; description: string }>;
   contentDna?: ContentDnaPattern[];
+  watermark?: string;
 };
 
 function formatNumber(value: number): string {
@@ -379,12 +391,14 @@ export function PdfDocument(props: PdfDocumentProps) {
     executiveSummary,
     insights,
     contentDna,
+    watermark,
   } = props;
 
   return (
     <Document>
       {/* PAGE 1 — Synthese executive */}
       <Page size="A4" style={styles.page}>
+        {watermark ? <Text style={styles.watermark}>{sanitizeText(watermark)}</Text> : null}
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -501,6 +515,7 @@ export function PdfDocument(props: PdfDocumentProps) {
 
       {/* PAGE 2 — Donnees detaillees */}
       <Page size="A4" style={styles.page}>
+        {watermark ? <Text style={styles.watermark}>{sanitizeText(watermark)}</Text> : null}
         <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 16 }}>
           <View>
             <Text style={styles.brand}>JumpStart Studio</Text>

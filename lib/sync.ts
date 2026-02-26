@@ -5,6 +5,7 @@ import { getConnector } from "@/lib/connectors";
 import { getValidAccessToken } from "@/lib/social-platforms/core/token-manager";
 import { computeJumpStartScore } from "@/lib/scoring";
 import { saveScoreSnapshot } from "@/lib/score-history";
+import { isDemoTenant, logDemoAccess } from "@/lib/demo";
 import type { Platform } from "@/lib/types";
 
 const CONCURRENCY_LIMIT = 2;
@@ -23,6 +24,11 @@ async function runWithLimit<T>(items: T[], handler: (item: T) => Promise<void>) 
 
 export async function runTenantSync(tenantId: string, platform?: Platform) {
   const supabase = createSupabaseServiceClient();
+  if (await isDemoTenant(tenantId, supabase)) {
+    logDemoAccess("sync_skipped", { tenantId, platform: platform ?? "all" });
+    return;
+  }
+
   const { data: accounts, error } = await supabase
     .from("social_accounts")
     .select("id,tenant_id,platform,external_account_id,token_encrypted,refresh_token_encrypted")
@@ -481,7 +487,11 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
 
 export async function runGlobalSync() {
   const supabase = createSupabaseServiceClient();
-  const { data: tenants, error } = await supabase.from("tenants").select("id").eq("is_active", true);
+  const { data: tenants, error } = await supabase
+    .from("tenants")
+    .select("id")
+    .eq("is_active", true)
+    .eq("is_demo", false);
   if (error) {
     throw new Error(error.message);
   }

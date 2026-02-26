@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { encryptToken } from "@/lib/crypto";
+import { assertTenantNotDemoWritable } from "@/lib/demo";
 import type { UserRole } from "@/lib/types";
 
 export async function createTenant(formData: FormData) {
@@ -27,6 +28,7 @@ export async function deactivateTenant(formData: FormData) {
   requireAdmin(profile);
   const tenantId = String(formData.get("tenantId") ?? "");
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "deactivate_tenant", supabase);
   await supabase.from("tenants").update({ is_active: false }).eq("id", tenantId);
   revalidatePath("/admin/clients");
 }
@@ -47,6 +49,7 @@ export async function inviteUser(
   }
 
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "invite_user", supabase);
 
   // Check if user already exists
   const { data: existingUsers } = await supabase.auth.admin.listUsers();
@@ -132,6 +135,7 @@ export async function createSocialAccount(formData: FormData) {
   }
 
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "create_social_account", supabase);
   await supabase.from("social_accounts").insert({
     tenant_id: tenantId,
     platform,
@@ -151,6 +155,7 @@ export async function deleteSocialAccount(formData: FormData) {
   const accountId = String(formData.get("account_id") ?? "");
   const tenantId = String(formData.get("tenant_id") ?? "");
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "delete_social_account", supabase);
   await supabase.from("social_accounts").delete().eq("id", accountId);
   revalidatePath(`/admin/clients/${tenantId}`);
 }
@@ -164,6 +169,7 @@ export async function selectLinkedInAccounts(formData: FormData) {
     .map((id) => String(id))
     .filter((id) => uuidRegex.test(id));
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "select_linkedin_accounts", supabase);
 
   if (selectedIds.length) {
     await supabase
@@ -200,6 +206,7 @@ export async function updateCollaboration(formData: FormData) {
   const shootDays = Number(formData.get("shoot_days_remaining") ?? 0);
   const notes = String(formData.get("notes") ?? "");
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "update_collaboration", supabase);
   await supabase.from("collaboration").upsert({
     tenant_id: tenantId,
     shoot_days_remaining: shootDays,
@@ -217,6 +224,7 @@ export async function addUpcomingShoot(formData: FormData) {
   const location = String(formData.get("location") ?? "");
   const notes = String(formData.get("notes") ?? "");
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "add_upcoming_shoot", supabase);
   await supabase.from("upcoming_shoots").insert({
     tenant_id: tenantId,
     shoot_date: shootDate,
@@ -238,6 +246,7 @@ export async function uploadDocumentMetadata(formData: FormData) {
     throw new Error("Chemin de fichier invalide.");
   }
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "upload_document_metadata", supabase);
   await supabase.from("documents").insert({
     tenant_id: tenantId,
     file_path: filePath,
@@ -252,6 +261,7 @@ export async function triggerTenantSync(formData: FormData) {
   const profile = await getSessionProfile();
   requireAdmin(profile);
   const tenantId = String(formData.get("tenant_id") ?? "");
+  await assertTenantNotDemoWritable(tenantId, "trigger_tenant_sync");
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
   if (!baseUrl) {
     throw new Error("NEXT_PUBLIC_SITE_URL is missing");
@@ -270,6 +280,7 @@ export async function resetLinkedInData(formData: FormData) {
   requireAdmin(profile);
   const tenantId = String(formData.get("tenant_id") ?? "");
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "reset_linkedin_data", supabase);
 
   await supabase.from("social_daily_metrics").delete().eq("tenant_id", tenantId).eq("platform", "linkedin");
   await supabase.from("social_posts").delete().eq("tenant_id", tenantId).eq("platform", "linkedin");
@@ -293,6 +304,7 @@ export async function addTenantAccess(formData: FormData) {
   const userId = String(formData.get("user_id") ?? "");
   const tenantId = String(formData.get("tenant_id") ?? "");
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "add_tenant_access", supabase);
 
   const { error } = await supabase.from("user_tenant_access").insert({
     user_id: userId,
@@ -312,6 +324,7 @@ export async function removeTenantAccess(formData: FormData) {
   const userId = String(formData.get("user_id") ?? "");
   const tenantId = String(formData.get("tenant_id") ?? "");
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "remove_tenant_access", supabase);
 
   await supabase
     .from("user_tenant_access")
@@ -333,6 +346,7 @@ export async function updateTenantGoals(formData: FormData) {
   const viewsTarget = formData.get("views_target") ? Number(formData.get("views_target")) : null;
 
   const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "update_tenant_goals", supabase);
   await supabase.from("tenant_goals").upsert({
     tenant_id: tenantId,
     followers_target: followersTarget,

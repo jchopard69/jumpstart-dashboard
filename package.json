@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "node --test --loader ./scripts/ts-loader.mjs tests/**/*.test.ts",
-    "security-check": "node scripts/security-check.mjs"
+    "security-check": "node scripts/security-check.mjs",
+    "seed:demo": "node --loader ./scripts/ts-loader.mjs scripts/seed-demo.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.0.5",

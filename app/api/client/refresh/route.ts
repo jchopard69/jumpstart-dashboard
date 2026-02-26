@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { runTenantSync } from "@/lib/sync";
+import { isDemoTenant, logDemoAccess } from "@/lib/demo";
 
 const COOLDOWN_MINUTES = 10;
 
@@ -26,6 +27,14 @@ export async function POST(request: Request) {
     profile?.role === "agency_admin" && requestedTenantId ? requestedTenantId : profile?.tenant_id;
   if (!tenantId) {
     return NextResponse.json({ message: "Accès tenant indisponible." }, { status: 403 });
+  }
+
+  if (await isDemoTenant(tenantId, supabase)) {
+    logDemoAccess("refresh_blocked", { tenantId, userId: user.id });
+    return NextResponse.json(
+      { message: "Synchronisation désactivée pour le workspace démo." },
+      { status: 403 }
+    );
   }
 
   const { data: runningSync } = await supabase

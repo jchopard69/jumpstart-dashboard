@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSessionProfile, requireClientAccess, assertTenant } from "@/lib/auth";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
+import { assertTenantNotDemoWritable } from "@/lib/demo";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShootCalendar } from "@/components/os/shoot-calendar";
@@ -27,9 +28,19 @@ export default async function CollaborationPage({
   }
 
   const isAdmin = profile.role === "agency_admin" && !!searchParams?.tenantId;
-  const tenantId = isAdmin ? searchParams?.tenantId! : assertTenant(profile);
+  const tenantId = isAdmin ? (searchParams?.tenantId ?? "") : assertTenant(profile);
+  if (!tenantId) {
+    redirect("/admin");
+  }
   const supabase = isAdmin ? createSupabaseServiceClient() : createSupabaseServerClient();
-  const canEdit = profile.role === "agency_admin" || profile.role === "client_manager";
+  const { data: tenantInfo } = await supabase
+    .from("tenants")
+    .select("is_demo")
+    .eq("id", tenantId)
+    .maybeSingle();
+  const isDemoTenant = Boolean(tenantInfo?.is_demo);
+  const canEdit =
+    !isDemoTenant && (profile.role === "agency_admin" || profile.role === "client_manager");
 
   const [{ data: collaboration }, { data: shoots }, { data: documents }] = await Promise.all([
     supabase
@@ -65,6 +76,7 @@ export default async function CollaborationPage({
     "use server";
     const notes = String(formData.get("notes") ?? "");
     const client = createSupabaseServerClient();
+    await assertTenantNotDemoWritable(tenantId, "update_collaboration_notes", client);
     await client
       .from("collaboration")
       .upsert({ tenant_id: tenantId, notes, updated_at: new Date().toISOString() });
@@ -78,6 +90,7 @@ export default async function CollaborationPage({
     const notes = String(formData.get("notes") ?? "");
     if (!shootDate) return;
     const client = createSupabaseServerClient();
+    await assertTenantNotDemoWritable(tenantId, "add_collaboration_shoot", client);
     await client.from("upcoming_shoots").insert({
       tenant_id: tenantId,
       shoot_date: shootDate,
@@ -99,6 +112,9 @@ export default async function CollaborationPage({
               Tournages, documents et suivi de votre collaboration.
             </p>
           </div>
+          {isDemoTenant && (
+            <Badge variant="outline">MODE DÉMO</Badge>
+          )}
           <div className="rounded-2xl border border-border/60 bg-white/80 px-5 py-4">
             <p className="section-label">Jours de tournage</p>
             <div className="flex items-baseline gap-2 mt-1">

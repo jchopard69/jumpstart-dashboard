@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { PLATFORM_ICONS, PLATFORM_LABELS, type Platform } from "@/lib/types";
 import { getPostEngagements, getPostVisibility } from "@/lib/metrics";
 import { computeContentScore } from "@/lib/scoring";
+import { selectDisplayTopPosts } from "@/lib/top-posts";
 import { cn } from "@/lib/utils";
 import type { PostData } from "@/lib/types/dashboard";
 
@@ -90,10 +91,7 @@ const INITIAL_COUNT = 5;
 
 export function TopPosts({ posts }: TopPostsProps) {
   const [expanded, setExpanded] = useState(false);
-  const filteredPosts = posts.filter((post) => {
-    return getPostVisibility(post.metrics, post.media_type).value > 0 || getPostEngagements(post.metrics) > 0;
-  });
-  const displayPosts = filteredPosts.length ? filteredPosts : posts;
+  const displayPosts = selectDisplayTopPosts(posts, posts.length);
   const visiblePosts = expanded ? displayPosts : displayPosts.slice(0, INITIAL_COUNT);
   const hasMore = displayPosts.length > INITIAL_COUNT;
 

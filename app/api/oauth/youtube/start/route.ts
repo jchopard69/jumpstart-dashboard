@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { generateYouTubeAuthUrl, generateOAuthState } from "@/lib/social-platforms/youtube/auth";
 import { setOAuthCookies } from "@/lib/social-platforms/core/oauth-cookies";
+import { logDemoAccess } from "@/lib/demo";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -35,12 +36,19 @@ export async function GET(request: Request) {
   const service = createSupabaseServiceClient();
   const { data: tenant, error: tenantError } = await service
     .from("tenants")
-    .select("id, name")
+    .select("id, name, is_demo")
     .eq("id", tenantId)
     .single();
 
   if (tenantError || !tenant) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+  }
+  if (tenant.is_demo) {
+    logDemoAccess("oauth_start_blocked", { provider: "youtube", tenantId });
+    return NextResponse.json(
+      { error: "Connexion OAuth désactivée pour le workspace démo." },
+      { status: 403 }
+    );
   }
 
   try {

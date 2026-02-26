@@ -32,6 +32,8 @@ export default async function ClientLayout({ children }: { children: React.React
   const currentTenantId = cookieTenantId && tenants.some((t) => t.id === cookieTenantId)
     ? cookieTenantId
     : profile.tenant_id ?? tenants[0]?.id ?? "";
+  const currentTenant = tenants.find((tenant) => tenant.id === currentTenantId);
+  const isDemoTenant = Boolean(currentTenant?.is_demo);
 
   // Fetch enriched tenant data for admin ClientSwitcher
   let clientsData: ClientInfo[] = [];
@@ -87,6 +89,11 @@ export default async function ClientLayout({ children }: { children: React.React
                     <span className="rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
                       Client
                     </span>
+                    {isDemoTenant && (
+                      <span className="rounded-full bg-amber-500/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-700">
+                        Mode démo
+                      </span>
+                    )}
                   </div>
                   <p className="mt-3 section-label">Social Pulse</p>
                   {tenants.length > 1 && (
@@ -132,6 +139,11 @@ export default async function ClientLayout({ children }: { children: React.React
                     <span className="rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
                       Client
                     </span>
+                    {isDemoTenant && (
+                      <span className="rounded-full bg-amber-500/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-700">
+                        Mode démo
+                      </span>
+                    )}
                   </div>
                 </div>
               </header>
