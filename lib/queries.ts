@@ -327,47 +327,8 @@ export async function fetchDashboardData(params: {
     console.error("[dashboard] Failed to load sync logs", { tenantId, error: syncError });
   }
 
-  const dedupedPosts = (() => {
-    type PostRow = NonNullable<typeof posts>[number];
-    const byExternalId = new Map<string, PostRow>();
-    for (const post of (posts ?? []) as PostRow[]) {
-      const key = `${post.platform}:${post.external_post_id ?? post.id}`;
-      const existing = byExternalId.get(key);
-      if (!existing) {
-        byExternalId.set(key, post);
-        continue;
-      }
-
-      const postVisibility = getPostVisibility(post.metrics as any, (post as any).media_type).value;
-      const existingVisibility = getPostVisibility((existing as any).metrics as any, (existing as any).media_type).value;
-      const postImpressions = getPostImpressions(post.metrics as any);
-      const existingImpressions = getPostImpressions((existing as any).metrics as any);
-      const postEngagements = getPostEngagements(post.metrics as any);
-      const existingEngagements = getPostEngagements((existing as any).metrics as any);
-
-      const postCreatedAt = post.created_at ? new Date(post.created_at).getTime() : 0;
-      const existingCreatedAt = (existing as any).created_at ? new Date((existing as any).created_at).getTime() : 0;
-
-      const shouldReplace =
-        postVisibility > existingVisibility ||
-        (postVisibility === existingVisibility && postImpressions > existingImpressions) ||
-        (postVisibility === existingVisibility && postImpressions === existingImpressions && postEngagements > existingEngagements) ||
-        (postVisibility === existingVisibility && postImpressions === existingImpressions && postEngagements === existingEngagements && postCreatedAt > existingCreatedAt);
-
-      if (shouldReplace) {
-        byExternalId.set(key, post);
-      }
-    }
-    return Array.from(byExternalId.values());
-  })();
-
-  const sortedPosts = dedupedPosts.sort((a, b) => {
-    const aImp = getPostVisibility(a.metrics, (a as any).media_type).value;
-    const bImp = getPostVisibility(b.metrics, (b as any).media_type).value;
-    const aEng = getPostEngagements(a.metrics);
-    const bEng = getPostEngagements(b.metrics);
-    return bImp - aImp || bEng - aEng;
-  });
+  // Use shared dedup+sort logic (same function used by PDF export)
+  const sortedPosts = selectTopPosts((posts ?? []) as any[], (posts ?? []).length) as NonNullable<typeof posts>;
 
   const availablePlatforms = filters.platform
     ? [filters.platform]
@@ -532,7 +493,7 @@ export async function fetchDashboardAccounts(params: {
 
 /**
  * Shared top posts selection: dedup by platform:external_post_id, sort by visibility+engagement, take top N.
- * Used by both the dashboard page and the PDF export to ensure identical "Contenus phares".
+ * Mirrors the exact dedup logic used in fetchDashboardData so the PDF and dashboard always agree.
  */
 export function selectTopPosts<T extends {
   id?: string;
@@ -542,7 +503,7 @@ export function selectTopPosts<T extends {
   metrics?: unknown;
   media_type?: string | null;
 }>(posts: T[], limit: number): T[] {
-  // Dedup by platform:external_post_id
+  // Dedup by platform:external_post_id — keep the version with best metrics
   const byKey = new Map<string, T>();
   for (const post of posts) {
     const key = `${post.platform ?? ""}:${post.external_post_id ?? post.id ?? ""}`;
@@ -554,13 +515,20 @@ export function selectTopPosts<T extends {
 
     const postVis = getPostVisibility(post.metrics as any, post.media_type).value;
     const existingVis = getPostVisibility(existing.metrics as any, existing.media_type).value;
+    const postImp = getPostImpressions(post.metrics as any);
+    const existingImp = getPostImpressions(existing.metrics as any);
     const postEng = getPostEngagements(post.metrics as any);
     const existingEng = getPostEngagements(existing.metrics as any);
+    const postCreatedAt = post.created_at ? new Date(post.created_at).getTime() : 0;
+    const existingCreatedAt = existing.created_at ? new Date(existing.created_at).getTime() : 0;
 
-    if (
+    const shouldReplace =
       postVis > existingVis ||
-      (postVis === existingVis && postEng > existingEng)
-    ) {
+      (postVis === existingVis && postImp > existingImp) ||
+      (postVis === existingVis && postImp === existingImp && postEng > existingEng) ||
+      (postVis === existingVis && postImp === existingImp && postEng === existingEng && postCreatedAt > existingCreatedAt);
+
+    if (shouldReplace) {
       byKey.set(key, post);
     }
   }

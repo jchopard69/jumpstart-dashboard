@@ -225,22 +225,29 @@ export async function GET(request: Request) {
     };
   });
 
-  // Fetch top posts — same pool size (100) and dedup logic as dashboard
-  const { data: posts } = await supabase
+  // Fetch top posts — same pool size (100), platform filter, and dedup logic as dashboard
+  let postsQuery = supabase
     .from("social_posts")
-    .select("id,external_post_id,caption,posted_at,metrics,media_type,platform")
+    .select("id,external_post_id,caption,posted_at,metrics,media_type,platform,created_at")
     .eq("tenant_id", tenantId)
     .gte("posted_at", range.start.toISOString())
-    .lte("posted_at", range.end.toISOString())
+    .lte("posted_at", range.end.toISOString());
+
+  if (platform) {
+    postsQuery = postsQuery.eq("platform", platform);
+  }
+
+  const { data: posts } = await postsQuery
     .order("posted_at", { ascending: false })
     .limit(100);
 
   const topPosts = selectTopPosts(posts ?? [], 8);
 
-  const displayPosts = topPosts
-    .filter((post) => {
-      return getPostVisibility(post.metrics, post.media_type).value > 0 || getPostEngagements(post.metrics) > 0;
-    })
+  // Filter posts with metrics, with fallback to unfiltered (same as dashboard TopPosts component)
+  const postsWithMetrics = topPosts.filter((post) => {
+    return getPostVisibility(post.metrics, post.media_type).value > 0 || getPostEngagements(post.metrics) > 0;
+  });
+  const displayPosts = (postsWithMetrics.length > 0 ? postsWithMetrics : topPosts)
     .map((post) => ({
       caption: post.caption ?? "Sans titre",
       date: post.posted_at

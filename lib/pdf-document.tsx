@@ -461,22 +461,33 @@ export function PdfDocument(props: PdfDocumentProps) {
           ))}
         </View>
 
-        {/* Content DNA */}
-        {contentDna && contentDna.length > 0 && (
+        {/* Top Posts — on page 1 for visibility */}
+        {posts.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>ADN de contenu</Text>
-            <Text style={{ fontSize: 7, color: "#64748b", marginBottom: 6 }}>
-              Analyse des patterns gagnants (format, creneau horaire, longueur de legende) par comparaison des engagements moyens par categorie. La barre de confiance mesure la surperformance vs la moyenne.
-            </Text>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              {contentDna.map((pattern, i) => (
-                <View key={i} style={{ flex: 1, borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 8, padding: 10 }}>
-                  <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#7c3aed", marginBottom: 4 }}>{sanitizeText(pattern.label)}</Text>
-                  <Text style={{ fontSize: 8, color: "#1e293b", marginBottom: 2 }}>{sanitizeText(pattern.insight)}</Text>
-                  <Text style={{ fontSize: 7, color: "#64748b" }}>{sanitizeText(pattern.detail)}</Text>
-                  <StrengthBar strength={pattern.strength} />
-                </View>
-              ))}
+            <Text style={styles.sectionTitle}>Contenus phares</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderCell, styles.colWide]}>Publication</Text>
+                <Text style={[styles.tableHeaderCell, styles.colNarrow]}>Date</Text>
+                <Text style={[styles.tableHeaderCell, styles.colMedium]}>Visibilite</Text>
+                <Text style={[styles.tableHeaderCell, styles.colMedium]}>Engagements</Text>
+              </View>
+              {posts.slice(0, 8).map((post, index) => {
+                const caption = sanitizeText(post.caption);
+                return (
+                  <View key={index} style={styles.tableRow}>
+                    <Text style={[styles.tableCell, styles.colWide]}>
+                      {caption.slice(0, 60)}
+                      {caption.length > 60 ? "..." : ""}
+                    </Text>
+                    <Text style={[styles.tableCell, styles.colNarrow]}>{post.date}</Text>
+                    <Text style={[styles.tableCell, styles.colMedium]}>
+                      {formatNumber(post.visibility.value)} {post.visibility.label}
+                    </Text>
+                    <Text style={[styles.tableCell, styles.colMedium]}>{formatNumber(post.engagements)}</Text>
+                  </View>
+                );
+              })}
             </View>
           </>
         )}
@@ -510,33 +521,22 @@ export function PdfDocument(props: PdfDocumentProps) {
           </>
         )}
 
-        {/* Top Posts */}
-        {posts.length > 0 && (
+        {/* Content DNA */}
+        {contentDna && contentDna.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Contenus phares</Text>
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, styles.colWide]}>Publication</Text>
-                <Text style={[styles.tableHeaderCell, styles.colNarrow]}>Date</Text>
-                <Text style={[styles.tableHeaderCell, styles.colMedium]}>Visibilite</Text>
-                <Text style={[styles.tableHeaderCell, styles.colMedium]}>Engagements</Text>
-              </View>
-              {posts.slice(0, 8).map((post, index) => {
-                const caption = sanitizeText(post.caption);
-                return (
-                  <View key={index} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, styles.colWide]}>
-                      {caption.slice(0, 60)}
-                      {caption.length > 60 ? "..." : ""}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.colNarrow]}>{post.date}</Text>
-                    <Text style={[styles.tableCell, styles.colMedium]}>
-                      {formatNumber(post.visibility.value)} {post.visibility.label}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.colMedium]}>{formatNumber(post.engagements)}</Text>
-                  </View>
-                );
-              })}
+            <Text style={styles.sectionTitle}>ADN de contenu</Text>
+            <Text style={{ fontSize: 7, color: "#64748b", marginBottom: 6 }}>
+              Analyse des patterns gagnants (format, creneau horaire, longueur de legende) par comparaison des engagements moyens par categorie. La barre de confiance mesure la surperformance vs la moyenne.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {contentDna.map((pattern, i) => (
+                <View key={i} style={{ flex: 1, borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 8, padding: 10 }}>
+                  <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#7c3aed", marginBottom: 4 }}>{sanitizeText(pattern.label)}</Text>
+                  <Text style={{ fontSize: 8, color: "#1e293b", marginBottom: 2 }}>{sanitizeText(pattern.insight)}</Text>
+                  <Text style={{ fontSize: 7, color: "#64748b" }}>{sanitizeText(pattern.detail)}</Text>
+                  <StrengthBar strength={pattern.strength} />
+                </View>
+              ))}
             </View>
           </>
         )}
