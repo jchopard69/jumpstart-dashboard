@@ -7,6 +7,7 @@
 
 import type { Platform } from "./types";
 import type { JumpStartScore } from "./scoring";
+import { computeEngagementRate } from "./metrics";
 
 export type InsightType = "positive" | "negative" | "neutral" | "warning" | "opportunity" | "recommendation";
 
@@ -89,9 +90,8 @@ export function generateExecutiveSummary(input: InsightsInput): string {
     ? Math.round(((totals.reach - prevTotals.reach) / prevTotals.reach) * 100)
     : 0;
 
-  const engRate = totals.views > 0
-    ? ((totals.engagements / totals.views) * 100).toFixed(1)
-    : "0";
+  const rawEngRate = computeEngagementRate(totals.engagements, totals.views, totals.reach);
+  const engRate = rawEngRate !== null ? rawEngRate.toFixed(1) : "0";
 
   const parts: string[] = [];
 
@@ -168,7 +168,7 @@ export function generateKeyTakeaways(input: InsightsInput): string[] {
   }
 
   // Engagement rate
-  const engRate = totals.views > 0 ? (totals.engagements / totals.views) * 100 : 0;
+  const engRate = computeEngagementRate(totals.engagements, totals.views, totals.reach) ?? 0;
   if (engRate > 0) {
     const qualifier = engRate > 5 ? "excellent" : engRate > 3 ? "bon" : engRate > 1 ? "correct" : "a ameliorer";
     takeaways.push({
@@ -247,8 +247,8 @@ function analyzeEngagement(input: InsightsInput): StrategicInsight[] {
   const results: StrategicInsight[] = [];
   const { totals, prevTotals } = input;
 
-  const currentRate = totals.views > 0 ? (totals.engagements / totals.views) * 100 : 0;
-  const prevRate = prevTotals.views > 0 ? (prevTotals.engagements / prevTotals.views) * 100 : 0;
+  const currentRate = computeEngagementRate(totals.engagements, totals.views, totals.reach) ?? 0;
+  const prevRate = computeEngagementRate(prevTotals.engagements, prevTotals.views, prevTotals.reach) ?? 0;
   const rateDelta = prevRate > 0 ? ((currentRate - prevRate) / prevRate) * 100 : 0;
 
   if (currentRate > 5) {
@@ -288,7 +288,7 @@ function analyzeCrossPlatform(input: InsightsInput): StrategicInsight[] {
   // Find best engagement rate platform
   const withRates = activePlatforms.map(p => ({
     ...p,
-    rate: p.totals.views > 0 ? (p.totals.engagements / p.totals.views) * 100 : 0,
+    rate: computeEngagementRate(p.totals.engagements, p.totals.views, p.totals.reach) ?? 0,
   })).sort((a, b) => b.rate - a.rate);
 
   const best = withRates[0];

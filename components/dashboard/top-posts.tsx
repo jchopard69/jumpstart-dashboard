@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { PLATFORM_ICONS, PLATFORM_LABELS, type Platform } from "@/lib/types";
 import { getPostEngagements, getPostVisibility } from "@/lib/metrics";
 import { computeContentScore } from "@/lib/scoring";
-import { selectDisplayTopPosts } from "@/lib/top-posts";
+import { selectDisplayTopPosts, type TopPostsSortMode } from "@/lib/top-posts";
 import { cn } from "@/lib/utils";
 import type { PostData } from "@/lib/types/dashboard";
 
@@ -87,11 +87,19 @@ function formatMetric(value: number): string {
   return value.toLocaleString("fr-FR");
 }
 
+const SORT_MODE_LABELS: Record<TopPostsSortMode, { title: string; subtitle: string }> = {
+  performance: { title: "Contenus les plus performants", subtitle: "Les publications ayant généré le plus d'impact sur la période." },
+  visibility: { title: "Contenus les plus visibles", subtitle: "Les publications ayant touché le plus de personnes." },
+  engagement: { title: "Contenus les plus engageants", subtitle: "Les publications avec le meilleur taux d'interaction." },
+};
+
 const INITIAL_COUNT = 5;
 
 export function TopPosts({ posts }: TopPostsProps) {
   const [expanded, setExpanded] = useState(false);
-  const displayPosts = selectDisplayTopPosts(posts, posts.length);
+  const [sortMode, setSortMode] = useState<TopPostsSortMode>("performance");
+
+  const displayPosts = selectDisplayTopPosts(posts, posts.length, sortMode);
   const visiblePosts = expanded ? displayPosts : displayPosts.slice(0, INITIAL_COUNT);
   const hasMore = displayPosts.length > INITIAL_COUNT;
 
@@ -106,20 +114,38 @@ export function TopPosts({ posts }: TopPostsProps) {
     avgEngagements: cohortEngagements.length > 0 ? cohortEngagements.reduce((a, b) => a + b, 0) / cohortEngagements.length : 0,
   };
 
+  const { title, subtitle } = SORT_MODE_LABELS[sortMode];
+
   return (
     <Card className="card-surface p-6 fade-in-up">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="section-title">Contenus phares</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Les publications a plus fort impact sur la periode.
-          </p>
+          <h2 className="section-title">{title}</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
         </div>
         {displayPosts.length > 0 && (
           <span className="text-xs text-muted-foreground tabular-nums">
             {displayPosts.length} publication{displayPosts.length > 1 ? "s" : ""}
           </span>
         )}
+      </div>
+
+      {/* Sort mode tabs */}
+      <div className="flex gap-1 mb-4">
+        {(["performance", "visibility", "engagement"] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => { setSortMode(mode); setExpanded(false); }}
+            className={cn(
+              "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+              sortMode === mode
+                ? "bg-purple-100 text-purple-700"
+                : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+            )}
+          >
+            {mode === "performance" ? "Performance" : mode === "visibility" ? "Visibilité" : "Engagements"}
+          </button>
+        ))}
       </div>
 
       {posts.length === 0 ? (
@@ -134,6 +160,14 @@ export function TopPosts({ posts }: TopPostsProps) {
               cohort
             );
             const tier = tierStyles[contentScore.tier] ?? tierStyles.average;
+
+            // Compute per-post engagement rate
+            const engRate = visibility.value > 0
+              ? (engagements / visibility.value) * 100
+              : null;
+            const engRateLabel = engRate !== null
+              ? (engRate < 0.1 && engRate > 0 ? "< 0.1%" : `${engRate.toFixed(1)}%`)
+              : (engagements > 0 ? "N/A" : null);
 
             return (
               <div
@@ -191,6 +225,9 @@ export function TopPosts({ posts }: TopPostsProps) {
                   {engagements > 0 ? (
                     <p className="text-xs tabular-nums text-muted-foreground">
                       {formatMetric(engagements)} eng.
+                      {engRateLabel && (
+                        <span className="ml-1 text-[10px] text-muted-foreground/70">({engRateLabel})</span>
+                      )}
                     </p>
                   ) : null}
                 </div>

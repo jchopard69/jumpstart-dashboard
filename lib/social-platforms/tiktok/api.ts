@@ -142,12 +142,17 @@ export const tiktokConnector: Connector = {
     }>();
 
     for (const video of allVideos) {
-      const views = video.view_count ?? 0;
+      const views = video.view_count ?? null;
       const likes = video.like_count ?? 0;
       const comments = video.comment_count ?? 0;
       const shares = video.share_count ?? 0;
       const postedAt = new Date(video.create_time * 1000);
       const dateKey = postedAt.toISOString().slice(0, 10);
+
+      // Warn if engagement exists but views are missing
+      if (views === null && (likes + comments + shares) > 0) {
+        console.warn(`[tiktok] Video ${video.id} has engagements but null view_count`);
+      }
 
       // Aggregate metrics by date
       const existing = metricsByDate.get(dateKey) ?? {
@@ -158,13 +163,16 @@ export const tiktokConnector: Connector = {
         shares: 0,
         posts_count: 0,
       };
-      existing.views += views;
+      existing.views += views ?? 0;
       existing.engagements += likes + comments + shares;
       existing.likes += likes;
       existing.comments += comments;
       existing.shares += shares;
       existing.posts_count += 1;
       metricsByDate.set(dateKey, existing);
+
+      const metrics: Record<string, number> = { likes, comments, shares };
+      if (views !== null) metrics.views = views;
 
       posts.push({
         external_post_id: video.id,
@@ -174,12 +182,7 @@ export const tiktokConnector: Connector = {
         media_type: 'video',
         thumbnail_url: video.cover_image_url,
         media_url: video.share_url,
-        metrics: {
-          views,
-          likes,
-          comments,
-          shares,
-        },
+        metrics,
         raw_json: video as unknown as Record<string, unknown>,
       });
     }
@@ -194,10 +197,13 @@ export const tiktokConnector: Connector = {
       date: today,
       followers: user.follower_count ?? 0,
       likes: user.likes_count ?? 0,
+      views: todayStats?.views ?? 0,
       posts_count: todayStats?.posts_count ?? 0,
       impressions: todayStats?.views ?? 0,
-      reach: todayStats?.views ?? 0,
+      // TikTok does not provide reach — do not copy views into reach
       engagements: todayStats?.engagements ?? 0,
+      comments: todayStats?.comments ?? 0,
+      shares: todayStats?.shares ?? 0,
       raw_json: user as unknown as Record<string, unknown>,
     });
 
@@ -209,10 +215,13 @@ export const tiktokConnector: Connector = {
         date,
         followers: user.follower_count ?? 0, // We don't have historical follower data
         likes: stats.likes,
+        views: stats.views,
         posts_count: stats.posts_count,
         impressions: stats.views,
-        reach: stats.views,
+        // TikTok does not provide reach — do not copy views into reach
         engagements: stats.engagements,
+        comments: stats.comments,
+        shares: stats.shares,
         raw_json: undefined,
       });
     }

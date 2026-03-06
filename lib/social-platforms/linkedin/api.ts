@@ -337,7 +337,6 @@ export const linkedinConnector: Connector = {
         likes: 0,
         comments: 0,
         shares: 0,
-        views: 0
       });
     }
 
@@ -366,7 +365,7 @@ export const linkedinConnector: Connector = {
       entry.comments = (entry.comments ?? 0) + counts.comments;
       entry.shares = (entry.shares ?? 0) + counts.shares;
       entry.engagements = (entry.engagements ?? 0) + counts.likes + counts.comments + counts.shares + counts.clicks;
-      entry.views = (entry.views ?? 0) + counts.impressions;
+      // LinkedIn does not have a distinct "views" metric — do not copy impressions into views
     }
 
     const totalFollowers = await fetchNetworkSize(headers, organizationId);

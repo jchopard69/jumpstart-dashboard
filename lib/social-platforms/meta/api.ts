@@ -144,13 +144,12 @@ function mapInsightsToDaily(
     // Reach: use page_impressions_unique (unique users who saw content)
     const reach = values.reach ?? values.page_impressions_unique ?? 0;
 
-    // Views: use page_media_view (new metric) or page_video_views, fallback to impressions
+    // Views: only from actual view metrics — never fallback to impressions
     const mediaViews = values.page_media_view ?? 0;
     const videoViews = values.page_video_views ?? 0;
-    const pageViews = values.page_views_total ?? 0;
-    const directViews = values.views ?? values.content_views ?? mediaViews ?? videoViews ?? 0;
-    // For Facebook, use media_view as primary, then video_views, then impressions
-    const views = mediaViews > 0 ? mediaViews : (videoViews > 0 ? videoViews : (directViews > 0 ? directViews : impressions));
+    const directViews = values.views ?? values.content_views ?? 0;
+    // Use video/media view metrics only — do not inflate with impressions
+    const views = mediaViews > 0 ? mediaViews : (videoViews > 0 ? videoViews : directViews);
 
     // Engagement: use page_post_engagements (official engagement metric)
     const pageEngagements = values.page_post_engagements ?? 0;

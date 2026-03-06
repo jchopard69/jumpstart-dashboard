@@ -182,7 +182,7 @@ function analyzeTiming(posts: ContentDnaInput["posts"]): ContentPattern | null {
 
   const best = ranked[0];
   const worst = ranked[ranked.length - 1];
-  const ratio = worst.avgEng > 0 ? best.avgEng / worst.avgEng : 2;
+  const ratio = worst.avgEng > 0 ? best.avgEng / worst.avgEng : (best.avgEng > 0 ? 3 : 1);
 
   if (ratio < 1.3) return null; // Not significant enough
 
@@ -229,7 +229,7 @@ function analyzeCaptionLength(posts: ContentDnaInput["posts"]): ContentPattern |
 
   const best = ranked[0];
   const worst = ranked[ranked.length - 1];
-  const ratio = worst.avgEng > 0 ? best.avgEng / worst.avgEng : 1.5;
+  const ratio = worst.avgEng > 0 ? best.avgEng / worst.avgEng : (best.avgEng > 0 ? 3 : 1);
 
   if (ratio < 1.2) return null; // Not significant
 

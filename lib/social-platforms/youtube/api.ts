@@ -112,15 +112,13 @@ export const youtubeConnector: Connector = {
     const stats = channel.statistics;
     const today = new Date().toISOString().slice(0, 10);
 
-    // Create daily metrics
+    // Create daily metrics — engagements will be aggregated from videos below
     const dailyMetrics: DailyMetric[] = [{
       date: today,
       followers: parseInt(stats.subscriberCount || '0', 10),
       views: parseInt(stats.viewCount || '0', 10),
       posts_count: parseInt(stats.videoCount || '0', 10),
-      impressions: 0,
-      reach: 0,
-      engagements: 0,
+      // YouTube doesn't provide impressions/reach without Analytics API
       raw_json: {
         statistics: stats,
         snippet: channel.snippet,
@@ -180,6 +178,42 @@ export const youtubeConnector: Connector = {
       },
       raw_json: video as unknown as Record<string, unknown>,
     }));
+
+    // Aggregate video metrics by date for daily metrics
+    const videoMetricsByDate = new Map<string, { views: number; engagements: number; posts_count: number }>();
+    let totalVideoEngagements = 0;
+    for (const post of posts) {
+      const dateKey = post.posted_at?.slice(0, 10);
+      if (!dateKey) continue;
+      const likes = post.metrics?.likes ?? 0;
+      const comments = post.metrics?.comments ?? 0;
+      const views = post.metrics?.views ?? 0;
+      const engagements = likes + comments;
+      totalVideoEngagements += engagements;
+      const existing = videoMetricsByDate.get(dateKey) ?? { views: 0, engagements: 0, posts_count: 0 };
+      existing.views += views;
+      existing.engagements += engagements;
+      existing.posts_count += 1;
+      videoMetricsByDate.set(dateKey, existing);
+    }
+
+    // Update today's daily metric with aggregated engagements
+    if (dailyMetrics.length > 0) {
+      dailyMetrics[0].engagements = totalVideoEngagements;
+    }
+
+    // Add historical daily metrics for dates with videos
+    for (const [date, videoStats] of videoMetricsByDate) {
+      if (date === today) continue;
+      dailyMetrics.push({
+        date,
+        views: videoStats.views,
+        engagements: videoStats.engagements,
+        posts_count: videoStats.posts_count,
+      });
+    }
+
+    dailyMetrics.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
 
     return { dailyMetrics, posts };
   },

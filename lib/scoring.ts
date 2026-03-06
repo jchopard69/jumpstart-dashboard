@@ -198,10 +198,10 @@ export function computeJumpStartScore(input: ScoreInput): JumpStartScore {
       key: "growth",
       value: computeGrowthScore(input),
       weight: WEIGHTS.growth,
-      description: "Evolution de votre audience",
+      description: "Évolution de votre audience",
     },
     {
-      label: "Portee",
+      label: "Portée",
       key: "reach",
       value: computeReachScore(input),
       weight: WEIGHTS.reach,
@@ -212,21 +212,21 @@ export function computeJumpStartScore(input: ScoreInput): JumpStartScore {
       key: "engagement",
       value: computeEngagementScore(input),
       weight: WEIGHTS.engagement,
-      description: "Qualite des interactions",
+      description: "Qualité des interactions",
     },
     {
-      label: "Regularite",
+      label: "Régularité",
       key: "consistency",
       value: computeConsistencyScore(input),
       weight: WEIGHTS.consistency,
-      description: "Frequence de publication",
+      description: "Fréquence de publication",
     },
     {
       label: "Momentum",
       key: "momentum",
       value: computeMomentumScore(input),
       weight: WEIGHTS.momentum,
-      description: "Acceleration de la performance",
+      description: "Accélération de la performance",
     },
   ];
 

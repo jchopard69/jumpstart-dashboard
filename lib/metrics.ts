@@ -1,3 +1,22 @@
+/** Returns true if the value is a finite number (not null/undefined/NaN) */
+export function metricAvailable(value: unknown): boolean {
+  return typeof value === "number" && Number.isFinite(value) && value !== 0;
+}
+
+/**
+ * Compute engagement rate with views > reach fallback.
+ * Returns null when data is insufficient (both views and reach are 0).
+ */
+export function computeEngagementRate(
+  engagements: number,
+  views: number,
+  reach: number
+): number | null {
+  if (views > 0) return (engagements / views) * 100;
+  if (reach > 0) return (engagements / reach) * 100;
+  return null;
+}
+
 export function coerceMetric(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {

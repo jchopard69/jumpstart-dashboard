@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 type KpiCardProps = {
   label: string;
-  value: number;
+  value: number | null;
   delta: number;
   suffix?: string;
   description?: string;
@@ -17,25 +17,24 @@ type KpiCardProps = {
 
 const KPI_DESCRIPTIONS: Record<string, string> = {
   "Abonnés": "Nombre total de followers sur vos comptes connectés.",
-  "Vues": "Nombre de fois où vos contenus ont été vus (impressions vidéo incluses).",
-  "Portée": "Nombre de comptes uniques ayant vu vos contenus.",
+  "Vues": "Nombre total de lectures et affichages de vos contenus.",
+  "Portée": "Nombre de personnes uniques ayant vu au moins un de vos contenus.",
   "Engagements": "Total des likes, commentaires, partages et sauvegardes.",
   "Publications": "Nombre de posts publiés sur la période sélectionnée.",
-  "Taux d'engagement": "Ratio entre engagements et vues sur la période.",
+  "Taux d'engagement": "Ratio entre les interactions (likes, commentaires, partages, sauvegardes) et les vues sur la période.",
 };
 
 function formatDelta(delta: number): string {
   const sign = delta >= 0 ? "+" : "";
-  const abs = Math.abs(delta);
-
-  if (abs >= 100000) {
-    return `${sign}${Math.round(abs / 1000)}K`;
-  } else if (abs >= 10000) {
-    return `${sign}${Math.round(abs / 1000)}K%`;
-  } else if (abs >= 1000) {
-    return `${sign}${(abs / 1000).toFixed(1).replace(".0", "")}K%`;
+  const rounded = Number(delta.toFixed(1));
+  // Never abbreviate percentages with K — display the full number
+  if (Math.abs(rounded) >= 1000) {
+    return `${sign}${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(delta)).replace(/[\u00A0\u202F]/g, "\u2009")}%`;
   }
-  return `${sign}${Math.round(delta)}%`;
+  if (rounded === Math.round(rounded)) {
+    return `${sign}${Math.round(delta)}%`;
+  }
+  return `${sign}${rounded}%`;
 }
 
 function formatCompact(value: number): string {
@@ -125,7 +124,7 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
   const deltaValue = formatDelta(delta);
   const tooltipText = description || KPI_DESCRIPTIONS[label];
 
-  const goalProgress = goal && goal > 0 ? Math.min((value / goal) * 100, 100) : null;
+  const goalProgress = goal && goal > 0 && value !== null ? Math.min((value / goal) * 100, 100) : null;
 
   return (
     <Card
@@ -136,7 +135,17 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
       <div className="absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400 opacity-70 transition-opacity group-hover:opacity-100" />
 
       <div className="flex items-center justify-between gap-2 min-w-0">
-        <p className="section-label leading-tight truncate">{label}</p>
+        <p className="section-label leading-tight truncate flex items-center gap-1">
+          {label}
+          {tooltipText && (
+            <span
+              title={tooltipText}
+              className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-muted/60 text-[8px] font-medium text-muted-foreground cursor-help shrink-0"
+            >
+              ?
+            </span>
+          )}
+        </p>
         {delta !== 0 && (
           <span
             className={cn(
@@ -159,7 +168,11 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
       </div>
 
       <div className="mt-4">
-        <AnimatedNumber value={value} suffix={suffix} />
+        {value === null ? (
+          <p className="text-3xl font-semibold font-display text-muted-foreground/50">N/A</p>
+        ) : (
+          <AnimatedNumber value={value} suffix={suffix} />
+        )}
       </div>
 
       {goalProgress !== null && (
