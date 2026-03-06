@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { runTenantSync } from "@/lib/sync";
 import { isDemoTenant, logDemoAccess } from "@/lib/demo";
 
@@ -24,8 +24,24 @@ export async function POST(request: Request) {
       .eq("id", user.id)
       .single();
 
-    const tenantId =
-      profile?.role === "agency_admin" && requestedTenantId ? requestedTenantId : profile?.tenant_id;
+    // Resolve tenantId: admin can target any tenant, client users can target tenants they have access to
+    let tenantId = profile?.tenant_id;
+    if (requestedTenantId) {
+      if (profile?.role === "agency_admin") {
+        tenantId = requestedTenantId;
+      } else {
+        // Validate client user has access to the requested tenant
+        const { data: access } = await supabase
+          .from("user_tenant_access")
+          .select("tenant_id")
+          .eq("user_id", user.id)
+          .eq("tenant_id", requestedTenantId)
+          .maybeSingle();
+        if (access || profile?.tenant_id === requestedTenantId) {
+          tenantId = requestedTenantId;
+        }
+      }
+    }
     if (!tenantId) {
       return NextResponse.json({ message: "Accès tenant indisponible." }, { status: 403 });
     }
@@ -51,7 +67,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: runningSync } = await supabase
+    // Use service client for reliable queries (user access already validated above)
+    const serviceClient = createSupabaseServiceClient();
+
+    const { data: runningSync } = await serviceClient
       .from("sync_logs")
       .select("id,started_at,status")
       .eq("tenant_id", tenantId)
@@ -67,13 +86,17 @@ export async function POST(request: Request) {
       }, { status: 409 });
     }
 
-    const { data: accounts } = await supabase
+    const { data: accounts, error: accountsError } = await serviceClient
       .from("social_accounts")
       .select("last_sync_at")
       .eq("tenant_id", tenantId)
       .eq("auth_status", "active")
       .order("last_sync_at", { ascending: false })
       .limit(1);
+
+    if (accountsError) {
+      console.error("[client-refresh] Failed to query accounts:", accountsError.message);
+    }
 
     if (!accounts?.length) {
       return NextResponse.json(

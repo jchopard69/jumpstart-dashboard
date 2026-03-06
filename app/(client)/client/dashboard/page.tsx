@@ -70,7 +70,8 @@ export default async function ClientDashboardPage({
   }
 
   const preset = (searchParams.preset ?? "last_30_days") as any;
-  const accounts = await fetchDashboardAccounts({ profile, tenantId: searchParams.tenantId });
+  const effectiveTenantId = profile.role === "agency_admin" ? searchParams.tenantId : fallbackTenantId;
+  const accounts = await fetchDashboardAccounts({ profile, tenantId: effectiveTenantId });
   const platformList = Array.from(new Set(accounts.map((account) => account.platform)));
 
   const data = await fetchDashboardData({
@@ -81,7 +82,7 @@ export default async function ClientDashboardPage({
     socialAccountId: searchParams.accountId,
     platforms: platformList,
     profile,
-    tenantId: searchParams.tenantId
+    tenantId: effectiveTenantId
   });
 
   // Build query string, excluding empty values
@@ -276,7 +277,7 @@ export default async function ClientDashboardPage({
   const contentDna = analyzeContentDna(contentDnaInput);
 
   // Resolve tenant ID for additional data fetches
-  const resolvedTenantId = searchParams.tenantId ?? profile.tenant_id ?? "";
+  const resolvedTenantId = effectiveTenantId || profile.tenant_id || "";
 
   // Fetch score history, best time analysis, and goals in parallel
   const [scoreHistory, goals] = await Promise.all([
@@ -302,7 +303,7 @@ export default async function ClientDashboardPage({
               <p className="mt-2 text-sm text-muted-foreground">Analyse consolidée de votre présence digitale.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <RefreshButton tenantId={searchParams.tenantId} />
+              <RefreshButton tenantId={effectiveTenantId} />
               <ExportButtons query={queryString} />
             </div>
           </div>
@@ -421,7 +422,7 @@ export default async function ClientDashboardPage({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <RefreshButton tenantId={searchParams.tenantId} />
+            <RefreshButton tenantId={effectiveTenantId} />
             <ExportButtons query={queryString} />
           </div>
         </div>

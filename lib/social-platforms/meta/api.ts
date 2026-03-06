@@ -810,36 +810,40 @@ export const facebookConnector: Connector = {
       };
     });
 
-    // If page insights failed but we have posts, aggregate post metrics into daily
-    if (insights.length === 0 && posts.length > 0) {
-      console.log(`[facebook] No page insights, aggregating from ${posts.length} posts`);
+    // Enrich daily metrics with post-level data
+    if (posts.length > 0) {
+      const hasPageMetrics = dailyMetrics.some(m =>
+        (m.impressions ?? 0) > 0 || (m.reach ?? 0) > 0 || (m.engagements ?? 0) > 0
+      );
+
       const dailyMap = new Map<string, DailyMetric>();
+      for (const metric of dailyMetrics) {
+        dailyMap.set(metric.date, metric);
+      }
 
       for (const post of posts) {
         if (!post.posted_at) continue;
         const date = post.posted_at.slice(0, 10);
-        const existing = dailyMap.get(date) ?? {
-          date,
-          followers,
-          impressions: 0,
-          reach: 0,
-          engagements: 0,
-          posts_count: 0,
-        };
+        const entry = dailyMap.get(date) ?? { date, followers, impressions: 0, reach: 0, engagements: 0, posts_count: 0 };
 
-        existing.posts_count = (existing.posts_count ?? 0) + 1;
-        existing.engagements = (existing.engagements ?? 0) +
-          (post.metrics?.likes ?? 0) +
-          (post.metrics?.comments ?? 0) +
-          (post.metrics?.shares ?? 0);
+        entry.posts_count = (entry.posts_count ?? 0) + 1;
+        entry.followers = entry.followers ?? followers;
 
-        dailyMap.set(date, existing);
+        // When page-level metrics are all zeros, aggregate from post insights
+        if (!hasPageMetrics) {
+          entry.impressions = (entry.impressions ?? 0) + (post.metrics?.impressions ?? 0);
+          entry.reach = (entry.reach ?? 0) + (post.metrics?.reach ?? 0);
+          entry.views = (entry.views ?? 0) + (post.metrics?.views ?? 0);
+          entry.engagements = (entry.engagements ?? 0) + (post.metrics?.engagements ?? 0);
+        }
+
+        dailyMap.set(date, entry);
       }
 
-      // Replace placeholder with aggregated data
-      if (dailyMap.size > 0) {
-        dailyMetrics.splice(0, dailyMetrics.length, ...dailyMap.values());
-        console.log(`[facebook] Created ${dailyMetrics.length} daily metrics from posts`);
+      dailyMetrics.splice(0, dailyMetrics.length, ...dailyMap.values());
+
+      if (!hasPageMetrics) {
+        console.log(`[facebook] Page metrics all zeros, enriched daily metrics from ${posts.length} post insights`);
       }
     }
 

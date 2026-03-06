@@ -343,7 +343,13 @@ export const linkedinConnector: Connector = {
     const organizationId = normalizeOrganizationId(externalAccountId);
     const organizationUrn = `urn:li:organization:${organizationId}`;
 
-    const followerDaily = await fetchFollowerGains(headers, organizationUrn, since, now);
+    let followerDaily: Record<string, number> = {};
+    try {
+      followerDaily = await fetchFollowerGains(headers, organizationUrn, since, now);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.warn(`[linkedin] Failed to fetch follower gains, continuing without: ${msg}`);
+    }
     for (const [dateKey, count] of Object.entries(followerDaily)) {
       const entry = dailyMap.get(dateKey);
       if (entry) {
