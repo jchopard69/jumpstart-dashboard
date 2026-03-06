@@ -86,8 +86,8 @@ export function EmptyPosts() {
   return (
     <EmptyState
       icon={defaultIcons.posts}
-      title="Aucune publication"
-      description="Les publications apparaîtront ici une fois synchronisées."
+      title="Aucune publication sur cette période"
+      description="Les publications apparaîtront après la prochaine synchronisation. Vérifiez la plage de dates ou les comptes connectés."
     />
   );
 }

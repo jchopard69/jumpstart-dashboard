@@ -40,6 +40,10 @@ function sanitizeDebugPayload(payload: unknown): unknown {
 }
 
 export async function GET(request: Request) {
+  if (process.env.DEBUG_ROUTES_ENABLED !== "true") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   // Debug routes require CRON_SECRET in addition to admin auth
   const debugSecret = request.headers.get("x-debug-secret");
   if (!process.env.CRON_SECRET || debugSecret !== process.env.CRON_SECRET) {

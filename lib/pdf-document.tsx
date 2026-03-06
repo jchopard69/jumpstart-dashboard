@@ -445,9 +445,9 @@ export function PdfDocument(props: PdfDocumentProps) {
         {/* Score Methodology */}
         {score && (
           <View style={{ marginBottom: 12, borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 6, padding: 8, backgroundColor: "#f8fafc" }}>
-            <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#64748b", marginBottom: 3 }}>Methodologie JumpStart Score</Text>
+            <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#64748b", marginBottom: 3 }}>Méthodologie JumpStart Score</Text>
             <Text style={{ fontSize: 7, color: "#64748b", lineHeight: 1.4 }}>
-              Indice composite (0-100) sur 5 axes : Croissance (25%), Portee (25%), Engagement (25%), Regularite (15%), Momentum (10%). Chaque axe est normalise selon des benchmarks sectoriels. La note ({score.grade}) resume la performance globale.
+              Indice composite (0-100) sur 5 axes : Croissance (25%), Portée (25%), Engagement (25%), Régularité (15%), Momentum (10%). Chaque axe est normalisé selon des benchmarks sectoriels. La note ({score.grade}) résume la performance globale.
             </Text>
           </View>
         )}
@@ -455,7 +455,7 @@ export function PdfDocument(props: PdfDocumentProps) {
         {/* Strategic Insights */}
         {insights && insights.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Analyse strategique</Text>
+            <Text style={styles.sectionTitle}>Analyse stratégique</Text>
             <View style={{ marginBottom: 12 }}>
               {insights.slice(0, 4).map((insight, i) => (
                 <View key={i} style={{ marginBottom: 6, borderLeftWidth: 2, borderLeftColor: "#7c3aed", paddingLeft: 8 }}>
@@ -508,18 +508,18 @@ export function PdfDocument(props: PdfDocumentProps) {
 
         {/* Footer Page 1 */}
         <View style={styles.footer}>
-          <Text>Rapport genere par JumpStart Studio</Text>
+          <Text>Rapport généré par JumpStart Studio</Text>
           <Text>Page 1/2 -- Synthese</Text>
         </View>
       </Page>
 
-      {/* PAGE 2 — Donnees detaillees */}
+      {/* PAGE 2 — Données détaillées */}
       <Page size="A4" style={styles.page}>
         {watermark ? <Text style={styles.watermark}>{sanitizeText(watermark)}</Text> : null}
         <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 16 }}>
           <View>
             <Text style={styles.brand}>JumpStart Studio</Text>
-            <Text style={{ fontSize: 14, fontFamily: "Helvetica-Bold", marginTop: 2 }}>{tenantName} -- Donnees detaillees</Text>
+            <Text style={{ fontSize: 14, fontFamily: "Helvetica-Bold", marginTop: 2 }}>{tenantName} — Données détaillées</Text>
           </View>
           <Text style={styles.pageLabel}>{rangeLabel}</Text>
         </View>
@@ -589,8 +589,8 @@ export function PdfDocument(props: PdfDocumentProps) {
 
         {/* Footer Page 2 */}
         <View style={styles.footer}>
-          <Text>Les variations (%) comparent la periode selectionnee a la periode precedente equivalente</Text>
-          <Text>Page 2/2 -- Donnees</Text>
+          <Text>Les variations (%) comparent la période sélectionnée à la période précédente équivalente</Text>
+          <Text>Page 2/2 — Données</Text>
         </View>
       </Page>
     </Document>

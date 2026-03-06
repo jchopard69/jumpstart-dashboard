@@ -119,13 +119,27 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
       </div>
 
       {/* Best time summary */}
-      <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2.5">
-        <svg className="h-4 w-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <div className={`mt-3 flex items-center gap-2 rounded-xl px-4 py-2.5 ${
+        data.totalPostsAnalyzed < 10
+          ? "bg-amber-500/10"
+          : "bg-emerald-500/10"
+      }`}>
+        <svg className={`h-4 w-4 shrink-0 ${data.totalPostsAnalyzed < 10 ? "text-amber-600" : "text-emerald-600"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          {data.totalPostsAnalyzed < 10
+            ? <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            : <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          }
         </svg>
-        <p className="text-sm text-emerald-700">
-          Meilleur créneau : <span className="font-semibold">{data.bestDay}</span> entre <span className="font-semibold">{data.bestHour}</span>
-        </p>
+        <div>
+          <p className={`text-sm ${data.totalPostsAnalyzed < 10 ? "text-amber-700" : "text-emerald-700"}`}>
+            Meilleur créneau : <span className="font-semibold">{data.bestDay}</span> entre <span className="font-semibold">{data.bestHour}</span>
+          </p>
+          {data.totalPostsAnalyzed < 10 && (
+            <p className="text-[11px] text-amber-600/80 mt-0.5">
+              Basé sur peu de publications ({data.totalPostsAnalyzed}). Fiabilité limitée — à confirmer avec plus de données.
+            </p>
+          )}
+        </div>
       </div>
     </Card>
   );

@@ -80,6 +80,7 @@ export async function updateStoredTokens(
   const updateData: Record<string, unknown> = {
     token_encrypted: encryptToken(tokens.accessToken, ENCRYPTION_SECRET),
     auth_status: 'active',
+    last_error: null,
     updated_at: new Date().toISOString(),
   };
 

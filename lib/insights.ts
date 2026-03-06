@@ -97,9 +97,9 @@ export function generateExecutiveSummary(input: InsightsInput): string {
 
   // Audience
   if (followersDelta > 5) {
-    parts.push(`Votre audience a progresse de ${followersDelta}%`);
+    parts.push(`Votre audience a progressé de ${followersDelta}%`);
   } else if (followersDelta < -5) {
-    parts.push(`Votre audience a recule de ${Math.abs(followersDelta)}%`);
+    parts.push(`Votre audience a reculé de ${Math.abs(followersDelta)}%`);
   } else {
     parts.push("Votre audience est stable");
   }
@@ -108,16 +108,16 @@ export function generateExecutiveSummary(input: InsightsInput): string {
   if (engDelta > 15) {
     parts.push(`avec un engagement en forte hausse (+${engDelta}%)`);
   } else if (engDelta < -15) {
-    parts.push(`mais l'engagement a baisse de ${Math.abs(engDelta)}%`);
+    parts.push(`mais l'engagement a baissé de ${Math.abs(engDelta)}%`);
   } else {
     parts.push(`avec un engagement stable (taux de ${engRate}%)`);
   }
 
   // Reach
   if (reachDelta > 20) {
-    parts.push("La portee organique est en nette progression.");
+    parts.push("La portée organique est en nette progression.");
   } else if (reachDelta < -20) {
-    parts.push("La portee organique necessite une attention particuliere.");
+    parts.push("La portée organique nécessite une attention particulière.");
   } else {
     parts.push("");
   }
@@ -161,8 +161,8 @@ export function generateKeyTakeaways(input: InsightsInput): string[] {
   if (Math.abs(fDelta) > 3) {
     takeaways.push({
       text: fDelta > 0
-        ? `Audience en croissance : +${Math.round(fDelta)}% sur la periode`
-        : `Audience en baisse : ${Math.round(fDelta)}% sur la periode`,
+        ? `Audience en croissance : +${Math.round(fDelta)}% sur la période`
+        : `Audience en baisse : ${Math.round(fDelta)}% sur la période`,
       priority: 1,
     });
   }
@@ -170,7 +170,7 @@ export function generateKeyTakeaways(input: InsightsInput): string[] {
   // Engagement rate
   const engRate = computeEngagementRate(totals.engagements, totals.views, totals.reach) ?? 0;
   if (engRate > 0) {
-    const qualifier = engRate > 5 ? "excellent" : engRate > 3 ? "bon" : engRate > 1 ? "correct" : "a ameliorer";
+    const qualifier = engRate > 5 ? "excellent" : engRate > 3 ? "bon" : engRate > 1 ? "correct" : "à améliorer";
     takeaways.push({
       text: `Taux d'engagement ${qualifier} : ${engRate.toFixed(1)}%`,
       priority: 2,
@@ -181,7 +181,7 @@ export function generateKeyTakeaways(input: InsightsInput): string[] {
   const postsPerWeek = input.periodDays > 0 ? (totals.postsCount / input.periodDays) * 7 : 0;
   if (totals.postsCount > 0) {
     takeaways.push({
-      text: `${totals.postsCount} publications sur la periode (${postsPerWeek.toFixed(1)}/semaine)`,
+      text: `${totals.postsCount} publications sur la période (${postsPerWeek.toFixed(1)}/semaine)`,
       priority: 3,
     });
   }
@@ -205,7 +205,7 @@ export function generateKeyTakeaways(input: InsightsInput): string[] {
   if (totals.reach > 0 && totals.followers > 0) {
     const reachPct = Math.round((totals.reach / totals.followers) * 100);
     takeaways.push({
-      text: `Portee organique : ${reachPct}% de l'audience atteinte`,
+      text: `Portée organique : ${reachPct}% de l'audience atteinte`,
       priority: 5,
     });
   }
@@ -230,13 +230,13 @@ function analyzeGrowth(input: InsightsInput): StrategicInsight[] {
     results.push({
       type: "positive", category: "growth", priority: 1,
       title: "Forte croissance d'audience",
-      description: `+${Math.round(followersDelta)}% d'abonnes sur la periode. Identifiez les contenus qui ont attire ces nouveaux abonnes et reproduisez la formule.`,
+      description: `+${Math.round(followersDelta)}% d'abonnés sur la période. Identifiez les contenus qui ont attiré ces nouveaux abonnés et reproduisez la formule.`,
     });
   } else if (followersDelta < -5) {
     results.push({
       type: "negative", category: "growth", priority: 1,
-      title: "Baisse d'audience detectee",
-      description: `${Math.round(followersDelta)}% d'abonnes. Verifiez la frequence de publication et la pertinence des contenus recents.`,
+      title: "Baisse d'audience détectée",
+      description: `${Math.round(followersDelta)}% d'abonnés. Vérifiez la fréquence de publication et la pertinence des contenus récents.`,
     });
   }
 
@@ -255,13 +255,13 @@ function analyzeEngagement(input: InsightsInput): StrategicInsight[] {
     results.push({
       type: "positive", category: "engagement", priority: 2,
       title: "Taux d'engagement excellent",
-      description: `${currentRate.toFixed(1)}% — bien au-dessus de la moyenne du secteur (1-3%). Vos contenus generent une forte interaction.`,
+      description: `${currentRate.toFixed(1)}% — bien au-dessus de la moyenne du secteur (1-3%). Vos contenus génèrent une forte interaction.`,
     });
   } else if (currentRate < 1 && totals.views > 100) {
     results.push({
       type: "warning", category: "engagement", priority: 2,
-      title: "Engagement a renforcer",
-      description: `Taux de ${currentRate.toFixed(1)}%. Testez plus d'appels a l'action, de questions ouvertes et de formats interactifs (sondages, carousels).`,
+      title: "Engagement à renforcer",
+      description: `Taux de ${currentRate.toFixed(1)}%. Testez plus d'appels à l'action, de questions ouvertes et de formats interactifs (sondages, carrousels).`,
     });
   }
 
@@ -269,7 +269,7 @@ function analyzeEngagement(input: InsightsInput): StrategicInsight[] {
     results.push({
       type: "negative", category: "engagement", priority: 2,
       title: "Chute du taux d'engagement",
-      description: `Le taux d'engagement a baisse de ${Math.abs(Math.round(rateDelta))}% vs la periode precedente. Analysez les changements de contenu ou de frequence.`,
+      description: `Le taux d'engagement a baissé de ${Math.abs(Math.round(rateDelta))}% vs la période précédente. Analysez les changements de contenu ou de fréquence.`,
     });
   }
 
@@ -313,7 +313,7 @@ function analyzeCrossPlatform(input: InsightsInput): StrategicInsight[] {
       results.push({
         type: "warning", category: "platform", priority: 3,
         title: `${names[p.platform] ?? p.platform} : baisse significative`,
-        description: `L'engagement a chute de ${Math.abs(Math.round(p.delta.engagements))}% sur ${names[p.platform] ?? p.platform}. Revoyez la strategie de contenu sur cette plateforme.`,
+        description: `L'engagement a chuté de ${Math.abs(Math.round(p.delta.engagements))}% sur ${names[p.platform] ?? p.platform}. Revoyez la stratégie de contenu sur cette plateforme.`,
       });
     }
   }
@@ -330,14 +330,14 @@ function analyzeConsistency(input: InsightsInput): StrategicInsight[] {
   if (postsPerWeek < 1 && input.periodDays > 14) {
     results.push({
       type: "warning", category: "content", priority: 3,
-      title: "Frequence de publication faible",
-      description: `${postsPerWeek.toFixed(1)} post/semaine. Les algorithmes favorisent la regularite — visez au moins 3 publications par semaine.`,
+      title: "Fréquence de publication faible",
+      description: `${postsPerWeek.toFixed(1)} post/semaine. Les algorithmes favorisent la régularité — visez au moins 3 publications par semaine.`,
     });
   } else if (postsPerWeek > 10) {
     results.push({
       type: "neutral", category: "content", priority: 5,
-      title: "Volume de publication eleve",
-      description: `${postsPerWeek.toFixed(1)} posts/semaine. Verifiez que la qualite reste constante — parfois moins c'est mieux.`,
+      title: "Volume de publication élevé",
+      description: `${postsPerWeek.toFixed(1)} posts/semaine. Vérifiez que la qualité reste constante — parfois moins c'est mieux.`,
     });
   }
 
@@ -352,18 +352,18 @@ function generateRecommendations(input: InsightsInput): StrategicInsight[] {
     const weakest = input.score.subScores.reduce((a, b) => a.value < b.value ? a : b);
 
     const recs: Record<string, string> = {
-      growth: "Investissez dans des contenus de decouverte (Reels, hashtags tendance) pour accelerer la croissance d'audience.",
-      reach: "Publiez a des heures de forte affluence et utilisez des formats favorises par les algorithmes (video courte, carrousel).",
-      engagement: "Integrez plus d'appels a l'action, posez des questions et creez du contenu qui suscite le debat.",
-      consistency: "Mettez en place un calendrier editorial avec au moins 3 publications par semaine.",
-      momentum: "Analysez ce qui a change recemment et revenez aux formats qui fonctionnaient.",
+      growth: "Investissez dans des contenus de découverte (Reels, hashtags tendance) pour accélérer la croissance d'audience.",
+      reach: "Publiez à des heures de forte affluence et utilisez des formats favorisés par les algorithmes (vidéo courte, carrousel).",
+      engagement: "Intégrez plus d'appels à l'action, posez des questions et créez du contenu qui suscite le débat.",
+      consistency: "Mettez en place un calendrier éditorial avec au moins 3 publications par semaine.",
+      momentum: "Analysez ce qui a changé récemment et revenez aux formats qui fonctionnaient.",
     };
 
     if (weakest.value < 50) {
       results.push({
         type: "recommendation", category: "summary", priority: 6,
-        title: `Axe d'amelioration : ${weakest.label.toLowerCase()}`,
-        description: recs[weakest.key] ?? "Concentrez vos efforts sur cet axe pour ameliorer votre score global.",
+        title: `Axe d'amélioration : ${weakest.label.toLowerCase()}`,
+        description: recs[weakest.key] ?? "Concentrez vos efforts sur cet axe pour améliorer votre score global.",
       });
     }
   }

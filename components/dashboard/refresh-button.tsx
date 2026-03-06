@@ -25,12 +25,17 @@ export function RefreshButton({ tenantId }: { tenantId?: string }) {
     try {
       const query = tenantId ? `?tenantId=${tenantId}` : "";
       const res = await fetch(`/api/client/refresh${query}`, { method: "POST" });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (res.ok) {
-        toast.success(data.message ?? "Synchronisation terminée");
+        toast.success(data?.message ?? "Synchronisation terminée");
         router.refresh();
       } else {
-        toast.error(data.error ?? "Erreur de synchronisation");
+        const message = data?.message ?? data?.error ?? "Erreur de synchronisation";
+        if (res.status === 400 || res.status === 403 || res.status === 409 || res.status === 429) {
+          toast.warning(message);
+        } else {
+          toast.error(message);
+        }
       }
     } catch {
       toast.error("Erreur réseau. Vérifiez votre connexion.");

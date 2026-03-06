@@ -26,6 +26,7 @@ import { ScoreTrend } from "@/components/dashboard/score-trend";
 import { BestTimeHeatmap } from "@/components/dashboard/best-time-heatmap";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
+import { getSupportContactHref } from "@/lib/support";
 import { cookies } from "next/headers";
 
 export const metadata: Metadata = {
@@ -178,7 +179,7 @@ export default async function ClientDashboardPage({
           : "Contacter votre administrateur",
         href: profile.role === "agency_admin" && searchParams.tenantId
           ? `/admin/clients/${searchParams.tenantId}`
-          : "mailto:contact@jumpstartstudio.fr"
+          : getSupportContactHref("Besoin d'acces au dashboard JumpStart OS")
       }
     : {
         label: "Choisir une période",
@@ -318,15 +319,55 @@ export default async function ClientDashboardPage({
         </section>
 
         <section className="surface-panel p-12">
-          <EmptyState
-            title={!hasAccounts ? "Aucun compte connecté" : "Aucune donnée sur la période"}
-            description={
-              !hasAccounts
-                ? "Connectez un compte social pour voir apparaître vos statistiques. L'analyse de vos performances commencera immédiatement."
-                : "Essayez d'élargir la période sélectionnée ou relancez la synchronisation pour mettre à jour les données."
-            }
-            action={emptyStateAction}
-          />
+          {!hasAccounts ? (
+            <div className="max-w-lg mx-auto text-center space-y-6">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-purple-500/10">
+                <svg className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Connectez votre premier compte</h3>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                  En 3 étapes, accédez à l&apos;analyse complète de vos performances digitales.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+                <div className="rounded-xl border border-border/60 p-4">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-xs font-bold text-purple-700">1</div>
+                  <p className="mt-2 text-sm font-medium">Connecter</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Liez vos comptes Instagram, LinkedIn, TikTok...</p>
+                </div>
+                <div className="rounded-xl border border-border/60 p-4">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-xs font-bold text-purple-700">2</div>
+                  <p className="mt-2 text-sm font-medium">Synchroniser</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Vos données sont récupérées automatiquement.</p>
+                </div>
+                <div className="rounded-xl border border-border/60 p-4">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-xs font-bold text-purple-700">3</div>
+                  <p className="mt-2 text-sm font-medium">Analyser</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Score, insights et recommandations personnalisées.</p>
+                </div>
+              </div>
+              {emptyStateAction.href && (
+                <a
+                  href={emptyStateAction.href}
+                  className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-purple-700 transition-colors"
+                >
+                  {emptyStateAction.label}
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </a>
+              )}
+            </div>
+          ) : (
+            <EmptyState
+              title="Aucune donnée sur la période"
+              description="Essayez d'élargir la période sélectionnée ou relancez la synchronisation pour mettre à jour les données."
+              action={emptyStateAction}
+            />
+          )}
         </section>
       </div>
     );
@@ -348,6 +389,22 @@ export default async function ClientDashboardPage({
     return labels[preset] ?? "30 derniers jours";
   })();
 
+  // Build comparison label (previous equivalent period)
+  const comparisonLabel = (() => {
+    const labels: Record<string, string> = {
+      last_7_days: "les 7 jours précédents",
+      last_30_days: "les 30 jours précédents",
+      last_90_days: "les 90 jours précédents",
+      last_365_days: "les 12 mois précédents",
+      this_month: "le mois précédent",
+      last_month: "le mois d'avant",
+    };
+    if (preset === "custom" && data.range) {
+      return "la période précédente équivalente";
+    }
+    return labels[preset] ?? "la période précédente";
+  })();
+
   return (
     <div className="space-y-10 fade-in">
       {/* ─── Header + Filters ─── */}
@@ -357,7 +414,7 @@ export default async function ClientDashboardPage({
             <p className="section-label">Social Intelligence</p>
             <h1 className="page-heading mt-1">Vue d&apos;ensemble</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Analyse consolidee — <span className="font-medium text-foreground/70">{periodLabel}</span>
+              Analyse consolidée — <span className="font-medium text-foreground/70">{periodLabel}</span>
               {platformList.length > 0 && (
                 <span> · {platformList.length} plateforme{platformList.length > 1 ? "s" : ""}</span>
               )}
@@ -423,12 +480,21 @@ export default async function ClientDashboardPage({
         score={jumpStartScore}
         takeaways={keyTakeaways}
         executiveSummary={executiveSummary}
+        dataCoverage={(() => {
+          if (!data.range) return null;
+          const totalDays = Math.max(1, Math.ceil((data.range.end.getTime() - data.range.start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+          const uniqueDays = new Set(data.metrics.map(r => r.date)).size;
+          return Math.round((uniqueDays / totalDays) * 100);
+        })()}
+        postsAnalyzed={data.posts.length}
       />
 
       <KpiSection
         totals={data.totals}
         delta={data.delta}
         goals={goals}
+        metrics={data.metrics}
+        comparisonLabel={comparisonLabel}
         showViews={showViews}
         showReach={showReach}
         showEngagements={showEngagements}
@@ -439,7 +505,7 @@ export default async function ClientDashboardPage({
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <InsightCard insights={strategicInsights.map(i => ({
-          type: i.type === "opportunity" || i.type === "recommendation" ? "positive" : i.type as any,
+          type: i.type as any,
           title: i.title,
           description: i.description,
         }))} />

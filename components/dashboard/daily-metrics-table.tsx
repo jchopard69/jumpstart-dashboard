@@ -52,6 +52,7 @@ export function DailyMetricsTable({ metrics, showViews, showReach, showEngagemen
                 </svg>
               </div>
               <p className="text-sm text-muted-foreground">Aucune donnée disponible pour cette période.</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Essayez d'élargir la plage de dates ou vérifiez la synchronisation.</p>
             </div>
           </div>
         </Card>

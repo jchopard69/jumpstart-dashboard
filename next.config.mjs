@@ -9,6 +9,14 @@ const nextConfig = {
       bodySizeLimit: "10mb"
     }
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**"
+      }
+    ]
+  },
   async headers() {
     return [
       {

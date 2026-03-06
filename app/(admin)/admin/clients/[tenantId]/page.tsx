@@ -55,7 +55,7 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
     .order("created_at", { ascending: false });
   const { data: accounts } = await supabase
     .from("social_accounts")
-    .select("id,platform,account_name,external_account_id,auth_status,last_sync_at")
+    .select("id,platform,account_name,external_account_id,auth_status,last_sync_at,last_error,token_expires_at")
     .eq("tenant_id", params.tenantId)
     .order("created_at", { ascending: false });
   const { data: collaboration } = await supabase
@@ -324,7 +324,9 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
                 <TableCell>{new Date(log.started_at).toLocaleString("fr-FR")}</TableCell>
                 <TableCell>{log.finished_at ? new Date(log.finished_at).toLocaleString("fr-FR") : "-"}</TableCell>
                 <TableCell>{log.rows_upserted ?? 0}</TableCell>
-                <TableCell className="max-w-[240px] truncate">{log.error_message ?? "-"}</TableCell>
+                <TableCell className="max-w-[240px] truncate" title={log.error_message ?? undefined}>
+                  {log.error_message ?? "-"}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

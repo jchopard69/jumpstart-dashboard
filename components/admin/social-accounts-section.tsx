@@ -12,6 +12,8 @@ interface ConnectedAccount {
   external_account_id: string;
   auth_status: string;
   last_sync_at: string | null;
+  last_error: string | null;
+  token_expires_at: string | null;
 }
 
 interface Props {

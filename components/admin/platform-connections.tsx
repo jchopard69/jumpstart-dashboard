@@ -14,6 +14,8 @@ interface ConnectedAccount {
   external_account_id: string;
   auth_status: string;
   last_sync_at: string | null;
+  last_error: string | null;
+  token_expires_at: string | null;
 }
 
 interface PlatformConfig {
@@ -79,6 +81,15 @@ const PLATFORMS: PlatformConfig[] = [
     configured: true,
   },
 ];
+
+const PLATFORM_OAUTH_PATHS: Record<Platform, string> = {
+  facebook: "/api/oauth/meta/start",
+  instagram: "/api/oauth/meta/start",
+  linkedin: "/api/oauth/linkedin/start",
+  tiktok: "/api/oauth/tiktok/start",
+  youtube: "/api/oauth/youtube/start",
+  twitter: "/api/oauth/twitter/start",
+};
 
 interface Props {
   tenantId: string;
@@ -177,6 +188,21 @@ export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Pr
     return accounts.filter((a) => a.platform === platform);
   };
 
+  const requiresReconnect = (status: string) => status === "expired" || status === "revoked";
+
+  const getOAuthPathForAccount = (platform: Platform) => PLATFORM_OAUTH_PATHS[platform] ?? "/api/oauth/meta/start";
+
+  const getExpiryLabel = (tokenExpiresAt: string | null): { label: string; warning: boolean } | null => {
+    if (!tokenExpiresAt) return null;
+    const expiry = new Date(tokenExpiresAt);
+    if (Number.isNaN(expiry.getTime())) return null;
+    const diffMs = expiry.getTime() - Date.now();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return { label: "Token expiré", warning: true };
+    if (diffDays <= 7) return { label: `Expire dans ${diffDays} j`, warning: true };
+    return { label: `Expire le ${expiry.toLocaleDateString("fr-FR")}`, warning: false };
+  };
+
   const handleDelete = async (accountId: string) => {
     setDeleting(accountId);
     try {
@@ -199,8 +225,27 @@ export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Pr
     }
   };
 
+  const attentionCount = accounts.filter(
+    (account) => requiresReconnect(account.auth_status) || Boolean(account.last_error)
+  ).length;
+
+  const activeCount = accounts.filter((a) => a.auth_status === "active").length;
+  const expiredCount = accounts.filter((a) => a.auth_status === "expired").length;
+  const revokedCount = accounts.filter((a) => a.auth_status === "revoked").length;
+
   return (
     <div className="space-y-6">
+      {attentionCount > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-medium">
+            {attentionCount} connexion{attentionCount > 1 ? "s" : ""} nécessite{attentionCount > 1 ? "nt" : ""} une action.
+          </p>
+          <p className="mt-1 text-xs text-amber-800">
+            Reconnectez les comptes expirés/révoqués pour rétablir les synchronisations automatiques.
+          </p>
+        </div>
+      )}
+
       {/* Notification Toast */}
       {notification && (
         <div
@@ -252,38 +297,63 @@ export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Pr
               {/* Connected Accounts */}
               {platformAccounts.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  {platformAccounts.map((account) => (
-                    <div
-                      key={account.id}
-                      className="flex items-center justify-between rounded-2xl border border-border/60 bg-white/70 p-3"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm">
-                          {account.platform === "instagram" ? "📸" : PLATFORM_ICONS[account.platform]}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{account.account_name}</p>
-                          <div className="flex items-center gap-2">
-                            {getStatusBadge(account.auth_status)}
-                            {account.last_sync_at && (
-                              <span className="text-xs text-muted-foreground">
-                                Synchro : {new Date(account.last_sync_at).toLocaleDateString("fr-FR")}
-                              </span>
+                  {platformAccounts.map((account) => {
+                    const expiry = getExpiryLabel(account.token_expires_at);
+
+                    return (
+                      <div
+                        key={account.id}
+                        className="flex items-center justify-between rounded-2xl border border-border/60 bg-white/70 p-3"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm">
+                            {account.platform === "instagram" ? "📸" : PLATFORM_ICONS[account.platform]}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{account.account_name}</p>
+                            <div className="flex items-center gap-2">
+                              {getStatusBadge(account.auth_status)}
+                              {account.last_sync_at && (
+                                <span className="text-xs text-muted-foreground">
+                                  Synchro : {new Date(account.last_sync_at).toLocaleDateString("fr-FR")}
+                                </span>
+                              )}
+                              {expiry && (
+                                <span
+                                  className={`text-xs ${expiry.warning ? "text-amber-700" : "text-muted-foreground"}`}
+                                >
+                                  {expiry.label}
+                                </span>
+                              )}
+                            </div>
+                            {account.last_error && (
+                              <p className="mt-1 line-clamp-2 text-xs text-rose-700">
+                                Dernière erreur : {account.last_error}
+                              </p>
                             )}
                           </div>
                         </div>
+                        <div className="flex items-center gap-1">
+                          {!isDemo && requiresReconnect(account.auth_status) && (
+                            <a href={`${getOAuthPathForAccount(account.platform)}?tenantId=${tenantId}`}>
+                              <Button variant="outline" size="sm" className="text-xs">
+                                Reconnecter
+                              </Button>
+                            </a>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-100"
+                            onClick={() => handleDelete(account.id)}
+                            disabled={Boolean(isDemo) || deleting === account.id}
+                          >
+                            {deleting === account.id ? "..." : "✕"}
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-100"
-                        onClick={() => handleDelete(account.id)}
-                        disabled={Boolean(isDemo) || deleting === account.id}
-                      >
-                        {deleting === account.id ? "..." : "✕"}
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -303,7 +373,11 @@ export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Pr
                       variant={isConnected ? "secondary" : "default"}
                       className="w-full"
                     >
-                      {isConnected ? "Ajouter un autre compte" : "Connecter"}
+                      {platformAccounts.some((account) => requiresReconnect(account.auth_status))
+                        ? "Reconnecter"
+                        : isConnected
+                          ? "Ajouter un autre compte"
+                          : "Connecter"}
                     </Button>
                   </a>
                 )}
@@ -320,13 +394,21 @@ export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Pr
         </span>
         <span>•</span>
         <span>
-          <strong>{accounts.filter((a) => a.auth_status === "active").length}</strong> actif(s)
+          <strong>{activeCount}</strong> actif(s)
         </span>
-        {accounts.some((a) => a.auth_status === "expired") && (
+        {expiredCount > 0 && (
           <>
             <span>•</span>
             <span className="text-yellow-600">
-              <strong>{accounts.filter((a) => a.auth_status === "expired").length}</strong> expiré(s)
+              <strong>{expiredCount}</strong> expiré(s)
+            </span>
+          </>
+        )}
+        {revokedCount > 0 && (
+          <>
+            <span>•</span>
+            <span className="text-rose-600">
+              <strong>{revokedCount}</strong> révoqué(s)
             </span>
           </>
         )}

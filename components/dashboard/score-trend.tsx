@@ -20,11 +20,19 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
 
+function getSubScoreColor(value: number): string {
+  if (value >= 70) return "#10b981";
+  if (value >= 50) return "#3b82f6";
+  if (value >= 30) return "#f59e0b";
+  return "#f43f5e";
+}
+
 function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const data = payload[0].payload;
+  const subScores: Array<{ key: string; label: string; value: number }> | undefined = data.sub_scores;
   return (
-    <div className="rounded-xl border border-border/60 bg-white px-3 py-2 shadow-soft text-xs">
+    <div className="rounded-xl border border-border/60 bg-white px-3.5 py-2.5 shadow-soft text-xs min-w-[160px]">
       <p className="font-medium">{formatDate(data.snapshot_date)}</p>
       <div className="mt-1 flex items-center gap-2">
         <span className="text-2xl font-bold font-display tabular-nums">{data.global_score}</span>
@@ -35,6 +43,18 @@ function CustomTooltip({ active, payload }: any) {
           {data.grade}
         </span>
       </div>
+      {subScores && subScores.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-border/40 space-y-1">
+          {subScores.map((sub) => (
+            <div key={sub.key} className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">{sub.label}</span>
+              <span className="font-semibold tabular-nums" style={{ color: getSubScoreColor(sub.value) }}>
+                {Math.round(sub.value)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -56,7 +76,7 @@ export function ScoreTrend({ history }: ScoreTrendProps) {
             </svg>
           </div>
           <div>
-            <h2 className="section-title">Evolution du score</h2>
+            <h2 className="section-title">Évolution du score</h2>
             <p className="text-xs text-muted-foreground">Progression de votre JumpStart Score</p>
           </div>
         </div>

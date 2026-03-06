@@ -56,6 +56,10 @@ async function tryLinkedIn<T>(url: string, headers: Record<string, string>) {
 }
 
 export async function GET(request: Request) {
+  if (process.env.DEBUG_ROUTES_ENABLED !== "true") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const debugSecret = request.headers.get("x-debug-secret");
   if (!process.env.CRON_SECRET || debugSecret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

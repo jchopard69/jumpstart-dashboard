@@ -46,19 +46,50 @@ export function SyncStatus({ lastSync, range, metrics = [] }: SyncStatusProps) {
     return { totalDays, uniqueDays, percent };
   })();
 
+  const syncAgeHours = (() => {
+    if (!lastSync?.finished_at) return null;
+    const then = new Date(lastSync.finished_at);
+    if (Number.isNaN(then.getTime())) return null;
+    return Math.floor((Date.now() - then.getTime()) / (1000 * 60 * 60));
+  })();
+
+  const isStale = syncAgeHours !== null && syncAgeHours >= 48;
+  const hasLowCoverage = (coverage?.percent ?? 100) < 60;
+
   return (
     <section>
       <Card className="card-surface p-6 fade-in-up">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="section-title">Flux de données</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Etat de la synchronisation automatique.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">État de la synchronisation automatique.</p>
           </div>
           {getStatusBadge(lastSync?.status ?? null)}
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
           Dernière synchro <span className="font-medium text-foreground">{getRelativeTime(lastSync?.finished_at ?? null)}</span>
         </p>
+        {(lastSync?.status === "failed" || isStale || hasLowCoverage) && (
+          <div
+            className={`mt-4 rounded-xl border p-3 text-xs ${
+              lastSync?.status === "failed"
+                ? "border-rose-200 bg-rose-50 text-rose-800"
+                : "border-amber-200 bg-amber-50 text-amber-800"
+            }`}
+          >
+            {lastSync?.status === "failed" ? (
+              <p>
+                La dernière synchronisation a échoué. Relancez la synchronisation et vérifiez les connexions des plateformes.
+              </p>
+            ) : (
+              <p>
+                {isStale
+                  ? "Les données semblent anciennes (plus de 48h). Une relance de synchronisation est recommandée."
+                  : "La couverture de données est partielle sur la période affichée. Vérifiez les connexions et la plage de dates."}
+              </p>
+            )}
+          </div>
+        )}
         {coverage && (
           <div className="mt-4 space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">

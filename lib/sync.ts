@@ -373,7 +373,11 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
 
       const { error: accountUpdateError } = await supabase
         .from("social_accounts")
-        .update({ last_sync_at: new Date().toISOString() })
+        .update({
+          auth_status: "active",
+          last_sync_at: new Date().toISOString(),
+          last_error: null
+        })
         .eq("id", account.id);
       if (accountUpdateError) {
         throw new Error(`Failed to update social account: ${accountUpdateError.message}`);
@@ -393,12 +397,23 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
 
       syncSucceeded = true;
     } catch (syncError: any) {
+      const syncErrorMessage = String(syncError?.message ?? "Unknown error");
+      const { error: accountFailError } = await supabase
+        .from("social_accounts")
+        .update({
+          last_error: syncErrorMessage.slice(0, 2000)
+        })
+        .eq("id", account.id);
+      if (accountFailError) {
+        console.error("[sync] Failed to update social account error:", accountFailError.message);
+      }
+
       const { error: logFailError } = await supabase
         .from("sync_logs")
         .update({
           status: "failed",
           finished_at: new Date().toISOString(),
-          error_message: syncError?.message ?? "Unknown error"
+          error_message: syncErrorMessage
         })
         .eq("id", log.id);
       if (logFailError) {

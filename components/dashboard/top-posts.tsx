@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { EmptyPosts } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -27,12 +28,17 @@ function PostThumbnail({ url, platform }: { url?: string; platform?: string }) {
   }
 
   return (
-    <img
-      src={url}
-      alt="thumbnail"
-      className="h-20 w-20 rounded-xl object-cover ring-1 ring-border/40"
-      onError={() => setFailed(true)}
-    />
+    <div className="relative h-20 w-20 overflow-hidden rounded-xl ring-1 ring-border/40">
+      <Image
+        src={url}
+        alt="thumbnail"
+        fill
+        sizes="80px"
+        className="object-cover"
+        unoptimized
+        onError={() => setFailed(true)}
+      />
+    </div>
   );
 }
 
@@ -169,14 +175,24 @@ export function TopPosts({ posts }: TopPostsProps) {
               ? (engRate < 0.1 && engRate > 0 ? "< 0.1%" : `${engRate.toFixed(1)}%`)
               : (engagements > 0 ? "N/A" : null);
 
+            const rankDisplay = idx < 3
+              ? ["🥇", "🥈", "🥉"][idx]
+              : String(idx + 1);
+
             return (
-              <div
+              <a
                 key={post.id}
-                className="group relative flex items-center gap-4 rounded-xl px-3 py-3 transition-colors hover:bg-muted/30"
+                href={post.url ?? undefined}
+                target={post.url ? "_blank" : undefined}
+                rel={post.url ? "noreferrer" : undefined}
+                className={cn(
+                  "group relative flex items-center gap-4 rounded-xl px-3 py-3 transition-colors hover:bg-muted/30",
+                  post.url && "cursor-pointer"
+                )}
               >
                 {/* Rank */}
                 <span className="w-5 shrink-0 text-center text-xs font-semibold text-muted-foreground/60 tabular-nums">
-                  {idx + 1}
+                  {rankDisplay}
                 </span>
 
                 {/* Thumbnail */}
@@ -213,12 +229,23 @@ export function TopPosts({ posts }: TopPostsProps) {
                 {/* Metrics */}
                 <div className="shrink-0 text-right space-y-0.5">
                   {visibility.value > 0 ? (
-                    <p className="text-sm font-semibold tabular-nums">
-                      {formatMetric(visibility.value)}
-                      <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-                        {visibility.label.toLowerCase()}
-                      </span>
-                    </p>
+                    <>
+                      <p className="text-sm font-semibold tabular-nums">
+                        {formatMetric(visibility.value)}
+                        <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                          {visibility.label.toLowerCase()}
+                        </span>
+                      </p>
+                      {cohort.avgImpressions > 0 && (() => {
+                        const ratio = Math.round(((visibility.value - cohort.avgImpressions) / cohort.avgImpressions) * 100);
+                        if (Math.abs(ratio) < 5) return null;
+                        return (
+                          <p className={cn("text-[10px] tabular-nums font-medium", ratio > 0 ? "text-emerald-600" : "text-rose-500")}>
+                            {ratio > 0 ? "+" : ""}{ratio}% vs moy.
+                          </p>
+                        );
+                      })()}
+                    </>
                   ) : (
                     <p className="text-xs text-muted-foreground">-</p>
                   )}
@@ -232,21 +259,15 @@ export function TopPosts({ posts }: TopPostsProps) {
                   ) : null}
                 </div>
 
-                {/* External link on hover */}
+                {/* External link indicator */}
                 {post.url && (
-                  <a
-                    className="shrink-0 rounded-lg p-1.5 text-muted-foreground/40 opacity-0 transition-all group-hover:opacity-100 hover:text-purple-600 hover:bg-purple-50"
-                    href={post.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Voir la publication"
-                  >
+                  <span className="shrink-0 rounded-lg p-1.5 text-muted-foreground/40 opacity-0 transition-all group-hover:opacity-100">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                     </svg>
-                  </a>
+                  </span>
                 )}
-              </div>
+              </a>
             );
           })}
         </div>

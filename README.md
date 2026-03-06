@@ -50,8 +50,8 @@ L'application sera disponible sur http://localhost:3000
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DEMO_MODE` | Active le mode démo avec données mock | `false` |
-| `CRON_ALLOW_QUERY_SECRET` | Autorise `?secret=` en plus du header | `false` |
 | `YOUTUBE_API_KEY` | Clé API YouTube (alternative à OAuth) | - |
+| `DEBUG_ROUTES_ENABLED` | Active les routes `/api/debug/*` (admin + secret requis) | `false` |
 
 ## Cron Jobs (Vercel)
 
@@ -65,10 +65,6 @@ Les cron jobs sont définis dans `vercel.json` et utilisent `Authorization: Bear
 ### Test local des crons
 
 ```bash
-# Avec CRON_ALLOW_QUERY_SECRET=true
-curl "http://localhost:3000/api/cron/sync?secret=YOUR_CRON_SECRET"
-
-# Ou avec header (recommandé)
 curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
   http://localhost:3000/api/cron/sync
 ```

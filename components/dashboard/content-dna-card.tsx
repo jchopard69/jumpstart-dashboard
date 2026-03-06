@@ -53,7 +53,7 @@ export function ContentDnaCard({ dna }: ContentDnaCardProps) {
         <div>
           <h2 className="section-title">Content DNA</h2>
           <p className="text-xs text-muted-foreground">
-            Analyse des patterns gagnants sur vos {dna.postsAnalyzed} dernieres publications.
+            Analyse des patterns gagnants sur vos {dna.postsAnalyzed} dernières publications.
           </p>
         </div>
       </div>
@@ -70,21 +70,38 @@ export function ContentDnaCard({ dna }: ContentDnaCardProps) {
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
-          Comment c'est calcule ?
+          Comment c'est calculé ?
         </button>
         {open && (
           <div className="mt-2 text-xs text-muted-foreground leading-relaxed space-y-1.5 ml-5">
             <p>
               L'analyse porte sur 3 dimensions : <span className="font-medium text-foreground/80">format</span> (type de media),{" "}
-              <span className="font-medium text-foreground/80">creneau horaire</span> et{" "}
-              <span className="font-medium text-foreground/80">longueur de legende</span>.
+              <span className="font-medium text-foreground/80">créneau horaire</span> et{" "}
+              <span className="font-medium text-foreground/80">longueur de légende</span>.
             </p>
             <p>
-              Pour chaque dimension, les engagements moyens par categorie sont compares.
-              La barre de confiance represente la surperformance du pattern vs la moyenne.
+              Pour chaque dimension, les engagements moyens par catégorie sont comparés.
+              La barre de confiance représente la surperformance du pattern vs la moyenne.
             </p>
           </div>
         )}
+      </div>
+
+      {/* Strength legend */}
+      <div className="flex items-center gap-3 mb-4 text-[10px] text-muted-foreground">
+        <span>Confiance :</span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-2 w-5 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400" />
+          Forte (70%+)
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-2 w-5 rounded-full bg-gradient-to-r from-blue-500 to-blue-400" />
+          Moyenne (50-69%)
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-2 w-5 rounded-full bg-gradient-to-r from-slate-400 to-slate-300" />
+          Faible (&lt;50%)
+        </span>
       </div>
 
       <div className="space-y-3">

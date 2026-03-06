@@ -9,6 +9,8 @@ type ScoreCardProps = {
   score: JumpStartScore;
   takeaways: string[];
   executiveSummary: string;
+  dataCoverage?: number | null; // 0-100
+  postsAnalyzed?: number;
 };
 
 const gradeColors: Record<string, string> = {
@@ -31,14 +33,28 @@ const ringColors: Record<string, { from: string; to: string }> = {
   "D": { from: "rgb(244, 63, 94)", to: "rgb(251, 113, 133)" },
 };
 
+const glowGrades = new Set(["A+", "A", "B+"]);
+
 function ScoreRing({ score, grade }: { score: number; grade: string }) {
   const circumference = 2 * Math.PI * 54;
   const offset = circumference - (score / 100) * circumference;
   const colors = ringColors[grade] ?? { from: "rgb(139, 92, 246)", to: "rgb(168, 85, 247)" };
+  const hasGlow = glowGrades.has(grade);
 
   return (
     <div className="relative h-32 w-32 shrink-0">
       <svg className="h-32 w-32 -rotate-90" viewBox="0 0 120 120">
+        {hasGlow && (
+          <defs>
+            <filter id="scoreGlow">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+        )}
         <circle
           cx="60" cy="60" r="54"
           fill="none"
@@ -55,6 +71,7 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           className="transition-all duration-1000 ease-out"
+          filter={hasGlow ? "url(#scoreGlow)" : undefined}
         />
         <defs>
           <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -73,16 +90,33 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
   );
 }
 
+function getSubScoreColor(value: number): string {
+  if (value >= 70) return "from-emerald-500 to-emerald-400";
+  if (value >= 50) return "from-blue-500 to-blue-400";
+  if (value >= 30) return "from-amber-500 to-amber-400";
+  return "from-rose-400 to-rose-300";
+}
+
+function getSubScoreTextColor(value: number): string {
+  if (value >= 70) return "text-emerald-600";
+  if (value >= 50) return "text-blue-600";
+  if (value >= 30) return "text-amber-600";
+  return "text-rose-500";
+}
+
 function SubScoreBar({ label, value, description }: { label: string; value: number; description: string }) {
+  const barColor = getSubScoreColor(value);
+  const textColor = getSubScoreTextColor(value);
+
   return (
     <div className="group space-y-1.5" title={description}>
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground group-hover:text-foreground transition-colors">{label}</span>
-        <span className="font-semibold tabular-nums">{Math.round(value)}</span>
+        <span className={cn("font-semibold tabular-nums", textColor)}>{Math.round(value)}</span>
       </div>
       <div className="h-1.5 rounded-full bg-muted/30 overflow-hidden">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-purple-500 to-violet-400 transition-all duration-1000 ease-out"
+          className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-1000 ease-out", barColor)}
           style={{ width: `${value}%` }}
         />
       </div>
@@ -106,13 +140,13 @@ function ScoreMethodology({ subScores }: { subScores: JumpStartScore["subScores"
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
         </svg>
-        Comment est calcule ce score ?
+        Comment est calculé ce score ?
       </button>
       {open && (
         <div className="mt-3 space-y-3 text-xs text-muted-foreground leading-relaxed">
           <p>
             Le JumpStart Score est un indice composite (0-100) mesurant votre performance digitale
-            sur la periode selectionnee. Il est calcule a partir de 5 composantes :
+            sur la période sélectionnée. Il est calculé à partir de 5 composantes :
           </p>
           <ul className="space-y-1.5 ml-1">
             {subScores.map((sub) => (
@@ -126,9 +160,9 @@ function ScoreMethodology({ subScores }: { subScores: JumpStartScore["subScores"
             ))}
           </ul>
           <p>
-            Chaque composante est normalisee sur 100 selon des benchmarks sectoriels
+            Chaque composante est normalisée sur 100 selon des benchmarks sectoriels
             (ex : taux d'engagement de 3% = 70/100). Le score global est la moyenne
-            ponderee des 5 composantes. La note (A+ a D) facilite la lecture rapide.
+            pondérée des 5 composantes. La note (A+ à D) facilite la lecture rapide.
           </p>
         </div>
       )}
@@ -136,7 +170,13 @@ function ScoreMethodology({ subScores }: { subScores: JumpStartScore["subScores"
   );
 }
 
-export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps) {
+export function ScoreCard({ score, takeaways, executiveSummary, dataCoverage, postsAnalyzed }: ScoreCardProps) {
+  const confidenceLabel = dataCoverage != null
+    ? dataCoverage >= 80 ? "Fiabilité élevée" : dataCoverage >= 50 ? "Fiabilité moyenne" : "Fiabilité limitée"
+    : null;
+  const confidenceColor = dataCoverage != null
+    ? dataCoverage >= 80 ? "text-emerald-600 bg-emerald-50" : dataCoverage >= 50 ? "text-amber-600 bg-amber-50" : "text-rose-600 bg-rose-50"
+    : null;
   return (
     <Card className="card-surface p-6 fade-in-up overflow-hidden relative">
       <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400" />
@@ -148,7 +188,7 @@ export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps
           </svg>
         </div>
         <div>
-          <h2 className="section-title">Synthese executive</h2>
+          <h2 className="section-title">Synthèse exécutive</h2>
           <p className="text-xs text-muted-foreground">Vue d'ensemble de votre performance digitale.</p>
         </div>
       </div>
@@ -158,6 +198,16 @@ export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps
         <div className="flex flex-col items-center gap-2">
           <p className="section-label">JumpStart Score</p>
           <ScoreRing score={score.global} grade={score.grade} />
+          {confidenceLabel && confidenceColor && (
+            <span className={cn("text-[10px] font-medium rounded-full px-2 py-0.5", confidenceColor)}>
+              {confidenceLabel}{dataCoverage != null ? ` (${dataCoverage}%)` : ""}
+            </span>
+          )}
+          {postsAnalyzed != null && postsAnalyzed > 0 && (
+            <span className="text-[10px] text-muted-foreground">
+              {postsAnalyzed} publication{postsAnalyzed > 1 ? "s" : ""} analysée{postsAnalyzed > 1 ? "s" : ""}
+            </span>
+          )}
         </div>
 
         {/* Sub-scores */}
@@ -176,7 +226,7 @@ export function ScoreCard({ score, takeaways, executiveSummary }: ScoreCardProps
         {/* Takeaways + Methodology */}
         <div className="flex-1 min-w-0 space-y-4">
           <div>
-            <p className="section-label mb-3">A retenir</p>
+            <p className="section-label mb-3">À retenir</p>
             <ul className="space-y-2.5">
               {takeaways.map((t, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm leading-relaxed">

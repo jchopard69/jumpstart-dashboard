@@ -13,6 +13,7 @@ type KpiCardProps = {
   className?: string;
   index?: number;
   goal?: number | null;
+  sparkline?: number[];
 };
 
 const KPI_DESCRIPTIONS: Record<string, string> = {
@@ -50,8 +51,9 @@ function formatCompact(value: number): string {
     .replace(/[\u00A0\u202F]/g, "\u2009");
 }
 
-function AnimatedNumber({ value, suffix }: { value: number; suffix?: string }) {
+function AnimatedNumber({ value, suffix, label }: { value: number; suffix?: string; label?: string }) {
   const [display, setDisplay] = useState(0);
+  const [copied, setCopied] = useState(false);
   const ref = useRef<HTMLParagraphElement>(null);
   const hasAnimated = useRef(false);
 
@@ -107,19 +109,60 @@ function AnimatedNumber({ value, suffix }: { value: number; suffix?: string }) {
     .replace(/[\u00A0\u202F]/g, "\u2009");
   const isAbbreviated = formatCompact(value) !== full;
 
+  const handleCopy = () => {
+    const text = `${full}${suffix ?? ""}${label ? ` ${label}` : ""}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    }).catch(() => {});
+  };
+
   return (
-    <div ref={ref}>
+    <div ref={ref} onClick={handleCopy} className="cursor-pointer group/value" title="Cliquer pour copier">
       <p className="text-3xl font-semibold font-display tabular-nums animate-count-up">
-        {compact}{suffix && <span className="text-xl ml-0.5">{suffix}</span>}
+        {copied ? (
+          <span className="text-emerald-500 text-lg">Copié !</span>
+        ) : (
+          <>{compact}{suffix && <span className="text-xl ml-0.5">{suffix}</span>}</>
+        )}
       </p>
-      {isAbbreviated && (
+      {isAbbreviated && !copied && (
         <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{full}</p>
       )}
     </div>
   );
 }
 
-export function KpiCard({ label, value, delta, suffix, description, className, index = 0, goal }: KpiCardProps) {
+function MiniSparkline({ data, trend }: { data: number[]; trend: "up" | "down" }) {
+  if (data.length < 2) return null;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  const w = 80;
+  const h = 24;
+  const padding = 1;
+  const points = data.map((v, i) => {
+    const x = padding + (i / (data.length - 1)) * (w - padding * 2);
+    const y = h - padding - ((v - min) / range) * (h - padding * 2);
+    return `${x},${y}`;
+  });
+  const color = trend === "up" ? "#10b981" : "#f43f5e";
+
+  return (
+    <svg width={w} height={h} className="opacity-60 group-hover:opacity-100 transition-opacity">
+      <polyline
+        points={points.join(" ")}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function KpiCard({ label, value, delta, suffix, description, className, index = 0, goal, sparkline }: KpiCardProps) {
   const trend = delta >= 0 ? "up" : "down";
   const deltaValue = formatDelta(delta);
   const tooltipText = description || KPI_DESCRIPTIONS[label];
@@ -171,9 +214,15 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
         {value === null ? (
           <p className="text-3xl font-semibold font-display text-muted-foreground/50">N/A</p>
         ) : (
-          <AnimatedNumber value={value} suffix={suffix} />
+          <AnimatedNumber value={value} suffix={suffix} label={label} />
         )}
       </div>
+
+      {sparkline && sparkline.length >= 2 && (
+        <div className="mt-2">
+          <MiniSparkline data={sparkline} trend={trend} />
+        </div>
+      )}
 
       {goalProgress !== null && (
         <div className="mt-3">

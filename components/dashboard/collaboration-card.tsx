@@ -55,14 +55,38 @@ export function CollaborationCard({ collaboration, shoots, documents }: Collabor
             <p className="text-xs text-muted-foreground py-2 italic">Aucun shooting planifié.</p>
           ) : (
             <div className="space-y-2">
-              {shoots.slice(0, 3).map((shoot) => (
-                <div key={shoot.id} className="rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/20">
-                  <p className="text-sm font-medium tabular-nums">
-                    {new Date(shoot.shoot_date).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{shoot.location ?? "Lieu à définir"}</p>
-                </div>
-              ))}
+              {shoots.slice(0, 3).map((shoot) => {
+                const shootDate = new Date(shoot.shoot_date);
+                const now = new Date();
+                const diffDays = Math.ceil((shootDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                const isUrgent = diffDays >= 0 && diffDays <= 7;
+                const countdownLabel = diffDays === 0 ? "Aujourd'hui"
+                  : diffDays === 1 ? "Demain"
+                  : diffDays < 0 ? `Il y a ${Math.abs(diffDays)} jour${Math.abs(diffDays) > 1 ? "s" : ""}`
+                  : `Dans ${diffDays} jour${diffDays > 1 ? "s" : ""}`;
+
+                return (
+                  <div key={shoot.id} className={cn(
+                    "rounded-lg border p-3 transition-colors hover:bg-muted/20",
+                    isUrgent ? "border-amber-200 bg-amber-50/30" : "border-border/50"
+                  )}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium tabular-nums">
+                        {shootDate.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
+                      </p>
+                      <span className={cn(
+                        "text-[10px] font-medium rounded-full px-2 py-0.5",
+                        diffDays <= 0 ? "bg-rose-100 text-rose-700"
+                          : isUrgent ? "bg-amber-100 text-amber-700"
+                          : "bg-muted/60 text-muted-foreground"
+                      )}>
+                        {countdownLabel}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{shoot.location ?? "Lieu à définir"}</p>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -300,9 +300,9 @@ export function buildDemoScoreSnapshots(tenantId: string, today = new Date()) {
       period_days: 30,
       sub_scores: [
         { label: "Croissance", value: Math.min(100, score + 6) },
-        { label: "Portee", value: Math.min(100, score + 2) },
+        { label: "Portée", value: Math.min(100, score + 2) },
         { label: "Engagement", value: Math.min(100, score + 4) },
-        { label: "Regularite", value: Math.max(0, score - 3) },
+        { label: "Régularité", value: Math.max(0, score - 3) },
         { label: "Momentum", value: Math.min(100, score + 1) },
       ],
     });
@@ -369,7 +369,7 @@ export function buildDemoGoals(tenantId: string) {
     posts_per_week_target: 5,
     reach_target: 95000,
     views_target: 135000,
-    notes: "Objectif demo: croissance durable, regularite et conversion.",
+    notes: "Objectif démo : croissance durable, régularité et conversion.",
     updated_at: new Date().toISOString(),
   };
 }

@@ -127,9 +127,9 @@ export default function LoginPage() {
             </p>
           </div>
           <div className="mt-8 space-y-3 text-sm text-muted-foreground">
-            <p>&#10004; Scoring proprietaire JumpStart Score</p>
-            <p>&#10004; Insights strategiques auto-generes</p>
-            <p>&#10004; Rapports PDF premium prets a partager</p>
+            <p>&#10004; Scoring propriétaire JumpStart Score</p>
+            <p>&#10004; Insights stratégiques auto-générés</p>
+            <p>&#10004; Rapports PDF premium prêts à partager</p>
           </div>
         </div>
 

@@ -35,6 +35,7 @@ export async function upsertSocialAccount(
     account_name: account.accountName,
     external_account_id: account.platformUserId,
     auth_status: status,
+    last_error: null,
     token_encrypted: tokenEncrypted,
     refresh_token_encrypted: refreshTokenEncrypted,
     token_expires_at: account.tokenExpiresAt?.toISOString() ?? null,
@@ -60,6 +61,7 @@ export async function upsertSocialAccount(
       .update({
         account_name: accountData.account_name,
         auth_status: accountData.auth_status,
+        last_error: null,
         token_encrypted: accountData.token_encrypted,
         refresh_token_encrypted: accountData.refresh_token_encrypted,
         token_expires_at: accountData.token_expires_at,
