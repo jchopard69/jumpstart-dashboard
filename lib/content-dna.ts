@@ -130,9 +130,13 @@ function analyzeFormats(posts: ContentDnaInput["posts"]): ContentPattern | null 
 
   let detail: string;
   if (formats.length >= 2) {
-    const secondLabel = TYPE_LABELS[formats[1].type] ?? formats[1].type;
-    const ratio = formats[1].avgEng > 0 ? (best.avgEng / formats[1].avgEng).toFixed(1) : "∞";
-    detail = `${ratio}x plus d'engagement que les ${secondLabel.toLowerCase()} (${best.count} posts analysés)`;
+    if (best.avgEng === 0 && formats[1].avgEng === 0) {
+      detail = `${Math.round(best.avgEng)} engagements en moyenne sur ${best.count} publications`;
+    } else {
+      const secondLabel = TYPE_LABELS[formats[1].type] ?? formats[1].type;
+      const ratio = formats[1].avgEng > 0 ? (best.avgEng / formats[1].avgEng).toFixed(1) : "∞";
+      detail = `${ratio}x plus d'engagement que les ${secondLabel.toLowerCase()} (${best.count} posts analysés)`;
+    }
   } else {
     detail = `${Math.round(best.avgEng)} engagements en moyenne sur ${best.count} publications`;
   }

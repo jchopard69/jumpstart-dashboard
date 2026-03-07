@@ -11,6 +11,9 @@ const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET || '';
 // Token refresh buffer: refresh tokens if they expire within this time
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
+// In-memory lock per account to prevent concurrent refresh races
+const refreshLocks = new Map<string, Promise<string>>();
+
 interface TokenRefreshResult {
   accessToken: string;
   refreshToken?: string;
@@ -254,7 +257,10 @@ export async function validateMetaToken(accessToken: string): Promise<boolean> {
 }
 
 /**
- * Get valid access token, refreshing if needed
+ * Get valid access token, refreshing if needed.
+ * Uses an in-memory lock per account to prevent concurrent refresh races:
+ * if a refresh is already in progress for an accountId, subsequent callers
+ * wait for the existing refresh instead of starting a new one.
  */
 export async function getValidAccessToken(accountId: string): Promise<string> {
   const { accessToken, refreshToken, expiresAt, platform } = await getDecryptedTokens(accountId);
@@ -268,58 +274,72 @@ export async function getValidAccessToken(accountId: string): Promise<string> {
     return accessToken;
   }
 
+  // If a refresh is already in progress for this account, wait for it
+  const existingLock = refreshLocks.get(accountId);
+  if (existingLock) {
+    return existingLock;
+  }
+
   console.log(`[token-manager] Token expiring soon for ${accountId}, attempting refresh`);
 
-  // Refresh based on platform
-  try {
-    let newTokens: TokenRefreshResult;
+  // Create the refresh promise and store it as the lock
+  const refreshPromise = (async () => {
+    try {
+      let newTokens: TokenRefreshResult;
 
-    switch (platform) {
-      case 'tiktok':
-        if (!refreshToken) throw new Error('No refresh token available');
-        newTokens = await refreshTikTokToken(refreshToken);
-        break;
+      switch (platform) {
+        case 'tiktok':
+          if (!refreshToken) throw new Error('No refresh token available');
+          newTokens = await refreshTikTokToken(refreshToken);
+          break;
 
-      case 'youtube':
-        if (!refreshToken) throw new Error('No refresh token available');
-        newTokens = await refreshYouTubeToken(refreshToken);
-        break;
+        case 'youtube':
+          if (!refreshToken) throw new Error('No refresh token available');
+          newTokens = await refreshYouTubeToken(refreshToken);
+          break;
 
-      case 'twitter':
-        if (!refreshToken) throw new Error('No refresh token available');
-        newTokens = await refreshTwitterToken(refreshToken);
-        break;
+        case 'twitter':
+          if (!refreshToken) throw new Error('No refresh token available');
+          newTokens = await refreshTwitterToken(refreshToken);
+          break;
 
-      case 'linkedin':
-        if (!refreshToken) throw new Error('No refresh token available');
-        newTokens = await refreshLinkedInToken(refreshToken);
-        break;
+        case 'linkedin':
+          if (!refreshToken) throw new Error('No refresh token available');
+          newTokens = await refreshLinkedInToken(refreshToken);
+          break;
 
-      case 'facebook':
-      case 'instagram':
-        // Facebook page tokens don't expire if the page is active
-        // Validate the token instead
-        const isValid = await validateMetaToken(accessToken);
-        if (!isValid) {
-          await markAccountExpired(accountId, 'Meta token invalid - manual reconnection required');
-          throw new Error('Meta token expired - manual reconnection required');
+        case 'facebook':
+        case 'instagram': {
+          // Facebook page tokens don't expire if the page is active
+          // Validate the token instead
+          const isValid = await validateMetaToken(accessToken);
+          if (!isValid) {
+            await markAccountExpired(accountId, 'Meta token invalid - manual reconnection required');
+            throw new Error('Meta token expired - manual reconnection required');
+          }
+          return accessToken;
         }
-        return accessToken;
 
-      default:
-        throw new Error(`Token refresh not supported for platform: ${platform}`);
+        default:
+          throw new Error(`Token refresh not supported for platform: ${platform}`);
+      }
+
+      // Store the new tokens
+      await updateStoredTokens(accountId, newTokens);
+      console.log(`[token-manager] Token refreshed successfully for ${accountId}`);
+
+      return newTokens.accessToken;
+    } catch (error) {
+      console.error(`[token-manager] Token refresh failed for ${accountId}:`, error);
+      await markAccountExpired(accountId, error instanceof Error ? error.message : 'Token refresh failed');
+      throw error;
+    } finally {
+      refreshLocks.delete(accountId);
     }
+  })();
 
-    // Store the new tokens
-    await updateStoredTokens(accountId, newTokens);
-    console.log(`[token-manager] Token refreshed successfully for ${accountId}`);
-
-    return newTokens.accessToken;
-  } catch (error) {
-    console.error(`[token-manager] Token refresh failed for ${accountId}:`, error);
-    await markAccountExpired(accountId, error instanceof Error ? error.message : 'Token refresh failed');
-    throw error;
-  }
+  refreshLocks.set(accountId, refreshPromise);
+  return refreshPromise;
 }
 
 /**

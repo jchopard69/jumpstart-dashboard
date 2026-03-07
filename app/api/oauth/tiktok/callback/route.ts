@@ -3,6 +3,7 @@ import { handleTikTokOAuthCallback } from "@/lib/social-platforms/tiktok/auth";
 import { clearOAuthCookies, readOAuthCookies } from "@/lib/social-platforms/core/oauth-cookies";
 import { upsertSocialAccount } from "@/lib/social-platforms/core/db-utils";
 import { requireAdminOAuthSession } from "@/lib/social-platforms/core/oauth-guard";
+import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
   const guard = await requireAdminOAuthSession(request, "tiktok");
@@ -46,6 +47,17 @@ export async function GET(request: NextRequest) {
   try {
     const result = await handleTikTokOAuthCallback(code, state, stored.codeVerifier);
     tenantId = result.tenantId;
+
+    // Verify tenant exists and is active
+    const supabase = createSupabaseServiceClient();
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("id,is_active")
+      .eq("id", tenantId)
+      .maybeSingle();
+    if (!tenant || !tenant.is_active) {
+      throw new Error("Tenant not found or inactive");
+    }
 
     await upsertSocialAccount(tenantId, result.account);
 

@@ -20,13 +20,16 @@ function buildSparkline(metrics: DashboardMetric[], key: keyof DashboardMetric):
 }
 
 export function KpiSection({ totals, delta, goals, metrics = [], comparisonLabel, showViews, showReach, showEngagements }: KpiSectionProps) {
-  const rawRate = computeEngagementRate(
-    totals?.engagements ?? 0,
-    totals?.views ?? 0,
-    totals?.reach ?? 0
-  );
+  const rawRate = totals
+    ? computeEngagementRate(
+        totals.engagements ?? 0,
+        totals.views ?? 0,
+        totals.reach ?? 0
+      )
+    : null;
   // Format: 1 decimal, show "< 0.1" for very small non-zero rates
-  const engagementRate = rawRate !== null
+  // Keep null when there's no data so KpiCard shows "N/A" instead of "0%"
+  const engagementRate = rawRate !== null && rawRate !== undefined
     ? (rawRate > 0 && rawRate < 0.1 ? 0.1 : Number(rawRate.toFixed(1)))
     : null;
 

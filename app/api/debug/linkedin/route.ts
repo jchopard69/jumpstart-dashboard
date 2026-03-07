@@ -10,7 +10,7 @@ type DebugResponse = {
     platform: string;
     external_account_id: string;
   };
-  token_suffix?: string;
+  token_present?: boolean;
   org_acls?: unknown;
   follower_stats?: Record<string, unknown>;
   share_stats?: Record<string, unknown>;
@@ -129,7 +129,7 @@ export async function GET(request: Request) {
       platform: account.platform,
       external_account_id: account.external_account_id
     },
-    token_suffix: accessToken.slice(-6)
+    token_present: Boolean(accessToken)
   };
 
   try {

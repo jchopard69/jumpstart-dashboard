@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { PlatformConnections } from "./platform-connections";
 import type { Platform } from "@/lib/types";
@@ -24,12 +25,21 @@ interface Props {
 }
 
 export function SocialAccountsSection({ tenantId, isDemo, accounts, deleteAction }: Props) {
+  const router = useRouter();
+
   const handleDelete = async (accountId: string) => {
     if (isDemo) return;
     const formData = new FormData();
     formData.append("account_id", accountId);
     formData.append("tenant_id", tenantId);
-    await deleteAction(formData);
+    try {
+      await deleteAction(formData);
+      router.refresh();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur inconnue lors de la suppression.";
+      throw new Error(message);
+    }
   };
 
   return (

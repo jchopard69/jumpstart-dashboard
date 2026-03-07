@@ -45,6 +45,15 @@ export function DashboardFilters({
         params.set(key, value);
       }
     });
+
+    // Validate date range: swap if from > to
+    const fromVal = params.get("from");
+    const toVal = params.get("to");
+    if (fromVal && toVal && fromVal > toVal) {
+      params.set("from", toVal);
+      params.set("to", fromVal);
+    }
+
     startTransition(() => {
       router.push(`/client/dashboard?${params.toString()}`);
     });
@@ -72,9 +81,9 @@ export function DashboardFilters({
       )}
       data-pending={isPending}
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 overflow-x-auto">
         {/* Period segmented control */}
-        <div className="segmented-control">
+        <div className="segmented-control overflow-x-auto shrink-0">
           {presets.map((item) => (
             <button
               key={item.value}

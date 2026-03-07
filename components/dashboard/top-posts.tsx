@@ -237,8 +237,10 @@ export function TopPosts({ posts }: TopPostsProps) {
                         </span>
                       </p>
                       {cohort.avgImpressions > 0 && (() => {
-                        const ratio = Math.round(((visibility.value - cohort.avgImpressions) / cohort.avgImpressions) * 100);
-                        if (Math.abs(ratio) < 5) return null;
+                        const ratio = cohort.avgImpressions > 0
+                          ? Math.round(((visibility.value - cohort.avgImpressions) / cohort.avgImpressions) * 100)
+                          : 0;
+                        if (!isFinite(ratio) || Math.abs(ratio) < 5) return null;
                         return (
                           <p className={cn("text-[10px] tabular-nums font-medium", ratio > 0 ? "text-emerald-600" : "text-rose-500")}>
                             {ratio > 0 ? "+" : ""}{ratio}% vs moy.

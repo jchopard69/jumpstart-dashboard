@@ -48,6 +48,15 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
   let syncSucceeded = false;
 
   await runWithLimit(filtered, async (account) => {
+    // Clean up stale "running" sync logs (safety net for crashes)
+    await supabase
+      .from("sync_logs")
+      .update({ status: "failed", finished_at: new Date().toISOString(), error_message: "Sync timed out (stale)" })
+      .eq("tenant_id", tenantId)
+      .eq("social_account_id", account.id)
+      .eq("status", "running")
+      .lt("started_at", new Date(Date.now() - 30 * 60 * 1000).toISOString());
+
     const { data: log, error: logError } = await supabase
       .from("sync_logs")
       .insert({

@@ -75,6 +75,11 @@ export async function waitForRateLimit(platform: PlatformId, endpoint: string = 
   const resetTime = getResetTime(platform, endpoint);
 
   if (resetTime > 0) {
+    const MAX_WAIT_MS = 5 * 60 * 1000; // 5 minutes max
+    if (resetTime > MAX_WAIT_MS) {
+      console.warn(`[rate-limit] Reset time ${Math.ceil(resetTime / 1000)}s exceeds max wait for ${platform}:${endpoint}, skipping`);
+      throw new Error(`Rate limit wait too long (${Math.ceil(resetTime / 1000)}s) for ${platform}:${endpoint}`);
+    }
     console.log(`[rate-limit] Waiting ${Math.ceil(resetTime / 1000)}s for ${platform}:${endpoint}`);
     await new Promise(resolve => setTimeout(resolve, resetTime + 100)); // Add 100ms buffer
   }

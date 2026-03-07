@@ -256,7 +256,7 @@ export function computeContentScore(
   cohort: { maxImpressions: number; maxEngagements: number; maxViews: number; avgImpressions: number; avgEngagements: number }
 ): ContentScore {
   if (cohort.maxImpressions <= 0 && cohort.maxEngagements <= 0) {
-    return { score: 50, tier: "average" };
+    return { score: 30, tier: "weak" };
   }
 
   // Visibility component (50%): how well did this post reach people?

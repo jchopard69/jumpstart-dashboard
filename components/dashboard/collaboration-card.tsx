@@ -40,7 +40,7 @@ export function CollaborationCard({ collaboration, shoots, documents }: Collabor
           <div className="flex items-center gap-2">
             <span className={cn(
               "text-xl font-bold font-display tabular-nums",
-              shootDays === 0 ? "text-rose-500" : shootDays <= 2 ? "text-amber-500" : "text-foreground"
+              shootDays === 0 ? "text-muted-foreground" : shootDays <= 2 ? "text-amber-500" : "text-foreground"
             )}>
               {shootDays}
             </span>

@@ -173,13 +173,14 @@ export async function fetchInstagramMediaBackfill(params: {
     return 0;
   };
 
-  while (nextUrl) {
+  let reachedEndDate = false;
+  while (nextUrl && !reachedEndDate) {
     const response: MetaMediaResponse = await apiRequest("instagram", nextUrl, {}, "media_backfill");
     for (const item of response.data ?? []) {
       if (!item.timestamp) continue;
       const postDate = new Date(item.timestamp);
       if (postDate < sinceDate) {
-        nextUrl = undefined;
+        reachedEndDate = true;
         break;
       }
       mediaChecked += 1;
@@ -204,7 +205,9 @@ export async function fetchInstagramMediaBackfill(params: {
         raw_json: item as unknown as Record<string, unknown>
       });
     }
-    nextUrl = response.paging?.next;
+    if (!reachedEndDate) {
+      nextUrl = response.paging?.next;
+    }
   }
 
   if (debugViews) {

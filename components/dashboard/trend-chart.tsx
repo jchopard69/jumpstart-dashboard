@@ -63,9 +63,14 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
-export function TrendChart({ title, data, showComparison = false, showTrend = true }: TrendChartProps) {
+export function TrendChart({ title, data: rawData, showComparison = false, showTrend = true }: TrendChartProps) {
   const gradientId = useId();
   const gradientPrevId = useId();
+
+  // If only 1 data point, duplicate it so recharts can draw a visible flat line
+  const data = rawData.length === 1
+    ? [rawData[0], { ...rawData[0], date: rawData[0].date + " " }]
+    : rawData;
 
   const trend = calculateTrend(data);
   const average = data.length > 0
@@ -73,7 +78,7 @@ export function TrendChart({ title, data, showComparison = false, showTrend = tr
     : 0;
 
   // Empty state
-  if (data.length === 0) {
+  if (rawData.length === 0) {
     return (
       <Card className="card-surface p-5 fade-in-up">
         <div className="mb-2 flex items-center justify-between">

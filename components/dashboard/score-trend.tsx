@@ -60,7 +60,38 @@ function CustomTooltip({ active, payload }: any) {
 }
 
 export function ScoreTrend({ history }: ScoreTrendProps) {
-  if (history.length < 2) return null;
+  if (history.length === 0) return null;
+
+  if (history.length === 1) {
+    const snap = history[0];
+    return (
+      <Card className="card-surface p-6 fade-in-up">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
+            <svg className="h-4 w-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="section-title">Évolution du score</h2>
+            <p className="text-xs text-muted-foreground">Progression de votre JumpStart Score</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 mb-3">
+          <span className="text-3xl font-bold font-display tabular-nums">{snap.global_score}</span>
+          <span
+            className="rounded-full px-2 py-0.5 text-xs font-semibold text-white"
+            style={{ backgroundColor: gradeColors[snap.grade] ?? "#8b5cf6" }}
+          >
+            {snap.grade}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Premier snapshot — l&apos;historique se construira avec les prochaines synchronisations.
+        </p>
+      </Card>
+    );
+  }
 
   const first = history[0];
   const last = history[history.length - 1];

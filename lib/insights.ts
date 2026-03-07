@@ -144,7 +144,8 @@ export function generateExecutiveSummary(input: InsightsInput): string {
     parts.push(`Score JumpStart : ${input.score.global}/100 (${input.score.grade}).`);
   }
 
-  return parts.filter(Boolean).join(", ").replace(/, ([^,]*)$/, ". $1") + (parts[parts.length - 1]?.endsWith(".") ? "" : ".");
+  const filtered = parts.filter(Boolean);
+  return filtered.join(", ").replace(/, ([^,]*)$/, ". $1") + (filtered[filtered.length - 1]?.endsWith(".") ? "" : ".");
 }
 
 /**
@@ -203,7 +204,7 @@ export function generateKeyTakeaways(input: InsightsInput): string[] {
 
   // Reach vs followers
   if (totals.reach > 0 && totals.followers > 0) {
-    const reachPct = Math.round((totals.reach / totals.followers) * 100);
+    const reachPct = totals.followers > 0 ? Math.round((totals.reach / totals.followers) * 100) : 0;
     takeaways.push({
       text: `Portée organique : ${reachPct}% de l'audience atteinte`,
       priority: 5,

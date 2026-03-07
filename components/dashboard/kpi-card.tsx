@@ -167,7 +167,7 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
   const deltaValue = formatDelta(delta);
   const tooltipText = description || KPI_DESCRIPTIONS[label];
 
-  const goalProgress = goal && goal > 0 && value !== null ? Math.min((value / goal) * 100, 100) : null;
+  const goalProgress = goal && goal > 0 && value !== null ? (value / goal) * 100 : null;
 
   return (
     <Card
@@ -236,7 +236,7 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
                 "h-full rounded-full transition-all duration-700",
                 goalProgress >= 100 ? "bg-emerald-500" : goalProgress >= 60 ? "bg-violet-500" : "bg-amber-500"
               )}
-              style={{ width: `${goalProgress}%` }}
+              style={{ width: `${Math.min(goalProgress, 100)}%` }}
             />
           </div>
         </div>

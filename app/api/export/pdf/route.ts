@@ -90,14 +90,23 @@ export async function GET(request: Request) {
       acc.views += row.views ?? 0;
       acc.reach += row.reach ?? 0;
       acc.engagements += row.engagements ?? 0;
+      acc.postsCount += row.posts_count ?? 0;
       return acc;
     },
     { followers: 0, views: 0, reach: 0, engagements: 0, postsCount: 0 }
   );
-  const prevFollowers =
-    data.delta.followers !== 0 && totals.followers
-      ? Math.round(totals.followers / (1 + data.delta.followers / 100))
-      : totals.followers;
+  // Compute prevFollowers directly from prevMetrics (latest per account)
+  const prevFollowersMap = new Map<string, { date: string; followers: number }>();
+  for (const row of data.prevMetrics ?? []) {
+    if (!row.social_account_id || !row.date) continue;
+    const existing = prevFollowersMap.get(row.social_account_id);
+    if (!existing || row.date > existing.date) {
+      prevFollowersMap.set(row.social_account_id, { date: row.date, followers: row.followers ?? 0 });
+    }
+  }
+  let prevFollowers = 0;
+  for (const entry of prevFollowersMap.values()) prevFollowers += entry.followers;
+  if (prevFollowers === 0) prevFollowers = data.totals?.followers ?? 0;
   prevTotals.followers = prevFollowers;
 
   const calcDelta = (current: number, previous: number) =>

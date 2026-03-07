@@ -95,7 +95,7 @@ interface Props {
   tenantId: string;
   isDemo?: boolean;
   accounts: ConnectedAccount[];
-  onDelete: (accountId: string) => void;
+  onDelete: (accountId: string) => void | Promise<void>;
 }
 
 export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Props) {
@@ -206,7 +206,18 @@ export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Pr
   const handleDelete = async (accountId: string) => {
     setDeleting(accountId);
     try {
-      onDelete(accountId);
+      await onDelete(accountId);
+      setNotification({
+        type: "success",
+        message: "Compte supprimé avec succès.",
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur lors de la suppression du compte.";
+      setNotification({
+        type: "error",
+        message,
+      });
     } finally {
       setDeleting(null);
     }
