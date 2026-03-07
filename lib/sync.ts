@@ -6,6 +6,7 @@ import { getValidAccessToken } from "@/lib/social-platforms/core/token-manager";
 import { computeJumpStartScore } from "@/lib/scoring";
 import { saveScoreSnapshot } from "@/lib/score-history";
 import { isDemoTenant, logDemoAccess } from "@/lib/demo";
+import { detectAndCreateAlerts } from "@/lib/notifications";
 import type { Platform } from "@/lib/types";
 
 const CONCURRENCY_LIMIT = 2;
@@ -506,6 +507,13 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
     } catch (scoreError) {
       console.warn("[sync] Failed to compute/save score snapshot:", scoreError);
     }
+  }
+
+  // Detect and create notification alerts after sync
+  try {
+    await detectAndCreateAlerts(tenantId);
+  } catch (alertError) {
+    console.warn("[sync] Failed to detect/create alerts:", alertError);
   }
 }
 

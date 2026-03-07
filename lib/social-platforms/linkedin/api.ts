@@ -6,6 +6,7 @@ import { LINKEDIN_CONFIG, getLinkedInVersion } from './config';
 import { apiRequest, SocialApiError } from '../core/api-client';
 import type { Connector } from '@/lib/connectors/types';
 import type { DailyMetric, PostMetric } from '../core/types';
+import type { DemographicEntry } from '@/lib/demographics-queries';
 
 const API_REST_URL = LINKEDIN_CONFIG.apiUrl;
 const API_V2_URL = LINKEDIN_CONFIG.apiV2Url ?? 'https://api.linkedin.com/v2';
@@ -442,3 +443,81 @@ export const linkedinConnector: Connector = {
     return { dailyMetrics, posts };
   }
 };
+
+/**
+ * Fetch audience demographics from LinkedIn Organization API.
+ * Returns follower breakdowns by function, industry, seniority, and country.
+ */
+export async function fetchLinkedInDemographics(
+  accessToken: string,
+  organizationId: string
+): Promise<DemographicEntry[]> {
+  const entries: DemographicEntry[] = [];
+  const orgId = normalizeOrganizationId(organizationId);
+  const organizationUrn = `urn:li:organization:${orgId}`;
+  const headers = buildHeaders(accessToken);
+
+  try {
+    const url = `${API_REST_URL}/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=${encodeURIComponent(organizationUrn)}`;
+
+    type FollowerDemoResponse = {
+      elements?: Array<{
+        followerCountsByFunction?: Array<{ function: { name?: Record<string, string> }; followerCounts: { organicFollowerCount?: number; paidFollowerCount?: number } }>;
+        followerCountsByIndustry?: Array<{ industry: { name?: Record<string, string> }; followerCounts: { organicFollowerCount?: number; paidFollowerCount?: number } }>;
+        followerCountsBySeniority?: Array<{ seniority: { name?: Record<string, string> }; followerCounts: { organicFollowerCount?: number; paidFollowerCount?: number } }>;
+        followerCountsByCountry?: Array<{ country: { name?: Record<string, string> }; followerCounts: { organicFollowerCount?: number; paidFollowerCount?: number } }>;
+      }>;
+    };
+
+    const response = await apiRequest<FollowerDemoResponse>(
+      'linkedin',
+      url,
+      { headers },
+      'linkedin_demographics'
+    );
+
+    const element = response.elements?.[0];
+    if (!element) return entries;
+
+    function extractDimension(
+      items: Array<Record<string, unknown>> | undefined,
+      dimension: string,
+      entityKey: string
+    ) {
+      if (!items?.length) return;
+      const total = items.reduce((s, item) => {
+        const fc = item.followerCounts as { organicFollowerCount?: number; paidFollowerCount?: number } | undefined;
+        return s + (fc?.organicFollowerCount ?? 0) + (fc?.paidFollowerCount ?? 0);
+      }, 0);
+      if (total === 0) return;
+
+      for (const item of items) {
+        const fc = item.followerCounts as { organicFollowerCount?: number; paidFollowerCount?: number } | undefined;
+        const count = (fc?.organicFollowerCount ?? 0) + (fc?.paidFollowerCount ?? 0);
+        if (count === 0) continue;
+        const entity = item[entityKey] as { name?: Record<string, string> } | undefined;
+        const name = entity?.name?.localized
+          ? Object.values(entity.name.localized)[0]
+          : entity?.name
+          ? Object.values(entity.name)[0]
+          : 'Unknown';
+
+        entries.push({
+          dimension,
+          value: String(name ?? 'Unknown'),
+          percentage: Math.round((count / total) * 1000) / 10,
+          count,
+        });
+      }
+    }
+
+    extractDimension(element.followerCountsByCountry as any, 'country', 'country');
+    extractDimension(element.followerCountsByFunction as any, 'age', 'function'); // map function to a dimension
+    extractDimension(element.followerCountsBySeniority as any, 'gender', 'seniority'); // map seniority to a dimension
+    extractDimension(element.followerCountsByIndustry as any, 'city', 'industry'); // map industry to a dimension
+  } catch (error) {
+    console.warn('[linkedin] Failed to fetch demographics:', error instanceof Error ? error.message : error);
+  }
+
+  return entries;
+}

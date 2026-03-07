@@ -6,6 +6,7 @@ import { META_CONFIG } from './config';
 import { apiRequest, buildUrl } from '../core/api-client';
 import type { Connector, ConnectorSyncResult } from '@/lib/connectors/types';
 import type { DailyMetric, PostMetric } from '../core/types';
+import type { DemographicEntry } from '@/lib/demographics-queries';
 
 const GRAPH_URL = META_CONFIG.graphUrl;
 const INSTAGRAM_POST_INSIGHTS_LIMIT = Number(process.env.INSTAGRAM_POST_INSIGHTS_LIMIT ?? 100);
@@ -851,3 +852,82 @@ export const facebookConnector: Connector = {
     return { dailyMetrics, posts };
   },
 };
+
+/**
+ * Fetch audience demographics from Instagram Graph API.
+ * Uses follower_demographics insight (lifetime).
+ */
+export async function fetchMetaDemographics(
+  accessToken: string,
+  igAccountId: string
+): Promise<DemographicEntry[]> {
+  const entries: DemographicEntry[] = [];
+
+  try {
+    const url = buildUrl(`${GRAPH_URL}/${igAccountId}/insights`, {
+      metric: 'follower_demographics',
+      period: 'lifetime',
+      metric_type: 'total_value',
+      access_token: accessToken,
+    });
+
+    const response = await apiRequest<MetaInsightsResponse>(
+      'instagram',
+      url,
+      {},
+      'instagram_demographics'
+    );
+
+    for (const insight of response.data ?? []) {
+      const totalValue = insight.total_value?.value;
+      if (!totalValue || typeof totalValue !== 'object') continue;
+
+      // Determine dimension from metric name
+      let dimension: string;
+      if (insight.name.includes('age') || insight.name === 'follower_demographics') {
+        // The follower_demographics metric returns breakdowns with keys like city, country, age, gender
+        // We need to check the breakdown structure
+      }
+
+      // Handle total_value format: { value: { "25-34": 150, "35-44": 100, ... } }
+      const breakdown = totalValue as unknown as Record<string, number>;
+      const total = Object.values(breakdown).reduce((s, v) => s + v, 0);
+      if (total === 0) continue;
+
+      // Detect dimension from the key patterns
+      for (const [key, count] of Object.entries(breakdown)) {
+        if (typeof count !== 'number') continue;
+
+        const pct = Math.round((count / total) * 1000) / 10;
+
+        // Age ranges like "18-24", "25-34"
+        if (/^\d{2}-\d{2}$/.test(key) || key === '65+' || key === '13-17') {
+          dimension = 'age';
+        }
+        // Gender like "M", "F", "U"
+        else if (['M', 'F', 'U'].includes(key)) {
+          dimension = 'gender';
+        }
+        // 2-letter country codes
+        else if (/^[A-Z]{2}$/.test(key)) {
+          dimension = 'country';
+        }
+        // City names (contains comma or longer string)
+        else {
+          dimension = 'city';
+        }
+
+        entries.push({
+          dimension,
+          value: key,
+          percentage: pct,
+          count,
+        });
+      }
+    }
+  } catch (error) {
+    console.warn('[meta] Failed to fetch demographics:', error instanceof Error ? error.message : error);
+  }
+
+  return entries;
+}

@@ -7,6 +7,7 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavLink } from "@/components/layout/nav-link";
 import { TenantSwitcher } from "@/components/layout/tenant-switcher";
 import { ClientSwitcher, type ClientInfo } from "@/components/admin/client-switcher";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import type { Platform, SyncStatus } from "@/lib/types";
 import { cookies } from "next/headers";
 
@@ -95,7 +96,10 @@ export default async function ClientLayout({ children }: { children: React.React
                       </span>
                     )}
                   </div>
-                  <p className="mt-3 section-label">Social Pulse</p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <p className="section-label">Social Pulse</p>
+                    <NotificationBell />
+                  </div>
                   {tenants.length > 1 && (
                     <div className="mt-4">
                       <TenantSwitcher tenants={tenants} currentTenantId={currentTenantId} />
@@ -103,7 +107,11 @@ export default async function ClientLayout({ children }: { children: React.React
                   )}
                   <nav className="mt-6 flex flex-col gap-2 text-sm">
                     <NavLink href="/client/dashboard">Tableau de bord</NavLink>
+                    <NavLink href="/client/ads">Publicites</NavLink>
+                    <NavLink href="/client/demographics">Audience</NavLink>
+                    <NavLink href="/client/calendar">Calendrier</NavLink>
                     <NavLink href="/client/collaboration">Ma collaboration</NavLink>
+                    <NavLink href="/client/reports">Rapports</NavLink>
                     {isAdmin && <NavLink href="/admin">Admin</NavLink>}
                   </nav>
                   {isAdmin && clientsData.length > 0 && (
@@ -130,6 +138,7 @@ export default async function ClientLayout({ children }: { children: React.React
                     <Image src="/jumpstart-logo.png" alt="JumpStart Studio" width={100} height={24} priority />
                   </div>
                   <div className="flex items-center gap-2">
+                    <NotificationBell />
                     {tenants.length > 1 && (
                       <TenantSwitcher tenants={tenants} currentTenantId={currentTenantId} />
                     )}
