@@ -6,7 +6,6 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/s
 import { AdminNavLink } from "@/components/admin/admin-nav-link";
 import { ClientSwitcher, type ClientInfo } from "@/components/admin/client-switcher";
 import { CommandPalette } from "@/components/admin/command-palette";
-import { NotificationBell } from "@/components/layout/notification-bell";
 import type { Platform, SyncStatus } from "@/lib/types";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -80,10 +79,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                       Admin
                     </span>
                   </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <p className="section-label">Centre de controle</p>
-                    <NotificationBell />
-                  </div>
+                  <p className="mt-3 section-label">Centre de controle</p>
                   <nav className="mt-6 flex flex-col gap-2 text-sm">
                     <AdminNavLink href="/admin">Vue d&apos;ensemble</AdminNavLink>
                     <AdminNavLink href="/admin/clients">Clients</AdminNavLink>
@@ -123,7 +119,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                     <AdminNavLink href="/admin/settings">Réglages</AdminNavLink>
                   </nav>
                   <div className="flex items-center gap-2">
-                    <NotificationBell />
                     <ClientSwitcher clients={clientsData} />
                     <form action={signOut} className="hidden sm:block">
                       <Button variant="outline" size="sm" type="submit">

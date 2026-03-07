@@ -1,9 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { DashboardMetric, SyncStatus as SyncStatusType } from "@/lib/types/dashboard";
+import type { DashboardMetric, SyncStatusInfo } from "@/lib/types/dashboard";
 
 type SyncStatusProps = {
-  lastSync: SyncStatusType | null;
+  lastSync: SyncStatusInfo | null;
   range?: { start: Date; end: Date };
   metrics?: DashboardMetric[];
 };

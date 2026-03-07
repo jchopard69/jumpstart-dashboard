@@ -16,6 +16,10 @@ export type DemographicsData = {
   gender: DemographicEntry[];
   country: DemographicEntry[];
   city: DemographicEntry[];
+  // LinkedIn-specific dimensions
+  function: DemographicEntry[];
+  seniority: DemographicEntry[];
+  industry: DemographicEntry[];
   platforms: string[];
   lastFetchedAt: string | null;
 };
@@ -43,6 +47,9 @@ export async function fetchDemographics(
       gender: [],
       country: [],
       city: [],
+      function: [],
+      seniority: [],
+      industry: [],
       platforms: [],
       lastFetchedAt: null,
     };
@@ -113,6 +120,9 @@ export async function fetchDemographics(
     gender: buildEntries("gender"),
     country: buildEntries("country"),
     city: buildEntries("city"),
+    function: buildEntries("function"),
+    seniority: buildEntries("seniority"),
+    industry: buildEntries("industry"),
     platforms,
     lastFetchedAt,
   };

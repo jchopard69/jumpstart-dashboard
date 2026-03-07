@@ -122,7 +122,7 @@ export type DocumentData = {
   tag: string;
 };
 
-export type SyncStatus = {
+export type SyncStatusInfo = {
   status: "success" | "failed" | "running" | "idle";
   finished_at: string | null;
 };
@@ -140,7 +140,7 @@ export type DashboardData = {
   collaboration: CollaborationData | null;
   shoots: UpcomingShoot[];
   documents: DocumentData[];
-  lastSync: SyncStatus | null;
+  lastSync: SyncStatusInfo | null;
 };
 
 // Collab items types

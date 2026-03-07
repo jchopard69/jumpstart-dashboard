@@ -44,7 +44,10 @@ export default async function DemographicsPage({
     demographics.age.length > 0 ||
     demographics.gender.length > 0 ||
     demographics.country.length > 0 ||
-    demographics.city.length > 0;
+    demographics.city.length > 0 ||
+    demographics.function.length > 0 ||
+    demographics.seniority.length > 0 ||
+    demographics.industry.length > 0;
 
   return (
     <div className="space-y-8 fade-in">
@@ -116,20 +119,48 @@ export default async function DemographicsPage({
         </section>
       ) : (
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <AgeChart data={demographics.age} />
-          <GenderChart data={demographics.gender} />
-          <LocationChart
-            data={demographics.country}
-            title="Pays"
-            subtitle="Top pays de votre audience"
-            variant="country"
-          />
-          <LocationChart
-            data={demographics.city}
-            title="Villes"
-            subtitle="Top villes de votre audience"
-            variant="city"
-          />
+          {demographics.age.length > 0 && <AgeChart data={demographics.age} />}
+          {demographics.gender.length > 0 && <GenderChart data={demographics.gender} />}
+          {demographics.country.length > 0 && (
+            <LocationChart
+              data={demographics.country}
+              title="Pays"
+              subtitle="Top pays de votre audience"
+              variant="country"
+            />
+          )}
+          {demographics.city.length > 0 && (
+            <LocationChart
+              data={demographics.city}
+              title="Villes"
+              subtitle="Top villes de votre audience"
+              variant="city"
+            />
+          )}
+          {demographics.function.length > 0 && (
+            <LocationChart
+              data={demographics.function}
+              title="Fonctions"
+              subtitle="Fonctions professionnelles de votre audience"
+              variant="city"
+            />
+          )}
+          {demographics.seniority.length > 0 && (
+            <LocationChart
+              data={demographics.seniority}
+              title="Seniorite"
+              subtitle="Niveaux d'experience de votre audience"
+              variant="city"
+            />
+          )}
+          {demographics.industry.length > 0 && (
+            <LocationChart
+              data={demographics.industry}
+              title="Secteurs"
+              subtitle="Secteurs d'activite de votre audience"
+              variant="city"
+            />
+          )}
         </section>
       )}
     </div>

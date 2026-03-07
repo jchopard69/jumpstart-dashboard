@@ -512,9 +512,9 @@ export async function fetchLinkedInDemographics(
     }
 
     extractDimension(element.followerCountsByCountry as any, 'country', 'country');
-    extractDimension(element.followerCountsByFunction as any, 'age', 'function'); // map function to a dimension
-    extractDimension(element.followerCountsBySeniority as any, 'gender', 'seniority'); // map seniority to a dimension
-    extractDimension(element.followerCountsByIndustry as any, 'city', 'industry'); // map industry to a dimension
+    extractDimension(element.followerCountsByFunction as any, 'function', 'function');
+    extractDimension(element.followerCountsBySeniority as any, 'seniority', 'seniority');
+    extractDimension(element.followerCountsByIndustry as any, 'industry', 'industry');
   } catch (error) {
     console.warn('[linkedin] Failed to fetch demographics:', error instanceof Error ? error.message : error);
   }
