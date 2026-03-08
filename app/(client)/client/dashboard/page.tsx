@@ -474,8 +474,8 @@ export default async function ClientDashboardPage({
   return (
     <div className="space-y-10 fade-in">
       {/* ─── Header + Filters ─── */}
-      <section className="surface-panel p-8">
-        <div className="flex flex-wrap items-center justify-between gap-6">
+      <section className="surface-panel p-6 sm:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-4 sm:gap-6">
           <div>
             <p className="section-label">Social Intelligence</p>
             <h1 className="page-heading mt-1">Vue d&apos;ensemble</h1>

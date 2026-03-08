@@ -243,8 +243,9 @@ body {
 }
 
 .transition-content[data-pending="true"] {
-  opacity: 0.55;
-  filter: blur(1px);
+  opacity: 0.65;
+  /* Avoid blur: it makes small text harder to read during fast filter changes */
+  filter: none;
   pointer-events: none;
 }
 

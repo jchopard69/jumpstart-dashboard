@@ -42,6 +42,13 @@ function calculateTrend(data: TrendPoint[]): { value: number; direction: "up" | 
   };
 }
 
+function formatDateLabel(value: string): string {
+  // value is usually YYYY-MM-DD
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+}
+
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null;
 
@@ -52,7 +59,7 @@ function CustomTooltip({ active, payload, label }: any) {
 
   return (
     <div className="rounded-xl border border-border/60 bg-white/98 px-3.5 py-2.5 shadow-lg backdrop-blur-sm">
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+      <p className="text-[11px] font-medium text-muted-foreground">{formatDateLabel(String(label))}</p>
       <p className="text-base font-semibold tabular-nums mt-0.5">{formatNumber(current)}</p>
       {previous !== undefined && (
         <p className="text-[11px] text-muted-foreground mt-0.5 tabular-nums">
@@ -146,9 +153,14 @@ export function TrendChart({ title, data: rawData, showComparison = false, showT
               tick={{ fontSize: 10, fill: "hsl(252 12% 44%)" }}
               axisLine={false}
               tickLine={false}
+              interval="preserveStartEnd"
               tickFormatter={(value) => {
-                const parts = value.split("-");
-                return parts.length >= 2 ? `${parts[2]}/${parts[1]}` : value;
+                const date = new Date(String(value));
+                if (Number.isNaN(date.getTime())) {
+                  const parts = String(value).split("-");
+                  return parts.length >= 2 ? `${parts[2]}/${parts[1]}` : String(value);
+                }
+                return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
               }}
             />
             <YAxis
