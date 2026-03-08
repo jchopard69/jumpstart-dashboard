@@ -106,16 +106,27 @@ export default async function AdminHealthPage() {
   }
 
   const actionAccountsByTenant = new Map<string, number>();
+  const actionAccountDetailsByTenant = new Map<string, Array<{ id: string; platform: string; account_name: string | null; auth_status: string; last_error: string | null }>>();
   for (const acc of accountsNeedingAction ?? []) {
     if (!acc.tenant_id) continue;
     const id = String(acc.tenant_id);
     actionAccountsByTenant.set(id, (actionAccountsByTenant.get(id) ?? 0) + 1);
+    const arr = actionAccountDetailsByTenant.get(id) ?? [];
+    arr.push({
+      id: String(acc.id),
+      platform: String(acc.platform ?? ""),
+      account_name: (acc.account_name as string | null) ?? null,
+      auth_status: String(acc.auth_status ?? ""),
+      last_error: (acc.last_error as string | null) ?? null,
+    });
+    actionAccountDetailsByTenant.set(id, arr);
   }
 
   const tenantRows = (tenants ?? []).map((t) => {
     const lastSync = lastSyncByTenant.get(t.id);
     const unread = unreadByTenant.get(t.id) ?? 0;
     const actionAccounts = actionAccountsByTenant.get(t.id) ?? 0;
+    const actionAccountDetails = actionAccountDetailsByTenant.get(t.id) ?? [];
     return {
       id: t.id,
       name: t.name,
@@ -123,6 +134,7 @@ export default async function AdminHealthPage() {
       lastSync,
       unread,
       actionAccounts,
+      actionAccountDetails,
     };
   });
 
@@ -185,7 +197,7 @@ export default async function AdminHealthPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   {row.actionAccounts > 0 && (
                     <Badge variant="warning">{row.actionAccounts} compte(s) à reconnecter</Badge>
                   )}
@@ -199,6 +211,34 @@ export default async function AdminHealthPage() {
                   </a>
                 </div>
               </div>
+
+              {row.actionAccountDetails.length > 0 && (
+                <div className="mt-3 space-y-2 rounded-xl border border-amber-200/60 bg-amber-50/60 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+                    Comptes à reconnecter
+                  </p>
+                  <div className="space-y-1.5">
+                    {row.actionAccountDetails.slice(0, 6).map((acc) => (
+                      <div key={acc.id} className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs text-amber-900">
+                          <span className="font-medium">{acc.platform}</span>
+                          {acc.account_name ? <span className="text-amber-800"> · {acc.account_name}</span> : null}
+                          <span className="text-amber-700"> · {acc.auth_status}</span>
+                        </p>
+                        <a href={`/admin/clients/${row.id}`} className="text-xs font-medium text-amber-800 underline underline-offset-4">
+                          Reconnecter
+                        </a>
+                        {acc.last_error ? (
+                          <p className="w-full text-[11px] text-amber-800/90 line-clamp-1">Dernière erreur : {acc.last_error}</p>
+                        ) : null}
+                      </div>
+                    ))}
+                    {row.actionAccountDetails.length > 6 && (
+                      <p className="text-[11px] text-amber-800/90">+{row.actionAccountDetails.length - 6} autre(s)…</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
