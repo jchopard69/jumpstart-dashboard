@@ -100,22 +100,74 @@ export default async function ClientDashboardPage({
     ? Math.round((data.range.start.getTime() - data.prevRange.start.getTime()) / msDay)
     : null;
 
-  // Aggregate metrics by date (sum across platforms)
-  const aggregateByDate = (metrics: typeof data.metrics) => {
-    const byDate = new Map<string, { followers: number; views: number; engagements: number; reach: number }>();
+  // Build a full date list so charts don't have holes when some days are missing in DB.
+  const toDateKey = (d: Date) => d.toISOString().slice(0, 10);
+  const buildDateKeysInclusive = (start: Date, end: Date) => {
+    const keys: string[] = [];
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    const endDay = new Date(end);
+    endDay.setHours(0, 0, 0, 0);
+    while (cursor <= endDay) {
+      keys.push(toDateKey(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return keys;
+  };
+
+  // Aggregate daily flow metrics by date (sum across platforms). For followers, we build a forward-filled
+  // series per account so we don't undercount when a platform misses a day.
+  const aggregateFlowsByDate = (metrics: typeof data.metrics) => {
+    const byDate = new Map<string, { views: number; engagements: number; reach: number }>();
     for (const row of metrics) {
-      const existing = byDate.get(row.date) ?? { followers: 0, views: 0, engagements: 0, reach: 0 };
-      existing.followers += row.followers ?? 0;
+      const date = row.date;
+      const existing = byDate.get(date) ?? { views: 0, engagements: 0, reach: 0 };
       existing.views += row.views ?? 0;
       existing.engagements += row.engagements ?? 0;
       existing.reach += row.reach ?? 0;
-      byDate.set(row.date, existing);
+      byDate.set(date, existing);
     }
     return byDate;
   };
 
-  const aggregatedMetrics = aggregateByDate(data.metrics);
-  const aggregatedPrevMetrics = aggregateByDate(data.prevMetrics ?? []);
+  const buildFollowersTotalByDate = (metrics: typeof data.metrics, dateKeys: string[]) => {
+    // Build time series per social_account_id
+    const perAccount = new Map<string, Array<{ date: string; followers: number }>>();
+    for (const row of metrics) {
+      if (!row.social_account_id || !row.date) continue;
+      const key = String(row.social_account_id);
+      const arr = perAccount.get(key) ?? [];
+      arr.push({ date: row.date, followers: row.followers ?? 0 });
+      perAccount.set(key, arr);
+    }
+
+    // Sort each series by date asc
+    for (const arr of perAccount.values()) {
+      arr.sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    // Forward fill across the requested dateKeys and sum across accounts
+    const totalByDate = new Map<string, number>();
+    const cursors = new Map<string, { idx: number; last: number }>();
+    for (const accountId of perAccount.keys()) {
+      cursors.set(accountId, { idx: 0, last: 0 });
+    }
+
+    for (const date of dateKeys) {
+      let total = 0;
+      for (const [accountId, series] of perAccount.entries()) {
+        const cursor = cursors.get(accountId)!;
+        while (cursor.idx < series.length && series[cursor.idx].date <= date) {
+          cursor.last = series[cursor.idx].followers;
+          cursor.idx++;
+        }
+        total += cursor.last;
+      }
+      totalByDate.set(date, total);
+    }
+
+    return totalByDate;
+  };
 
   const shiftDate = (dateStr: string, days: number) => {
     const date = new Date(dateStr);
@@ -123,42 +175,55 @@ export default async function ClientDashboardPage({
     return date.toISOString().slice(0, 10);
   };
 
+  const dateKeys = data.range ? buildDateKeysInclusive(data.range.start, data.range.end) : [];
+
+  const aggregatedFlows = aggregateFlowsByDate(data.metrics);
+  const aggregatedPrevFlows = aggregateFlowsByDate(data.prevMetrics ?? []);
+  const followersByDate = buildFollowersTotalByDate(data.metrics, dateKeys);
+  const prevFollowersByDate = offsetDays && data.prevRange
+    ? buildFollowersTotalByDate(data.prevMetrics ?? [], buildDateKeysInclusive(data.prevRange.start, data.prevRange.end))
+    : new Map<string, number>();
+
   const withPrev = (date: string, key: "followers" | "views" | "engagements" | "reach") => {
     if (!offsetDays) return undefined;
     const prevDate = shiftDate(date, offsetDays);
-    return aggregatedPrevMetrics.get(prevDate)?.[key] ?? 0;
+    if (key === "followers") return prevFollowersByDate.get(prevDate) ?? 0;
+    if (key === "views") return aggregatedPrevFlows.get(prevDate)?.views ?? 0;
+    if (key === "reach") return aggregatedPrevFlows.get(prevDate)?.reach ?? 0;
+    return aggregatedPrevFlows.get(prevDate)?.engagements ?? 0;
   };
 
-  // Build trend data from aggregated metrics (sorted by date)
-  const sortedDates = Array.from(aggregatedMetrics.keys()).sort();
+  // Build trend data from a full date list (no missing days)
+  const sortedDates = dateKeys.length ? dateKeys : Array.from(aggregatedFlows.keys()).sort();
+
   const trendFollowers = sortedDates.map((date) => ({
     date,
-    value: aggregatedMetrics.get(date)?.followers ?? 0,
+    value: followersByDate.get(date) ?? 0,
     previousValue: withPrev(date, "followers")
   }));
   const trendViews = sortedDates.map((date) => ({
     date,
-    value: aggregatedMetrics.get(date)?.views ?? 0,
+    value: aggregatedFlows.get(date)?.views ?? 0,
     previousValue: withPrev(date, "views")
   }));
   const trendEngagements = sortedDates.map((date) => ({
     date,
-    value: aggregatedMetrics.get(date)?.engagements ?? 0,
+    value: aggregatedFlows.get(date)?.engagements ?? 0,
     previousValue: withPrev(date, "engagements")
   }));
   const trendReach = sortedDates.map((date) => ({
     date,
-    value: aggregatedMetrics.get(date)?.reach ?? 0,
+    value: aggregatedFlows.get(date)?.reach ?? 0,
     previousValue: withPrev(date, "reach")
   }));
 
   // Build aggregated metrics array for the daily table
   const aggregatedMetricsArray = sortedDates.map((date) => ({
     date,
-    followers: aggregatedMetrics.get(date)?.followers ?? 0,
-    views: aggregatedMetrics.get(date)?.views ?? 0,
-    reach: aggregatedMetrics.get(date)?.reach ?? 0,
-    engagements: aggregatedMetrics.get(date)?.engagements ?? 0,
+    followers: followersByDate.get(date) ?? 0,
+    views: aggregatedFlows.get(date)?.views ?? 0,
+    reach: aggregatedFlows.get(date)?.reach ?? 0,
+    engagements: aggregatedFlows.get(date)?.engagements ?? 0,
   }));
 
   const showViews = data.perPlatform.some((item) => item.available.views);
