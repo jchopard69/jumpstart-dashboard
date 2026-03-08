@@ -446,7 +446,8 @@ export async function fetchDashboardData(params: {
     };
     // Determine which metrics are available for this platform
     // Always show core metrics for major platforms, even if currently 0
-    const platformsWithFullMetrics = ['facebook', 'instagram', 'tiktok', 'youtube', 'linkedin'];
+    // LinkedIn is temporarily disabled; do not force-show its metrics as "available".
+    const platformsWithFullMetrics = ['facebook', 'instagram', 'tiktok', 'youtube'];
     const hasFullMetrics = platformsWithFullMetrics.includes(item.platform);
     const available = {
       views: hasFullMetrics || item.totals.views > 0 || item.prevTotals.views > 0,

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getSessionProfile } from "@/lib/auth";
+import { getSessionProfile, getUserTenants } from "@/lib/auth";
 
 /**
  * Mark notifications as read for the current tenant.
@@ -13,14 +13,23 @@ export async function POST(request: Request) {
   const profile = await getSessionProfile();
   const supabase = createSupabaseServerClient();
 
-  // Resolve tenant: admins will usually use tenantId param elsewhere; for client view, use profile tenant.
-  // If needed, we can extend this later to support admin marking read for a given tenant.
-  const tenantId = profile.tenant_id;
+  // Resolve tenant:
+  // - default: profile.tenant_id
+  // - optional: body.tenantId (only if the user has access to that tenant)
+  const body = await request.json().catch(() => ({}));
+
+  let tenantId = profile.tenant_id;
+  const requestedTenantId = typeof body?.tenantId === "string" ? body.tenantId : null;
+  if (requestedTenantId && profile.id) {
+    const tenants = await getUserTenants(profile.id);
+    if (tenants.some((t) => t.id === requestedTenantId)) {
+      tenantId = requestedTenantId;
+    }
+  }
+
   if (!tenantId) {
     return NextResponse.json({ error: "No tenant" }, { status: 400 });
   }
-
-  const body = await request.json().catch(() => ({}));
 
   if (body?.all === true) {
     const { error } = await supabase

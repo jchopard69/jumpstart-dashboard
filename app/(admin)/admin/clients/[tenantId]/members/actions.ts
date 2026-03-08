@@ -35,31 +35,53 @@ export async function inviteTenantMember(formData: FormData): Promise<void> {
   const supabase = createSupabaseServiceClient();
   await assertTenantNotDemoWritable(tenantId, "invite_tenant_member", supabase);
 
-  // Find if user already exists
-  const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers();
-  if (listError) {
-    throw new Error(`Impossible de lister les utilisateurs: ${listError.message}`);
-  }
-
-  const existingUser = existingUsers?.users?.find((u) => u.email?.toLowerCase() === email);
-
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const redirectTo = siteUrl ? `${siteUrl}/auth/callback?type=invite` : undefined;
 
-  let userId: string | null = existingUser?.id ?? null;
+  // Prefer a targeted lookup by email in profiles (fast). Avoid listing all auth users.
+  const { data: existingProfileByEmail } = await supabase
+    .from("profiles")
+    .select("id,email,tenant_id")
+    .eq("email", email)
+    .maybeSingle();
+
+  const findUserIdByEmailViaAdminList = async (): Promise<string | null> => {
+    // Fallback only: handle cases where a user exists in auth but profile wasn't created.
+    // listUsers is paginated; iterate a few pages.
+    const perPage = 1000;
+    for (let page = 1; page <= 10; page++) {
+      const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (error) {
+        throw new Error(`Impossible de lister les utilisateurs: ${error.message}`);
+      }
+      const u = data?.users?.find((user) => user.email?.toLowerCase() === email);
+      if (u?.id) return u.id;
+      if ((data?.users?.length ?? 0) < perPage) break;
+    }
+    return null;
+  };
+
+  let userId: string | null = existingProfileByEmail?.id ?? null;
 
   if (!userId) {
+    // Try invite (creates user if needed). If the user already exists, Supabase may error —
+    // in that case fallback to admin list lookup.
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo,
     });
 
     if (error) {
-      throw new Error(`Erreur d'invitation: ${error.message}`);
-    }
-
-    userId = data.user?.id ?? null;
-    if (!userId) {
-      throw new Error("Erreur lors de la création de l'utilisateur");
+      // Best-effort fallback for "already registered" cases.
+      const fallbackId = await findUserIdByEmailViaAdminList();
+      if (!fallbackId) {
+        throw new Error(`Erreur d'invitation: ${error.message}`);
+      }
+      userId = fallbackId;
+    } else {
+      userId = data.user?.id ?? null;
+      if (!userId) {
+        throw new Error("Erreur lors de la création de l'utilisateur");
+      }
     }
   }
 
