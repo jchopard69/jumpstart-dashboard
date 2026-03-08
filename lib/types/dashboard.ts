@@ -127,6 +127,16 @@ export type SyncStatusInfo = {
   finished_at: string | null;
 };
 
+export type NotificationData = {
+  id: string;
+  type: "sync_failure" | "account_disconnect" | "metric_drop" | "score_drop" | "info";
+  title: string;
+  message: string | null;
+  metadata: Record<string, unknown> | null;
+  is_read: boolean;
+  created_at: string;
+};
+
 export type DashboardData = {
   range?: { start: Date; end: Date };
   prevRange?: { start: Date; end: Date };
@@ -141,6 +151,8 @@ export type DashboardData = {
   shoots: UpcomingShoot[];
   documents: DocumentData[];
   lastSync: SyncStatusInfo | null;
+  notifications?: NotificationData[];
+  notificationsUnreadCount?: number;
 };
 
 // Collab items types

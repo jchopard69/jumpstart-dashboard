@@ -11,6 +11,7 @@ import { PlatformTable } from "@/components/dashboard/platform-table";
 import { TopPosts } from "@/components/dashboard/top-posts";
 import { CollaborationCard } from "@/components/dashboard/collaboration-card";
 import { SyncStatus } from "@/components/dashboard/sync-status";
+import { NotificationsCard } from "@/components/dashboard/notifications-card";
 import { DailyMetricsTable } from "@/components/dashboard/daily-metrics-table";
 import { InsightCard } from "@/components/dashboard/insight-card";
 import { ScoreCard } from "@/components/dashboard/score-card";
@@ -614,7 +615,15 @@ export default async function ClientDashboardPage({
       <div className="section-divider" />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
+        <div className="space-y-6">
+          <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
+          {data.notifications && data.notifications.length > 0 && (
+            <NotificationsCard
+              notifications={data.notifications as any}
+              unreadCount={data.notificationsUnreadCount ?? 0}
+            />
+          )}
+        </div>
         <CollaborationCard
           collaboration={data.collaboration}
           shoots={data.shoots}

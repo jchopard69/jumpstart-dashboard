@@ -327,6 +327,21 @@ export async function fetchDashboardData(params: {
     console.error("[dashboard] Failed to load sync logs", { tenantId, error: syncError });
   }
 
+  // Notifications (best-effort)
+  const [{ data: notifications }, { count: notificationsUnreadCount }] = await Promise.all([
+    supabase
+      .from("notifications")
+      .select("id,type,title,message,metadata,is_read,created_at")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("is_read", false),
+  ]);
+
   // Use shared dedup+sort logic (same function used by PDF export)
   const sortedPosts = selectTopPosts((posts ?? []) as any[], (posts ?? []).length) as NonNullable<typeof posts>;
 
@@ -459,7 +474,9 @@ export async function fetchDashboardData(params: {
     collaboration,
     shoots: shoots ?? [],
     documents: documents ?? [],
-    lastSync
+    lastSync,
+    notifications: (notifications as any[]) ?? [],
+    notificationsUnreadCount: notificationsUnreadCount ?? 0,
   };
 }
 
