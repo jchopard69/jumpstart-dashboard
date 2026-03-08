@@ -249,6 +249,53 @@ export default async function AdminHealthPage() {
       </Card>
 
       <Card className="card-surface p-6 fade-in-up">
+        <h2 className="section-title">Notifications récentes</h2>
+        <p className="text-sm text-muted-foreground">Flux centralisé (sync failures, connexions, infos).</p>
+
+        <div className="mt-4 space-y-3">
+          {(recentNotifications ?? []).slice(0, 20).map((n) => (
+            <div key={n.id} className="rounded-2xl border border-border/60 bg-white/70 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={
+                        n.type === "sync_failure" ? "danger" : n.type === "account_disconnect" ? "warning" : "secondary"
+                      }
+                    >
+                      {String(n.type).replace(/_/g, " ")}
+                    </Badge>
+                    {!n.is_read && <span className="h-1.5 w-1.5 rounded-full bg-purple-500" title="Non lu" />}
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {tenantNameById.get(String(n.tenant_id)) ?? String(n.tenant_id).slice(0, 8)} · {formatRelative(n.created_at)}
+                    </p>
+                  </div>
+                  <p className="mt-2 text-sm font-medium leading-snug">{n.title}</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {n.tenant_id ? (
+                    <>
+                      {!n.is_read && (
+                        <TenantNotificationsButton tenantId={String(n.tenant_id)} />
+                      )}
+                      <a href={`/admin/clients/${n.tenant_id}`}>
+                        <Button size="sm" variant="outline" className="h-8 text-xs">Client</Button>
+                      </a>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {!recentNotifications?.length ? (
+            <p className="text-sm text-muted-foreground">Aucune notification.</p>
+          ) : null}
+        </div>
+      </Card>
+
+      <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Erreurs récentes (logs)</h2>
         <div className="mt-4 space-y-3">
           {(failed ?? []).map((log) => (
