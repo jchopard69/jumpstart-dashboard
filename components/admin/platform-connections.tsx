@@ -70,21 +70,23 @@ const PLATFORMS: PlatformConfig[] = [
     oauthPath: "/api/oauth/twitter/start",
     configured: true,
   },
-  {
-    id: "linkedin",
-    name: "LinkedIn",
-    icon: "💼",
-    accentBar: "bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600",
-    accentText: "text-blue-700",
-    description: "Connecte un profil et/ou pages LinkedIn",
-    oauthPath: "/api/oauth/linkedin/start",
-    configured: true,
-  },
+  // LinkedIn temporarily disabled (developer app issues)
+  // {
+  //   id: "linkedin",
+  //   name: "LinkedIn",
+  //   icon: "💼",
+  //   accentBar: "bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600",
+  //   accentText: "text-blue-700",
+  //   description: "Connecte un profil et/ou pages LinkedIn",
+  //   oauthPath: "/api/oauth/linkedin/start",
+  //   configured: true,
+  // },
 ];
 
 const PLATFORM_OAUTH_PATHS: Record<Platform, string> = {
   facebook: "/api/oauth/meta/start",
   instagram: "/api/oauth/meta/start",
+  // Kept for type completeness, but LinkedIn UI is disabled for now.
   linkedin: "/api/oauth/linkedin/start",
   tiktok: "/api/oauth/tiktok/start",
   youtube: "/api/oauth/youtube/start",
@@ -158,19 +160,19 @@ export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Pr
         message: `Erreur Twitter: ${searchParams.get("twitter_error")}`,
       });
     }
-    // LinkedIn
-    else if (searchParams.get("linkedin_success")) {
-      const count = searchParams.get("linkedin_accounts") || "1";
-      setNotification({
-        type: "success",
-        message: `LinkedIn connecté ! ${count} compte(s) ajouté(s).`,
-      });
-    } else if (searchParams.get("linkedin_error")) {
-      setNotification({
-        type: "error",
-        message: `Erreur LinkedIn: ${searchParams.get("linkedin_error")}`,
-      });
-    }
+    // LinkedIn (temporarily disabled)
+    // else if (searchParams.get("linkedin_success")) {
+    //   const count = searchParams.get("linkedin_accounts") || "1";
+    //   setNotification({
+    //     type: "success",
+    //     message: `LinkedIn connecté ! ${count} compte(s) ajouté(s).`,
+    //   });
+    // } else if (searchParams.get("linkedin_error")) {
+    //   setNotification({
+    //     type: "error",
+    //     message: `Erreur LinkedIn: ${searchParams.get("linkedin_error")}`,
+    //   });
+    // }
 
   }, [searchParams]);
 
