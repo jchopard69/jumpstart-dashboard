@@ -3,6 +3,9 @@ import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { inviteTenantMember } from "./actions";
 
 export const metadata: Metadata = {
   title: "Admin - Membres"
@@ -77,6 +80,32 @@ export default async function TenantMembersPage({ params }: { params: { tenantId
           <Badge variant="secondary">Accès</Badge>
         </div>
       </section>
+
+      <Card className="card-surface p-6 fade-in-up">
+        <h2 className="section-title">Inviter un membre</h2>
+        <p className="text-sm text-muted-foreground">Ajoute un accès au workspace (et envoie une invitation si besoin).</p>
+
+        <form action={inviteTenantMember} className="mt-5 grid gap-3 sm:grid-cols-3">
+          <input type="hidden" name="tenant_id" value={tenantId} />
+          <Input name="email" type="email" placeholder="email@domaine.com" required />
+          <Input name="full_name" placeholder="Nom (optionnel)" />
+          <div className="flex items-center gap-2">
+            <select
+              name="role"
+              defaultValue="client_user"
+              className="h-10 rounded-md border border-input bg-white px-3 text-sm"
+            >
+              <option value="client_user">client_user</option>
+              <option value="client_manager">client_manager</option>
+            </select>
+            <Button type="submit">Inviter</Button>
+          </div>
+        </form>
+
+        <p className="mt-3 text-xs text-muted-foreground">
+          Note: pour l’instant, le rôle <span className="font-medium">agency_admin</span> reste géré au niveau global.
+        </p>
+      </Card>
 
       <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Utilisateurs</h2>
