@@ -4,6 +4,7 @@
 
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { encryptToken, decryptToken } from '@/lib/crypto';
+import { createTenantNotification } from "@/lib/notifications";
 import { PlatformId, OAuthTokens } from './types';
 
 const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET || '';
@@ -111,17 +112,37 @@ export async function updateStoredTokens(
 export async function markAccountExpired(accountId: string, errorMessage?: string): Promise<void> {
   const supabase = createSupabaseServiceClient();
 
-  const { error } = await supabase
+  const { data: account, error } = await supabase
     .from('social_accounts')
     .update({
       auth_status: 'expired',
       last_error: errorMessage || 'Token expired - manual reconnection required',
       updated_at: new Date().toISOString(),
     })
-    .eq('id', accountId);
+    .eq('id', accountId)
+    .select('tenant_id,platform,account_name')
+    .maybeSingle();
 
   if (error) {
     console.error(`Failed to mark account expired: ${error.message}`);
+    return;
+  }
+
+  // Best-effort notify tenant
+  if (account?.tenant_id) {
+    await createTenantNotification({
+      tenantId: account.tenant_id,
+      type: "account_disconnect",
+      title: "Connexion expirée",
+      message: `La connexion ${account.platform}${account.account_name ? ` (${account.account_name})` : ""} nécessite une reconnexion.`,
+      metadata: {
+        platform: account.platform,
+        social_account_id: accountId,
+        account_name: account.account_name,
+        error: errorMessage ?? null,
+      },
+      dedupeWindowMinutes: 720,
+    });
   }
 }
 

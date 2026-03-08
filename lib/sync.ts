@@ -7,6 +7,7 @@ import { computeJumpStartScore } from "@/lib/scoring";
 import { saveScoreSnapshot } from "@/lib/score-history";
 import { isDemoTenant, logDemoAccess } from "@/lib/demo";
 import { syncDemographics } from "@/lib/demographics-sync";
+import { createTenantNotification } from "@/lib/notifications";
 import type { Platform } from "@/lib/types";
 
 const CONCURRENCY_LIMIT = 2;
@@ -429,6 +430,20 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
       if (logFailError) {
         console.error("[sync] Failed to update sync log:", logFailError.message);
       }
+
+      // Best-effort tenant notification (deduped)
+      await createTenantNotification({
+        tenantId,
+        type: "sync_failure",
+        title: `Synchronisation échouée (${account.platform})`,
+        message: syncErrorMessage.slice(0, 400),
+        metadata: {
+          platform: account.platform,
+          social_account_id: account.id,
+          external_account_id: account.external_account_id,
+        },
+        dedupeWindowMinutes: 360,
+      });
     }
   });
 
