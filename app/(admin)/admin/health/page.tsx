@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SecurityCheck } from "@/components/admin/security-check";
+import { TenantSyncButton } from "@/components/admin/tenant-sync-button";
 
 export const metadata: Metadata = {
   title: "Admin - Santé"
@@ -192,6 +193,7 @@ export default async function AdminHealthPage() {
                     <Badge variant="secondary">{row.unread} notif.</Badge>
                   )}
                   {row.lastSync?.status === "failed" && <Badge variant="danger">Sync KO</Badge>}
+                  <TenantSyncButton tenantId={row.id} />
                   <a href={`/admin/clients/${row.id}`}>
                     <Button size="sm" variant="outline" className="h-8 text-xs">Ouvrir</Button>
                   </a>
