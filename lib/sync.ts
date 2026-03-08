@@ -467,21 +467,30 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
 
       const sumMetrics = (rows: typeof currentMetrics) => {
         if (!rows?.length) return { followers: 0, views: 0, reach: 0, engagements: 0 };
-        const latestFollowers = new Map<string, number>();
+
+        // Followers are "latest snapshot" per social account (not summed across days).
+        // Keep the row with the greatest date for each account.
+        const latestFollowers = new Map<string, { date: string; followers: number }>();
+
         let views = 0, reach = 0, engagements = 0;
         for (const r of rows) {
           views += coerceMetric(r.views);
           reach += coerceMetric(r.reach);
           engagements += coerceMetric(r.engagements);
-          if (r.social_account_id) {
-            const existing = latestFollowers.get(r.social_account_id);
-            if (existing === undefined || (r.date && r.date > (existing.toString()))) {
-              latestFollowers.set(r.social_account_id, coerceMetric(r.followers));
-            }
+
+          const accountId = r.social_account_id ? String(r.social_account_id) : "";
+          const date = r.date ? String(r.date) : "";
+          if (!accountId || !date) continue;
+
+          const followers = coerceMetric(r.followers);
+          const existing = latestFollowers.get(accountId);
+          if (!existing || date > existing.date) {
+            latestFollowers.set(accountId, { date, followers });
           }
         }
+
         let followers = 0;
-        for (const f of latestFollowers.values()) followers += f;
+        for (const entry of latestFollowers.values()) followers += entry.followers;
         return { followers, views, reach, engagements };
       };
 
