@@ -6,9 +6,7 @@ import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { assertTenantNotDemoWritable } from "@/lib/demo";
 import type { UserRole } from "@/lib/types";
 
-export async function inviteTenantMember(
-  formData: FormData
-): Promise<void> {
+export async function inviteTenantMember(formData: FormData): Promise<void> {
   const profile = await getSessionProfile();
   requireAdmin(profile);
 
@@ -17,12 +15,8 @@ export async function inviteTenantMember(
   const fullName = String(formData.get("full_name") ?? "").trim();
   const role = String(formData.get("role") ?? "client_user") as UserRole;
 
-  if (!tenantId) {
-    throw new Error("Tenant manquant");
-  }
-  if (!email) {
-    throw new Error("Email requis");
-  }
+  if (!tenantId) throw new Error("Tenant manquant");
+  if (!email) throw new Error("Email requis");
 
   const supabase = createSupabaseServiceClient();
   await assertTenantNotDemoWritable(tenantId, "invite_tenant_member", supabase);
@@ -72,10 +66,7 @@ export async function inviteTenantMember(
     });
   } else if (!existingProfile.tenant_id && role !== "agency_admin") {
     // If the user has no primary tenant yet, set it.
-    await supabase
-      .from("profiles")
-      .update({ tenant_id: tenantId, role })
-      .eq("id", userId);
+    await supabase.from("profiles").update({ tenant_id: tenantId, role }).eq("id", userId);
   }
 
   // Add tenant membership (idempotent)
@@ -91,5 +82,56 @@ export async function inviteTenantMember(
 
   revalidatePath(`/admin/clients/${tenantId}/members`);
   revalidatePath(`/admin/clients/${tenantId}`);
+}
 
+export async function updateTenantMemberRole(formData: FormData): Promise<void> {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+
+  const tenantId = String(formData.get("tenant_id") ?? "").trim();
+  const userId = String(formData.get("user_id") ?? "").trim();
+  const role = String(formData.get("role") ?? "client_user") as UserRole;
+
+  if (!tenantId) throw new Error("Tenant manquant");
+  if (!userId) throw new Error("User manquant");
+
+  const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "update_tenant_member_role", supabase);
+
+  // Update membership role. (Owner role is managed via profiles.tenant_id; this only affects additional access rows.)
+  const { error } = await supabase
+    .from("user_tenant_access")
+    .update({ role })
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/admin/clients/${tenantId}/members`);
+  revalidatePath(`/admin/clients/${tenantId}`);
+}
+
+export async function removeTenantMember(formData: FormData): Promise<void> {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+
+  const tenantId = String(formData.get("tenant_id") ?? "").trim();
+  const userId = String(formData.get("user_id") ?? "").trim();
+
+  if (!tenantId) throw new Error("Tenant manquant");
+  if (!userId) throw new Error("User manquant");
+
+  const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "remove_tenant_member", supabase);
+
+  const { error } = await supabase
+    .from("user_tenant_access")
+    .delete()
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/admin/clients/${tenantId}/members`);
+  revalidatePath(`/admin/clients/${tenantId}`);
 }

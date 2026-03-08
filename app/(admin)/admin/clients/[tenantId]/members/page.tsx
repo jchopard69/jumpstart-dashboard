@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { inviteTenantMember } from "./actions";
+import { inviteTenantMember, removeTenantMember, updateTenantMemberRole } from "./actions";
 
 export const metadata: Metadata = {
   title: "Admin - Membres"
@@ -122,9 +122,38 @@ export default async function TenantMembersPage({ params }: { params: { tenantId
                     {m.created_at ? ` · ajouté ${new Date(m.created_at).toLocaleDateString("fr-FR")}` : ""}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={m.role === "agency_admin" ? "success" : "secondary"}>{m.role}</Badge>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {m.source === "access" ? (
+                    <form action={updateTenantMemberRole} className="flex items-center gap-2">
+                      <input type="hidden" name="tenant_id" value={tenantId} />
+                      <input type="hidden" name="user_id" value={m.user_id} />
+                      <select
+                        name="role"
+                        defaultValue={m.role}
+                        className="h-8 rounded-md border border-input bg-white px-2 text-xs"
+                      >
+                        <option value="client_user">client_user</option>
+                        <option value="client_manager">client_manager</option>
+                      </select>
+                      <Button type="submit" size="sm" variant="outline" className="h-8 text-xs">
+                        Modifier
+                      </Button>
+                    </form>
+                  ) : (
+                    <Badge variant={m.role === "agency_admin" ? "success" : "secondary"}>{m.role}</Badge>
+                  )}
+
                   {m.source === "owner" && <Badge variant="secondary">owner</Badge>}
+
+                  {m.source === "access" && (
+                    <form action={removeTenantMember}>
+                      <input type="hidden" name="tenant_id" value={tenantId} />
+                      <input type="hidden" name="user_id" value={m.user_id} />
+                      <Button type="submit" size="sm" variant="ghost" className="h-8 text-xs text-rose-700 hover:bg-rose-100">
+                        Retirer
+                      </Button>
+                    </form>
+                  )}
                 </div>
               </div>
             </div>
