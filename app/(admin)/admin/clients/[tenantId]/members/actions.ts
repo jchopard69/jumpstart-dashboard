@@ -6,6 +6,20 @@ import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { assertTenantNotDemoWritable } from "@/lib/demo";
 import type { UserRole } from "@/lib/types";
 
+// State-returning variants for better UX (useActionState)
+export async function inviteTenantMemberState(
+  _prev: { ok?: boolean; message?: string } | null,
+  formData: FormData
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    await inviteTenantMember(formData);
+    return { ok: true, message: "Invitation envoyée / accès ajouté." };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Erreur";
+    return { ok: false, message: msg };
+  }
+}
+
 export async function inviteTenantMember(formData: FormData): Promise<void> {
   const profile = await getSessionProfile();
   requireAdmin(profile);
@@ -84,6 +98,19 @@ export async function inviteTenantMember(formData: FormData): Promise<void> {
   revalidatePath(`/admin/clients/${tenantId}`);
 }
 
+export async function updateTenantMemberRoleState(
+  _prev: { ok?: boolean; message?: string } | null,
+  formData: FormData
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    await updateTenantMemberRole(formData);
+    return { ok: true, message: "OK" };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Erreur";
+    return { ok: false, message: msg };
+  }
+}
+
 export async function updateTenantMemberRole(formData: FormData): Promise<void> {
   const profile = await getSessionProfile();
   requireAdmin(profile);
@@ -109,6 +136,19 @@ export async function updateTenantMemberRole(formData: FormData): Promise<void> 
 
   revalidatePath(`/admin/clients/${tenantId}/members`);
   revalidatePath(`/admin/clients/${tenantId}`);
+}
+
+export async function removeTenantMemberState(
+  _prev: { ok?: boolean; message?: string } | null,
+  formData: FormData
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    await removeTenantMember(formData);
+    return { ok: true, message: "OK" };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Erreur";
+    return { ok: false, message: msg };
+  }
 }
 
 export async function removeTenantMember(formData: FormData): Promise<void> {

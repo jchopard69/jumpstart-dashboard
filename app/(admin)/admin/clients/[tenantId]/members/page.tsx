@@ -3,9 +3,8 @@ import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { inviteTenantMember, removeTenantMember, updateTenantMemberRole } from "./actions";
+import { MemberInviteForm } from "@/components/admin/members/member-invite-form";
+import { MemberRemoveForm, MemberRoleForm } from "@/components/admin/members/member-actions";
 
 export const metadata: Metadata = {
   title: "Admin - Membres"
@@ -85,22 +84,7 @@ export default async function TenantMembersPage({ params }: { params: { tenantId
         <h2 className="section-title">Inviter un membre</h2>
         <p className="text-sm text-muted-foreground">Ajoute un accès au workspace (et envoie une invitation si besoin).</p>
 
-        <form action={inviteTenantMember} className="mt-5 grid gap-3 sm:grid-cols-3">
-          <input type="hidden" name="tenant_id" value={tenantId} />
-          <Input name="email" type="email" placeholder="email@domaine.com" required />
-          <Input name="full_name" placeholder="Nom (optionnel)" />
-          <div className="flex items-center gap-2">
-            <select
-              name="role"
-              defaultValue="client_user"
-              className="h-10 rounded-md border border-input bg-white px-3 text-sm"
-            >
-              <option value="client_user">client_user</option>
-              <option value="client_manager">client_manager</option>
-            </select>
-            <Button type="submit">Inviter</Button>
-          </div>
-        </form>
+        <MemberInviteForm tenantId={tenantId} />
 
         <p className="mt-3 text-xs text-muted-foreground">
           Note: pour l’instant, le rôle <span className="font-medium">agency_admin</span> reste géré au niveau global.
@@ -124,21 +108,7 @@ export default async function TenantMembersPage({ params }: { params: { tenantId
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {m.source === "access" ? (
-                    <form action={updateTenantMemberRole} className="flex items-center gap-2">
-                      <input type="hidden" name="tenant_id" value={tenantId} />
-                      <input type="hidden" name="user_id" value={m.user_id} />
-                      <select
-                        name="role"
-                        defaultValue={m.role}
-                        className="h-8 rounded-md border border-input bg-white px-2 text-xs"
-                      >
-                        <option value="client_user">client_user</option>
-                        <option value="client_manager">client_manager</option>
-                      </select>
-                      <Button type="submit" size="sm" variant="outline" className="h-8 text-xs">
-                        Modifier
-                      </Button>
-                    </form>
+                    <MemberRoleForm tenantId={tenantId} userId={m.user_id} defaultRole={m.role} />
                   ) : (
                     <Badge variant={m.role === "agency_admin" ? "success" : "secondary"}>{m.role}</Badge>
                   )}
@@ -146,13 +116,7 @@ export default async function TenantMembersPage({ params }: { params: { tenantId
                   {m.source === "owner" && <Badge variant="secondary">owner</Badge>}
 
                   {m.source === "access" && (
-                    <form action={removeTenantMember}>
-                      <input type="hidden" name="tenant_id" value={tenantId} />
-                      <input type="hidden" name="user_id" value={m.user_id} />
-                      <Button type="submit" size="sm" variant="ghost" className="h-8 text-xs text-rose-700 hover:bg-rose-100">
-                        Retirer
-                      </Button>
-                    </form>
+                    <MemberRemoveForm tenantId={tenantId} userId={m.user_id} />
                   )}
                 </div>
               </div>
