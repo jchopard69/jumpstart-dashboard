@@ -621,6 +621,7 @@ export default async function ClientDashboardPage({
             <NotificationsCard
               notifications={data.notifications as any}
               unreadCount={data.notificationsUnreadCount ?? 0}
+              tenantId={effectiveTenantId}
             />
           )}
         </div>

@@ -37,9 +37,11 @@ function formatRelative(dateIso: string) {
 export function NotificationsCard({
   notifications,
   unreadCount = 0,
+  tenantId,
 }: {
   notifications: NotificationData[];
   unreadCount?: number;
+  tenantId?: string | null;
 }) {
   const [items, setItems] = useState(notifications);
   const [unread, setUnread] = useState(unreadCount);
@@ -54,7 +56,7 @@ export function NotificationsCard({
       const res = await fetch("/api/client/notifications/mark-read", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ all: true }),
+        body: JSON.stringify({ all: true, tenantId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -72,7 +74,7 @@ export function NotificationsCard({
       const res = await fetch("/api/client/notifications/mark-read", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, tenantId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);

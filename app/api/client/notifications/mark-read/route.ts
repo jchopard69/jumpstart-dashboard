@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getSessionProfile, getUserTenants } from "@/lib/auth";
+import { getSessionProfile, resolveActiveTenantId } from "@/lib/auth";
 
 /**
  * Mark notifications as read for the current tenant.
@@ -12,20 +12,9 @@ import { getSessionProfile, getUserTenants } from "@/lib/auth";
 export async function POST(request: Request) {
   const profile = await getSessionProfile();
   const supabase = createSupabaseServerClient();
-
-  // Resolve tenant:
-  // - default: profile.tenant_id
-  // - optional: body.tenantId (only if the user has access to that tenant)
   const body = await request.json().catch(() => ({}));
-
-  let tenantId = profile.tenant_id;
   const requestedTenantId = typeof body?.tenantId === "string" ? body.tenantId : null;
-  if (requestedTenantId && profile.id) {
-    const tenants = await getUserTenants(profile.id);
-    if (tenants.some((t) => t.id === requestedTenantId)) {
-      tenantId = requestedTenantId;
-    }
-  }
+  const tenantId = await resolveActiveTenantId(profile, requestedTenantId);
 
   if (!tenantId) {
     return NextResponse.json({ error: "No tenant" }, { status: 400 });
