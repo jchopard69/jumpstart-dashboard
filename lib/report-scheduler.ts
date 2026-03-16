@@ -12,7 +12,10 @@ import {
 import { analyzeContentDna } from "@/lib/content-dna";
 import { selectDisplayTopPosts } from "@/lib/top-posts";
 import { sendReportEmail } from "@/lib/email";
+import { createTenantNotification } from "@/lib/notifications";
 import type { Platform } from "@/lib/types";
+
+const REPORT_SCHEDULE_LOCK_TIMEOUT_MS = 30 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // computeNextSendAt
@@ -384,7 +387,7 @@ export async function processScheduledReports(): Promise<{
 
   const { data: schedules, error } = await supabase
     .from("report_schedules")
-    .select("id,tenant_id,frequency,recipients,is_active,last_sent_at,next_send_at")
+    .select("id,tenant_id,frequency,recipients,is_active,last_sent_at,next_send_at,processing_started_at")
     .eq("is_active", true)
     .lte("next_send_at", new Date().toISOString());
 
@@ -402,7 +405,46 @@ export async function processScheduledReports(): Promise<{
   let errors = 0;
 
   for (const schedule of schedules) {
+    let emailSent = false;
+    const lockStartedAt = new Date().toISOString();
+    const staleLockBefore = new Date(
+      Date.now() - REPORT_SCHEDULE_LOCK_TIMEOUT_MS
+    ).toISOString();
+    let sentAtIso: string | null = null;
+    let nextSendAtIso: string | null = null;
+
     try {
+      const { data: claimedRows, error: claimError } = await supabase
+        .from("report_schedules")
+        .update({
+          processing_started_at: lockStartedAt,
+          updated_at: lockStartedAt,
+        })
+        .eq("id", schedule.id)
+        .eq("is_active", true)
+        .eq("next_send_at", schedule.next_send_at)
+        .or(
+          `processing_started_at.is.null,processing_started_at.lt.${staleLockBefore}`
+        )
+        .select("id")
+        .limit(1);
+
+      if (claimError) {
+        console.error(
+          `[report-scheduler] Failed to claim schedule ${schedule.id}:`,
+          claimError.message
+        );
+        errors++;
+        continue;
+      }
+
+      if (!claimedRows?.length) {
+        console.log(
+          `[report-scheduler] Schedule ${schedule.id} already claimed, skipping`
+        );
+        continue;
+      }
+
       console.log(
         `[report-scheduler] Processing schedule ${schedule.id} for tenant ${schedule.tenant_id}`
       );
@@ -428,32 +470,107 @@ export async function processScheduledReports(): Promise<{
       });
 
       if (!result.success) {
+        await supabase
+          .from("report_schedules")
+          .update({
+            processing_started_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", schedule.id)
+          .eq("processing_started_at", lockStartedAt);
+
         console.error(
           `[report-scheduler] Email failed for schedule ${schedule.id}:`,
           result.error
         );
+
+        await createTenantNotification({
+          tenantId: schedule.tenant_id,
+          type: "info",
+          title: "Echec d'envoi du rapport automatique",
+          message: (result.error ?? "Erreur inconnue lors de l'envoi").slice(0, 400),
+          metadata: {
+            schedule_id: schedule.id,
+            frequency: schedule.frequency,
+            recipients: schedule.recipients,
+          },
+          dedupeWindowMinutes: 12 * 60,
+        });
         errors++;
         continue;
       }
 
-      // Update schedule
+      emailSent = true;
       const now = new Date();
       const nextSend = computeNextSendAt(schedule.frequency, now);
+      sentAtIso = now.toISOString();
+      nextSendAtIso = nextSend;
 
-      await supabase
+      const { data: finalizedSchedule, error: finalizeError } = await supabase
         .from("report_schedules")
         .update({
-          last_sent_at: now.toISOString(),
+          processing_started_at: null,
+          last_sent_at: sentAtIso,
           next_send_at: nextSend,
-          updated_at: now.toISOString(),
+          updated_at: sentAtIso,
         })
-        .eq("id", schedule.id);
+        .eq("id", schedule.id)
+        .eq("processing_started_at", lockStartedAt)
+        .select("id")
+        .maybeSingle();
+
+      if (finalizeError || !finalizedSchedule) {
+        throw new Error(
+          `Failed to finalize schedule ${schedule.id}: ${finalizeError?.message ?? "lock lost"}`
+        );
+      }
 
       console.log(
         `[report-scheduler] Sent report for schedule ${schedule.id}, next: ${nextSend}`
       );
       sent++;
     } catch (err) {
+      if (emailSent && sentAtIso && nextSendAtIso) {
+        const { error: rescueFinalizeError } = await supabase
+          .from("report_schedules")
+          .update({
+            processing_started_at: null,
+            last_sent_at: sentAtIso,
+            next_send_at: nextSendAtIso,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", schedule.id);
+
+        if (rescueFinalizeError) {
+          console.error(
+            `[report-scheduler] Failed to rescue-finalize schedule ${schedule.id}:`,
+            rescueFinalizeError.message
+          );
+        }
+      } else {
+        await supabase
+          .from("report_schedules")
+          .update({
+            processing_started_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", schedule.id)
+          .eq("processing_started_at", lockStartedAt);
+
+        await createTenantNotification({
+          tenantId: schedule.tenant_id,
+          type: "info",
+          title: "Echec du rapport automatique",
+          message: (err instanceof Error ? err.message : String(err)).slice(0, 400),
+          metadata: {
+            schedule_id: schedule.id,
+            frequency: schedule.frequency,
+            recipients: schedule.recipients,
+          },
+          dedupeWindowMinutes: 12 * 60,
+        });
+      }
+
       console.error(
         `[report-scheduler] Failed to process schedule ${schedule.id}:`,
         err instanceof Error ? err.message : err

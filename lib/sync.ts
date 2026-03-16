@@ -8,6 +8,7 @@ import { saveScoreSnapshot } from "@/lib/score-history";
 import { isDemoTenant, logDemoAccess } from "@/lib/demo";
 import { syncDemographics } from "@/lib/demographics-sync";
 import { createTenantNotification } from "@/lib/notifications";
+import { buildMetricDropAlert, buildScoreDropAlert } from "@/lib/alerting";
 import type { Platform } from "@/lib/types";
 
 const CONCURRENCY_LIMIT = 2;
@@ -511,6 +512,15 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
 
       const current = sumMetrics(currentMetrics);
       const prev = sumMetrics(prevMetrics);
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: previousScoreSnapshot } = await supabase
+        .from("score_snapshots")
+        .select("global_score,grade,snapshot_date")
+        .eq("tenant_id", tenantId)
+        .lt("snapshot_date", today)
+        .order("snapshot_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       const score = computeJumpStartScore({
         followers: current.followers,
@@ -526,8 +536,52 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
         periodDays,
       });
 
+      const metricDropAlert = buildMetricDropAlert({
+        current: {
+          followers: current.followers,
+          views: current.views,
+          reach: current.reach,
+          engagements: current.engagements,
+        },
+        previous: {
+          followers: prev.followers,
+          views: prev.views,
+          reach: prev.reach,
+          engagements: prev.engagements,
+        },
+      });
+
+      const scoreDropAlert = buildScoreDropAlert({
+        currentScore: score.global,
+        previousScore: previousScoreSnapshot?.global_score ?? null,
+        currentGrade: score.grade,
+        previousGrade: previousScoreSnapshot?.grade ?? null,
+      });
+
       await saveScoreSnapshot(tenantId, score, periodDays);
       console.log(`[sync] Score snapshot saved for ${tenantId}: ${score.global}/100 (${score.grade})`);
+
+      if (metricDropAlert) {
+        await createTenantNotification({
+          tenantId,
+          type: "metric_drop",
+          title: metricDropAlert.title,
+          message: metricDropAlert.message,
+          metadata: metricDropAlert.metadata,
+          dedupeWindowMinutes: 24 * 60,
+        });
+      }
+
+      if (scoreDropAlert) {
+        await createTenantNotification({
+          tenantId,
+          type: "score_drop",
+          title: scoreDropAlert.title,
+          message: scoreDropAlert.message,
+          metadata: scoreDropAlert.metadata,
+          dedupeWindowMinutes: 24 * 60,
+        });
+      }
     } catch (scoreError) {
       console.warn("[sync] Failed to compute/save score snapshot:", scoreError);
     }
