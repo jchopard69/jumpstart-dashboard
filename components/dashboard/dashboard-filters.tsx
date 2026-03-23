@@ -126,9 +126,7 @@ export function DashboardFilters({
           <SelectContent>
             <SelectItem value="all">Toutes les plateformes</SelectItem>
             {Object.entries(PLATFORM_LABELS)
-              // Only show platforms that are actually present in connected accounts
-              // AND hide LinkedIn for now (developer app issues).
-              .filter(([value]) => value !== "linkedin")
+              // Only show platforms that are actually present in connected accounts.
               .filter(([value]) => accounts.some((acc) => acc.platform === (value as Platform)))
               .map(([value, label]) => (
                 <SelectItem key={value} value={value}>

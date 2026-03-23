@@ -3,6 +3,7 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/s
 import { assertTenant, getUserTenants } from "@/lib/auth";
 import { buildPreviousRange, resolveDateRange } from "@/lib/date";
 import { normalizeDashboardFilters } from "@/lib/dashboard-filters";
+import { getDashboardMetricAvailability } from "@/lib/dashboard-metric-availability";
 import { coerceMetric, getPostEngagements, getPostImpressions, getPostVisibility } from "@/lib/metrics";
 import type { Platform } from "@/lib/types";
 
@@ -444,16 +445,7 @@ export async function fetchDashboardData(params: {
       engagements: item.prevTotals.engagements ? (delta.engagements / item.prevTotals.engagements) * 100 : 0,
       posts_count: postsPrev ? (delta.posts_count / postsPrev) * 100 : 0
     };
-    // Determine which metrics are available for this platform
-    // Always show core metrics for major platforms, even if currently 0
-    // LinkedIn is temporarily disabled; do not force-show its metrics as "available".
-    const platformsWithFullMetrics = ['facebook', 'instagram', 'tiktok', 'youtube'];
-    const hasFullMetrics = platformsWithFullMetrics.includes(item.platform);
-    const available = {
-      views: hasFullMetrics || item.totals.views > 0 || item.prevTotals.views > 0,
-      reach: hasFullMetrics || item.totals.reach > 0 || item.prevTotals.reach > 0,
-      engagements: hasFullMetrics || item.totals.engagements > 0 || item.prevTotals.engagements > 0
-    };
+    const available = getDashboardMetricAvailability(item.platform, item.totals, item.prevTotals);
 
     return {
       platform: item.platform,
