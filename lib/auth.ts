@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "./supabase/server";
 import type { UserRole } from "./types";
 import { enforceDemoTenantIsolation } from "./demo";
+import { TENANT_COOKIE, pickActiveTenantId } from "./tenant-selection";
 
 export type Profile = {
   id: string;
@@ -125,4 +127,23 @@ export async function getUserTenants(userId: string): Promise<AccessibleTenant[]
     profile?.tenant_id ?? null,
     profile?.role ?? null
   );
+}
+
+export async function resolveActiveTenantId(
+  profile: { id?: string; role?: UserRole | null; tenant_id: string | null },
+  requestedTenantId?: string | null
+): Promise<string | null> {
+  const tenants =
+    profile.role === "agency_admin" || !profile.id
+      ? []
+      : await getUserTenants(profile.id);
+  const cookieStore = cookies();
+
+  return pickActiveTenantId({
+    accessibleTenantIds: tenants.map((tenant) => tenant.id),
+    requestedTenantId,
+    cookieTenantId: cookieStore.get(TENANT_COOKIE)?.value ?? null,
+    primaryTenantId: profile.tenant_id,
+    role: profile.role ?? null,
+  });
 }
