@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { buildHeaders, normalizeOrganizationId } from "../lib/social-platforms/linkedin/api";
-import { getLinkedInVersion } from "../lib/social-platforms/linkedin/config";
+import { getLinkedInVersion, LINKEDIN_CONFIG } from "../lib/social-platforms/linkedin/config";
 
-describe("LinkedIn Community Management helpers", () => {
+describe("LinkedIn DMA helpers", () => {
   test("normalizeOrganizationId strips organization URN", () => {
     assert.equal(normalizeOrganizationId("urn:li:organization:12345"), "12345");
   });
@@ -21,6 +21,10 @@ describe("LinkedIn Community Management helpers", () => {
     const headers = buildHeaders("token-xyz");
     assert.equal(headers.Authorization, "Bearer token-xyz");
     assert.equal(headers["X-Restli-Protocol-Version"], "2.0.0");
+  });
+
+  test("uses the DMA OAuth scope", () => {
+    assert.deepEqual(LINKEDIN_CONFIG.scopes, ["r_dma_admin_pages_content"]);
   });
 });
 

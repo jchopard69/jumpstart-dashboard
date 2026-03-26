@@ -5,6 +5,7 @@
 import { getLinkedInConfig } from './config';
 import { SocialAccount } from '../core/types';
 import crypto from 'crypto';
+import { fetchLinkedInOrganizations as fetchLinkedInDmaOrganizations } from './dma';
 
 /**
  * Generate OAuth state parameter
@@ -129,125 +130,17 @@ export async function fetchLinkedInProfile(accessToken: string): Promise<{
 
 /**
  * Fetch LinkedIn organization pages the user manages
- * Uses Organization Access Control (Community Management / Organizations)
- * See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations
+ * Uses LinkedIn Pages Data Portability DMA APIs.
  */
 export async function fetchLinkedInOrganizations(accessToken: string): Promise<Array<{
   organizationId: string;
+  organizationUrn: string;
+  pageUrn: string;
   name: string;
   logoUrl?: string;
+  pageUrl?: string;
 }>> {
-  const config = getLinkedInConfig();
-  if (config.version) {
-    console.log('[linkedin] Using LinkedIn-Version:', config.version);
-  }
-  const headers: Record<string, string> = {
-    'Authorization': `Bearer ${accessToken}`,
-    'X-Restli-Protocol-Version': '2.0.0',
-  };
-  if (config.version) {
-    headers['LinkedIn-Version'] = config.version;
-  }
-
-  try {
-    // Step 1: Get organizations where user is admin using Organization Access Control
-    const aclsUrl = `${config.apiUrl}/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED&start=0&count=100`;
-    console.log('[linkedin] Fetching organization ACLs from:', aclsUrl);
-
-    const aclsResponse = await fetch(aclsUrl, { headers });
-    console.log('[linkedin] ACL response status:', aclsResponse.status);
-
-    const aclsData = await aclsResponse.json();
-    console.log('[linkedin] ACL response:', JSON.stringify(aclsData, null, 2));
-    if (aclsData?.errorDetails) {
-      console.warn('[linkedin] ACL errorDetails:', JSON.stringify(aclsData.errorDetails, null, 2));
-    }
-
-    if (aclsData.status && aclsData.status >= 400) {
-      console.warn('[linkedin] ACL API error:', aclsData);
-      const code = typeof aclsData.code === 'string' ? aclsData.code : '';
-      const message = typeof aclsData.message === 'string' ? aclsData.message : 'LinkedIn organization ACL error';
-      throw new Error(`LinkedIn org ACL error ${aclsData.status}${code ? ` (${code})` : ''}: ${message}`);
-    }
-
-    // Extract organization IDs from ACLs
-    const elements = aclsData.elements || [];
-    console.log('[linkedin] Found', elements.length, 'ACL elements');
-
-    const orgIds = new Set<string>();
-    for (const element of elements) {
-      const orgUrn = element?.organizationTarget || element?.organization || element?.key?.organization;
-      if (orgUrn) {
-        const orgId = String(orgUrn).replace('urn:li:organization:', '');
-        if (orgId && orgId !== 'undefined') {
-          orgIds.add(orgId);
-        }
-      }
-    }
-
-    console.log('[linkedin] Extracted organization IDs:', Array.from(orgIds));
-
-    if (orgIds.size === 0) {
-      console.warn('[linkedin] No organization IDs found in ACLs');
-      return [];
-    }
-
-    // Step 2: Fetch organization details (batch if possible)
-    const organizations: Array<{ organizationId: string; name: string; logoUrl?: string }> = [];
-    const idsList = Array.from(orgIds);
-    try {
-      const idsParam = `List(${idsList.join(',')})`;
-      const orgsUrl = `${config.apiUrl}/organizations?ids=${encodeURIComponent(idsParam)}`;
-      console.log('[linkedin] Fetching org details from:', orgsUrl);
-
-      const orgsResponse = await fetch(orgsUrl, { headers });
-      console.log('[linkedin] Org batch response status:', orgsResponse.status);
-      if (orgsResponse.ok) {
-        const orgsData = await orgsResponse.json();
-        const results = orgsData?.results || {};
-        for (const orgId of idsList) {
-          const orgData = results[orgId];
-          if (!orgData) continue;
-          organizations.push({
-            organizationId: orgId,
-            name: orgData.localizedName || orgData.name?.localized?.en_US || 'Unknown Organization',
-            logoUrl: undefined
-          });
-        }
-      } else {
-        console.warn('[linkedin] Failed to fetch org batch details:', orgsResponse.status);
-      }
-    } catch (error) {
-      console.warn('[linkedin] Error fetching org batch details:', error);
-    }
-
-    if (!organizations.length) {
-      for (const orgId of orgIds) {
-        try {
-          const orgUrl = `${config.apiUrl}/organizations/${orgId}`;
-          const orgResponse = await fetch(orgUrl, { headers });
-          if (!orgResponse.ok) {
-            console.warn(`[linkedin] Failed to fetch org ${orgId}:`, orgResponse.status);
-            continue;
-          }
-          const orgData = await orgResponse.json();
-          organizations.push({
-            organizationId: orgId,
-            name: orgData.localizedName || orgData.name?.localized?.en_US || 'Unknown Organization',
-            logoUrl: undefined
-          });
-        } catch (error) {
-          console.warn(`[linkedin] Error fetching org ${orgId}:`, error);
-        }
-      }
-    }
-
-    console.log(`[linkedin] Returning ${organizations.length} organizations`);
-    return organizations;
-  } catch (error) {
-    console.warn('[linkedin] Error fetching organizations:', error);
-    throw error instanceof Error ? error : new Error('LinkedIn organization lookup failed');
-  }
+  return fetchLinkedInDmaOrganizations(accessToken);
 }
 
 /**
@@ -274,10 +167,10 @@ export async function handleLinkedInOAuthCallback(
 
   if (!organizations.length) {
     console.error('[linkedin-auth] No organizations found. This could mean:');
-    console.error('  1. The user does not have admin access to any LinkedIn Organization Pages');
-    console.error('  2. Missing required Community Management scopes (r_organization_admin, rw_organization_admin, r_organization_social)');
-    console.error('  3. The LinkedIn app is not approved for Community Management / Organizations APIs');
-    console.error('  4. The organizationAcls endpoint returned no approved administrator ACLs');
+    console.error('  1. The user has no approved LinkedIn Pages Data Portability access on any page');
+    console.error('  2. Missing required DMA scope (r_dma_admin_pages_content)');
+    console.error('  3. The LinkedIn app is not approved for Pages Data Portability');
+    console.error('  4. The DMA authorization lookup returned no eligible organizations');
     throw new Error("Aucune page LinkedIn administrée n'a été trouvée pour ce compte.");
   }
 
@@ -293,6 +186,9 @@ export async function handleLinkedInOAuthCallback(
       metadata: {
         accountType: 'organization',
         organizationId: org.organizationId,
+        organizationUrn: org.organizationUrn,
+        pageUrn: org.pageUrn,
+        pageUrl: org.pageUrl,
       },
     });
   }

@@ -1,20 +1,16 @@
 /**
- * LinkedIn Marketing API configuration
+ * LinkedIn Pages Data Portability DMA configuration
  */
 
 export const LINKEDIN_CONFIG = {
   authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
   tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
   apiUrl: 'https://api.linkedin.com/rest',
+  // LinkedIn DMA endpoints are exposed on the REST API surface.
   apiV2Url: 'https://api.linkedin.com/v2',
 
-  // OAuth scopes (Community Management / Organizations)
-  // See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations
-  scopes: [
-    'r_organization_admin',
-    'rw_organization_admin',
-    'r_organization_social'
-  ],
+  // OAuth scope for Pages Data Portability.
+  scopes: ['r_dma_admin_pages_content'],
 };
 
 export function getLinkedInVersion(): string | undefined {
