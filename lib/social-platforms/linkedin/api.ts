@@ -33,7 +33,6 @@ export const linkedinConnector: Connector = {
       until,
       postLimit: 50,
       includePostAnalytics: true,
-      includeViews: true,
     });
   },
 };

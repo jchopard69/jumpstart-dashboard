@@ -6,7 +6,6 @@ import { getLinkedInVersion, LINKEDIN_CONFIG } from "../lib/social-platforms/lin
 import {
   buildOrganizationAuthorizationActionsParam,
   buildOrganizationPageEntityParam,
-  readVisitorCount,
 } from "../lib/social-platforms/linkedin/dma";
 
 describe("LinkedIn DMA helpers", () => {
@@ -48,37 +47,6 @@ describe("LinkedIn DMA helpers", () => {
     assert.equal(
       buildOrganizationPageEntityParam("urn:li:organization:12345"),
       "(organization:urn%3Ali%3Aorganization%3A12345)"
-    );
-  });
-
-  test("prefers visitor totalCount when present", () => {
-    assert.equal(
-      readVisitorCount({
-        totalCount: { long: 42 },
-        typeSpecificValue: {
-          visitorEdgeAnalyticsValue: {
-            desktopCount: 10,
-            mobileCount: 12,
-          },
-        },
-      }),
-      42
-    );
-  });
-
-  test("sums visitor device counts when totalCount is absent", () => {
-    assert.equal(
-      readVisitorCount({
-        typeSpecificValue: {
-          visitorEdgeAnalyticsValue: {
-            desktopCount: 10,
-            mobileCount: 12,
-            guestDesktopCount: 3,
-            guestMobileCount: 4,
-          },
-        },
-      }),
-      29
     );
   });
 });

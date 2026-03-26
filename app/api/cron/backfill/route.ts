@@ -6,6 +6,7 @@ import { fetchLinkedInDailyStats, fetchLinkedInPostsBackfill } from "@/lib/socia
 import { apiRequest, buildUrl } from "@/lib/social-platforms/core/api-client";
 import { META_CONFIG } from "@/lib/social-platforms/meta/config";
 import { isDemoTenant, logDemoAccess } from "@/lib/demo";
+import { coerceMetric } from "@/lib/metrics";
 
 function validateAuth(request: Request): boolean {
   const cronSecret = process.env.CRON_SECRET;
@@ -132,21 +133,82 @@ export async function POST(request: Request) {
         }
 
         if (posts.length) {
+          const externalPostIds = Array.from(
+            new Set(
+              posts
+                .map((post) => String(post.external_post_id || ""))
+                .filter((id) => id.length > 0)
+            )
+          );
+          const existingMetricsByExternalId = new Map<string, Record<string, unknown>>();
+          if (externalPostIds.length) {
+            const { data: existingPosts, error: existingPostsError } = await supabase
+              .from("social_posts")
+              .select("external_post_id,metrics")
+              .eq("tenant_id", account.tenant_id)
+              .eq("platform", account.platform)
+              .eq("social_account_id", account.id)
+              .in("external_post_id", externalPostIds);
+
+            if (existingPostsError) {
+              console.warn(`[backfill] Failed to load existing LinkedIn post metrics: ${existingPostsError.message}`);
+            } else {
+              for (const existingPost of existingPosts ?? []) {
+                existingMetricsByExternalId.set(
+                  String(existingPost.external_post_id ?? ""),
+                  (existingPost.metrics as Record<string, unknown> | null) ?? {}
+                );
+              }
+            }
+          }
+
           await supabase.from("social_posts").upsert(
-            posts.map((post) => ({
-              tenant_id: account.tenant_id,
-              platform: account.platform,
-              social_account_id: account.id,
-              external_post_id: post.external_post_id,
-              posted_at: post.posted_at,
-              url: post.url,
-              caption: post.caption,
-              media_type: post.media_type,
-              thumbnail_url: post.thumbnail_url,
-              media_url: post.media_url,
-              metrics: post.metrics ?? {},
-              raw_json: post.raw_json ?? null
-            })),
+            posts.map((post) => {
+              const externalPostId = String(post.external_post_id ?? "");
+              const incomingMetrics = (post.metrics as Record<string, unknown> | null) ?? {};
+              const existingMetrics = existingMetricsByExternalId.get(externalPostId) ?? {};
+              const incomingHasAnyMetric = Object.values(incomingMetrics).some(
+                (value) => coerceMetric(value) > 0
+              );
+              const readMetric = (key: string) => {
+                if (Object.prototype.hasOwnProperty.call(incomingMetrics, key)) {
+                  const incoming = coerceMetric(incomingMetrics[key]);
+                  if (incoming === 0 && !incomingHasAnyMetric) {
+                    const existing = coerceMetric(existingMetrics[key]);
+                    if (existing > 0) return existing;
+                  }
+                  return incoming;
+                }
+                return coerceMetric(existingMetrics[key]);
+              };
+
+              return {
+                tenant_id: account.tenant_id,
+                platform: account.platform,
+                social_account_id: account.id,
+                external_post_id: post.external_post_id,
+                posted_at: post.posted_at,
+                url: post.url,
+                caption: post.caption,
+                media_type: post.media_type,
+                thumbnail_url: post.thumbnail_url,
+                media_url: post.media_url,
+                metrics: {
+                  likes: readMetric("likes"),
+                  comments: readMetric("comments"),
+                  shares: readMetric("shares"),
+                  saves: readMetric("saves"),
+                  views: readMetric("views"),
+                  plays: readMetric("plays"),
+                  video_views: readMetric("video_views"),
+                  media_views: readMetric("media_views"),
+                  engagements: readMetric("engagements"),
+                  impressions: readMetric("impressions"),
+                  reach: readMetric("reach"),
+                },
+                raw_json: post.raw_json ?? null,
+              };
+            }),
             { onConflict: "tenant_id,platform,social_account_id,external_post_id" }
           );
         }

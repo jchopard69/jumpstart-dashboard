@@ -86,35 +86,11 @@ type DmaPageFollowsResponse = {
   paging?: {
     total?: number;
   };
-  metadata?: {
-    nextPaginationCursor?: string | null;
-  };
   elements?: Array<{
     follower?: string;
     followee?: string;
     edgeType?: string;
   }>;
-};
-
-type DmaEdgeAnalyticsValue = {
-  totalCount?: CountValue;
-  typeSpecificValue?: {
-    followerEdgeAnalyticsValue?: {
-      organicValue?: number;
-      sponsoredValue?: number;
-    };
-    visitorEdgeAnalyticsValue?: {
-      uniqueCount?: number;
-      desktopCount?: number;
-      mobileCount?: number;
-      desktopUniqueCount?: number;
-      mobileUniqueCount?: number;
-      desktopCtaClickCount?: number;
-      mobileCtaClickCount?: number;
-      guestDesktopCount?: number;
-      guestMobileCount?: number;
-    };
-  };
 };
 
 type DmaFollowerTrendResponse = {
@@ -125,7 +101,15 @@ type DmaFollowerTrendResponse = {
         end?: number;
       };
     };
-    value?: DmaEdgeAnalyticsValue;
+    value?: {
+      totalCount?: CountValue;
+      typeSpecificValue?: {
+        followerEdgeAnalyticsValue?: {
+          organicValue?: number;
+          sponsoredValue?: number;
+        };
+      };
+    };
   }>;
 };
 
@@ -197,7 +181,15 @@ type DmaDimensionAnalyticsResponse = {
         staffRangeCount?: string;
       };
     };
-    value?: DmaEdgeAnalyticsValue;
+    value?: {
+      totalCount?: CountValue;
+      typeSpecificValue?: {
+        followerEdgeAnalyticsValue?: {
+          organicValue?: number;
+          sponsoredValue?: number;
+        };
+      };
+    };
   }>;
 };
 
@@ -332,8 +324,7 @@ export async function fetchLinkedInDailyMetricsAndPosts(params: {
   const context = await fetchOrganizationContext(headers, params.externalAccountId);
   const since = startOfDay(params.since);
   const until = endOfDay(params.until);
-  const includeViews = params.includeViews !== false;
-  const dailyMap = seedDailyMap(since, until, includeViews);
+  const dailyMap = seedDailyMap(since, until, params.includeViews === true);
 
   try {
     const followerTrend = await fetchFollowerTrendByDay(
@@ -350,25 +341,6 @@ export async function fetchLinkedInDailyMetricsAndPosts(params: {
     }
   } catch (error) {
     console.warn("[linkedin] Failed to fetch DMA follower trend:", error);
-  }
-
-  if (includeViews) {
-    try {
-      const visitorTrend = await fetchVisitorTrendByDay(
-        headers,
-        context.pageUrn,
-        since,
-        until
-      );
-      for (const [dateKey, count] of Object.entries(visitorTrend)) {
-        const entry = dailyMap.get(dateKey);
-        if (entry) {
-          entry.views = (entry.views ?? 0) + count;
-        }
-      }
-    } catch (error) {
-      console.warn("[linkedin] Failed to fetch DMA visitor trend:", error);
-    }
   }
 
   try {
@@ -863,37 +835,6 @@ async function fetchFollowerTrendByDay(
   return daily;
 }
 
-async function fetchVisitorTrendByDay(
-  headers: Record<string, string>,
-  pageUrn: string,
-  since: Date,
-  until: Date
-): Promise<Record<string, number>> {
-  const daily: Record<string, number> = {};
-  const ranges = splitDateRange(since, until, MAX_ANALYTICS_WINDOW_DAYS);
-
-  for (const range of ranges) {
-    const response = await fetchTrendWithIntervals<DmaFollowerTrendResponse>(
-      headers,
-      `${API_REST_URL}/dmaOrganizationalPageEdgeAnalytics` +
-        `?q=trend&organizationalPage=${encodeURIComponent(pageUrn)}` +
-        `&analyticsType=VISITOR`,
-      range.start,
-      range.end,
-      "linkedin_dma_visitor_trend"
-    );
-
-    for (const element of response.elements ?? []) {
-      const startMs = element.timeIntervals?.timeRange?.start;
-      if (!startMs) continue;
-      const dateKey = new Date(startMs).toISOString().slice(0, 10);
-      daily[dateKey] = (daily[dateKey] ?? 0) + readVisitorCount(element.value);
-    }
-  }
-
-  return daily;
-}
-
 async function fetchContentTrendElements(
   headers: Record<string, string>,
   sourceEntityUrn: string,
@@ -1145,7 +1086,17 @@ function sumContentTrend(elements: DmaContentAnalyticsElement[]): TrendCounts {
 }
 
 function readFollowerCount(
-  value: DmaEdgeAnalyticsValue | undefined
+  value:
+    | {
+        totalCount?: CountValue;
+        typeSpecificValue?: {
+          followerEdgeAnalyticsValue?: {
+            organicValue?: number;
+            sponsoredValue?: number;
+          };
+        };
+      }
+    | undefined
 ): number {
   const totalCount = normalizeCount(value?.totalCount);
   if (totalCount > 0) {
@@ -1157,23 +1108,6 @@ function readFollowerCount(
   const sponsored =
     value?.typeSpecificValue?.followerEdgeAnalyticsValue?.sponsoredValue ?? 0;
   return organic + sponsored;
-}
-
-export function readVisitorCount(
-  value: DmaEdgeAnalyticsValue | undefined
-): number {
-  const totalCount = normalizeCount(value?.totalCount);
-  if (totalCount > 0) {
-    return totalCount;
-  }
-
-  const visitorValue = value?.typeSpecificValue?.visitorEdgeAnalyticsValue;
-  return (
-    (visitorValue?.desktopCount ?? 0) +
-    (visitorValue?.mobileCount ?? 0) +
-    (visitorValue?.guestDesktopCount ?? 0) +
-    (visitorValue?.guestMobileCount ?? 0)
-  );
 }
 
 function readContentCount(

@@ -37,6 +37,10 @@ function DeltaBadge({ value }: { value: number }) {
   );
 }
 
+function UnavailableMetric() {
+  return <span className="text-muted-foreground/50">N/A</span>;
+}
+
 export function PlatformTable({ perPlatform, showViews, showReach, showEngagements }: PlatformTableProps) {
   // Find best engagement rate platform for highlighting
   const rates = perPlatform.map(p => computeEngagementRate(p.totals.engagements, p.totals.views, p.totals.reach) ?? 0);
@@ -126,14 +130,26 @@ export function PlatformTable({ perPlatform, showViews, showReach, showEngagemen
                     </TableCell>
                     {showReach && (
                       <TableCell className="text-right tabular-nums">
-                        {formatNumber(item.totals.reach)}
-                        <DeltaBadge value={item.delta?.reach ?? 0} />
+                        {item.available.reach ? (
+                          <>
+                            {formatNumber(item.totals.reach)}
+                            <DeltaBadge value={item.delta?.reach ?? 0} />
+                          </>
+                        ) : (
+                          <UnavailableMetric />
+                        )}
                       </TableCell>
                     )}
                     {showViews && (
                       <TableCell className="text-right tabular-nums">
-                        {formatNumber(item.totals.views)}
-                        <DeltaBadge value={item.delta?.views ?? 0} />
+                        {item.available.views ? (
+                          <>
+                            {formatNumber(item.totals.views)}
+                            <DeltaBadge value={item.delta?.views ?? 0} />
+                          </>
+                        ) : (
+                          <UnavailableMetric />
+                        )}
                       </TableCell>
                     )}
                   </TableRow>
