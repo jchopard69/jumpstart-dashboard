@@ -197,6 +197,7 @@ type LinkedInOrganizationContext = {
   organizationId: string;
   organizationUrn: string;
   pageUrn: string;
+  hasExplicitPageUrn?: boolean;
   name: string;
   logoUrl?: string;
   pageUrl?: string;
@@ -248,6 +249,22 @@ export function buildOrganizationPageEntityParam(
   organizationUrn: string
 ): string {
   return `(organization:${encodeUrn(organizationUrn)})`;
+}
+
+export function pickPreferredPageProfileElement(
+  elements: NonNullable<DmaPageProfileResponse["elements"]>,
+  preferredPageUrn?: string
+) {
+  if (preferredPageUrn) {
+    const exactMatch = elements.find(
+      (element) => element.entityUrn === preferredPageUrn
+    );
+    if (exactMatch) {
+      return exactMatch;
+    }
+  }
+
+  return elements[0];
 }
 
 export async function fetchLinkedInOrganizations(accessToken: string): Promise<
@@ -689,12 +706,14 @@ async function fetchOrganizationContexts(
     if (!organization) continue;
 
     const organizationUrn = `urn:li:organization:${organizationId}`;
+    const explicitPageUrn = organization.organizationalPage;
     const context: LinkedInOrganizationContext = {
       organizationId,
       organizationUrn,
       pageUrn:
-        organization.organizationalPage ||
+        explicitPageUrn ||
         `urn:li:organizationalPage:${organizationId}`,
+      hasExplicitPageUrn: Boolean(explicitPageUrn),
       name:
         getLocalizedName(organization) ||
         `LinkedIn organization ${organizationId}`,
@@ -710,8 +729,12 @@ async function fetchOrganizationContexts(
   await Promise.all(
     [...contexts.values()].map(async (context) => {
       try {
-        const profile = await fetchPageProfile(headers, context.organizationUrn);
-        if (profile.pageUrn) {
+        const profile = await fetchPageProfile(
+          headers,
+          context.organizationUrn,
+          context.pageUrn
+        );
+        if (profile.pageUrn && !context.hasExplicitPageUrn) {
           context.pageUrn = profile.pageUrn;
         }
         if (profile.pageUrl) {
@@ -754,7 +777,8 @@ async function fetchOrganizationContext(
 
 async function fetchPageProfile(
   headers: Record<string, string>,
-  organizationUrn: string
+  organizationUrn: string,
+  preferredPageUrn?: string
 ): Promise<{
   pageUrn?: string;
   pageUrl?: string;
@@ -774,7 +798,9 @@ async function fetchPageProfile(
     "linkedin_dma_page_profile"
   );
 
-  const element = response.elements?.[0];
+  const element = response.elements?.length
+    ? pickPreferredPageProfileElement(response.elements, preferredPageUrn)
+    : undefined;
   return {
     pageUrn: element?.entityUrn,
     pageUrl: element?.pageUrl,

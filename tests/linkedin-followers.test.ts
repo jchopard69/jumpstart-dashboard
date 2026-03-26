@@ -6,6 +6,7 @@ import { getLinkedInVersion, LINKEDIN_CONFIG } from "../lib/social-platforms/lin
 import {
   buildOrganizationAuthorizationActionsParam,
   buildOrganizationPageEntityParam,
+  pickPreferredPageProfileElement,
 } from "../lib/social-platforms/linkedin/dma";
 
 describe("LinkedIn DMA helpers", () => {
@@ -48,6 +49,18 @@ describe("LinkedIn DMA helpers", () => {
       buildOrganizationPageEntityParam("urn:li:organization:12345"),
       "(organization:urn%3Ali%3Aorganization%3A12345)"
     );
+  });
+
+  test("prefers the explicit organizational page when multiple page profiles are returned", () => {
+    const selected = pickPreferredPageProfileElement(
+      [
+        { entityUrn: "urn:li:organizationalPage:27", localizedName: "Wrong page" },
+        { entityUrn: "urn:li:organizationalPage:4000", localizedName: "Correct page" },
+      ],
+      "urn:li:organizationalPage:4000"
+    );
+
+    assert.equal(selected?.entityUrn, "urn:li:organizationalPage:4000");
   });
 });
 
