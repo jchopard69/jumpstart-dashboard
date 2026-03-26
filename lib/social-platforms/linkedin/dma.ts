@@ -253,14 +253,49 @@ export function buildOrganizationPageEntityParam(
 
 export function pickPreferredPageProfileElement(
   elements: NonNullable<DmaPageProfileResponse["elements"]>,
-  preferredPageUrn?: string
+  preferredPageUrn?: string,
+  preferredName?: string,
+  preferredPageUrl?: string,
+  preferredVanityName?: string
 ) {
+  const normalizedPreferredPageUrl = normalizeComparablePageUrl(preferredPageUrl);
+  if (normalizedPreferredPageUrl) {
+    const exactUrlMatch = elements.find(
+      (element) =>
+        normalizeComparablePageUrl(element.pageUrl) === normalizedPreferredPageUrl
+    );
+    if (exactUrlMatch) {
+      return exactUrlMatch;
+    }
+  }
+
+  const normalizedPreferredVanityName = normalizeComparableValue(preferredVanityName);
+  if (normalizedPreferredVanityName) {
+    const vanityMatch = elements.find((element) =>
+      pageUrlContainsVanityName(element.pageUrl, normalizedPreferredVanityName)
+    );
+    if (vanityMatch) {
+      return vanityMatch;
+    }
+  }
+
+  const normalizedPreferredName = normalizeComparableValue(preferredName);
+  if (normalizedPreferredName) {
+    const exactNameMatch = elements.find(
+      (element) =>
+        normalizeComparableValue(element.localizedName) === normalizedPreferredName
+    );
+    if (exactNameMatch) {
+      return exactNameMatch;
+    }
+  }
+
   if (preferredPageUrn) {
-    const exactMatch = elements.find(
+    const exactUrnMatch = elements.find(
       (element) => element.entityUrn === preferredPageUrn
     );
-    if (exactMatch) {
-      return exactMatch;
+    if (exactUrnMatch) {
+      return exactUrnMatch;
     }
   }
 
@@ -339,6 +374,9 @@ export async function fetchLinkedInDailyMetricsAndPosts(params: {
 }): Promise<{ dailyMetrics: DailyMetric[]; posts: PostMetric[] }> {
   const headers = buildHeaders(params.accessToken);
   const context = await fetchOrganizationContext(headers, params.externalAccountId);
+  console.log(
+    `[linkedin] DMA context resolved: organization=${context.organizationUrn}, page=${context.pageUrn}, name=${context.name}, vanity=${context.vanityName ?? "n/a"}`
+  );
   const since = startOfDay(params.since);
   const until = endOfDay(params.until);
   const dailyMap = seedDailyMap(since, until, params.includeViews === true);
@@ -473,15 +511,18 @@ export async function fetchLinkedInPosts(params: {
       params.includeAnalytics &&
       now.getTime() - postedAtMs <= MAX_ANALYTICS_WINDOW_DAYS * DAY_MS
     ) {
+      const analyticsWindow = buildPostAnalyticsWindow(postedAtMs, now);
       try {
-        const contentTrend = await fetchContentTrendElements(
-          headers,
-          postUrn,
-          new Date(postedAtMs),
-          now,
-          "linkedin_dma_post_content_trend"
-        );
-        analyticsCounts = sumContentTrend(contentTrend);
+        if (analyticsWindow) {
+          const contentTrend = await fetchContentTrendElements(
+            headers,
+            postUrn,
+            analyticsWindow.since,
+            analyticsWindow.until,
+            "linkedin_dma_post_content_trend"
+          );
+          analyticsCounts = sumContentTrend(contentTrend);
+        }
       } catch (error) {
         console.warn(`[linkedin] Failed to fetch DMA post analytics for ${postUrn}:`, error);
       }
@@ -556,11 +597,29 @@ export async function fetchLinkedInDemographics(
       }
 
       const total = validRows.reduce((sum, row) => sum + row.count, 0);
+      const resolvedValueCache = new Map<string, string>();
       const resolvedRows = await Promise.all(
-        validRows.map(async (row) => ({
-          value: await resolveDimensionValue(headers, row.urn, dimension.apiType),
-          count: row.count,
-        }))
+        validRows.map(async (row) => {
+          const cacheKey = `${dimension.apiType}:${row.urn ?? "unknown"}`;
+          let value = resolvedValueCache.get(cacheKey);
+          if (!value) {
+            try {
+              value = await resolveDimensionValue(headers, row.urn, dimension.apiType);
+            } catch (error) {
+              console.warn(
+                `[linkedin] Failed to resolve DMA ${dimension.dimension} value ${row.urn ?? "unknown"}:`,
+                error
+              );
+              value = fallbackDimensionValue(row.urn, dimension.apiType);
+            }
+            resolvedValueCache.set(cacheKey, value);
+          }
+
+          return {
+            value,
+            count: row.count,
+          };
+        })
       );
 
       for (const row of resolvedRows) {
@@ -732,9 +791,14 @@ async function fetchOrganizationContexts(
         const profile = await fetchPageProfile(
           headers,
           context.organizationUrn,
-          context.pageUrn
+          {
+            preferredPageUrn: context.pageUrn,
+            preferredName: context.name,
+            preferredPageUrl: context.pageUrl,
+            preferredVanityName: context.vanityName,
+          }
         );
-        if (profile.pageUrn && !context.hasExplicitPageUrn) {
+        if (profile.pageUrn) {
           context.pageUrn = profile.pageUrn;
         }
         if (profile.pageUrl) {
@@ -778,7 +842,12 @@ async function fetchOrganizationContext(
 async function fetchPageProfile(
   headers: Record<string, string>,
   organizationUrn: string,
-  preferredPageUrn?: string
+  preferred?: {
+    preferredPageUrn?: string;
+    preferredName?: string;
+    preferredPageUrl?: string;
+    preferredVanityName?: string;
+  }
 ): Promise<{
   pageUrn?: string;
   pageUrl?: string;
@@ -799,7 +868,13 @@ async function fetchPageProfile(
   );
 
   const element = response.elements?.length
-    ? pickPreferredPageProfileElement(response.elements, preferredPageUrn)
+    ? pickPreferredPageProfileElement(
+        response.elements,
+        preferred?.preferredPageUrn,
+        preferred?.preferredName,
+        preferred?.preferredPageUrl,
+        preferred?.preferredVanityName
+      )
     : undefined;
   return {
     pageUrn: element?.entityUrn,
@@ -827,6 +902,9 @@ async function fetchFollowerTotal(
 
   const total = response.paging?.total ?? 0;
   const visibleFollowers = response.elements?.length ?? 0;
+  console.log(
+    `[linkedin] DMA follower total for ${pageUrn}: total=${total}, visible=${visibleFollowers}`
+  );
   return Math.max(total, visibleFollowers);
 }
 
@@ -1338,6 +1416,20 @@ function buildTimeIntervalVariants(since: Date, until: Date): string[] {
   ];
 }
 
+export function buildPostAnalyticsWindow(
+  postedAtMs: number,
+  now: Date
+): { since: Date; until: Date } | null {
+  if (now.getTime() - postedAtMs < DAY_MS) {
+    return null;
+  }
+
+  return {
+    since: startOfDay(new Date(postedAtMs)),
+    until: endOfDay(now),
+  };
+}
+
 function isTimeIntervalsError(error: unknown): boolean {
   if (!(error instanceof SocialApiError)) return false;
   const raw = error.rawError as Record<string, unknown> | undefined;
@@ -1374,6 +1466,63 @@ function getLocalizedName(value: Record<string, unknown>): string | undefined {
   }
 
   return undefined;
+}
+
+function fallbackDimensionValue(
+  urn: string | undefined,
+  dimensionType: string
+): string {
+  if (!urn) {
+    return "Unknown";
+  }
+
+  if (dimensionType === "STAFF_COUNT_RANGE") {
+    return humanizeEnumValue(urn);
+  }
+
+  const knownPrefixes = [
+    "urn:li:function:",
+    "urn:li:seniority:",
+    "urn:li:industry:",
+    "urn:li:geo:",
+  ];
+
+  for (const prefix of knownPrefixes) {
+    const id = extractUrnId(urn, prefix);
+    if (id) {
+      return `${humanizeEnumValue(prefix.replace("urn:li:", "").replace(/:$/, ""))} ${id}`;
+    }
+  }
+
+  return urn;
+}
+
+function normalizeComparableValue(value: string | undefined): string {
+  return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+}
+
+function normalizeComparablePageUrl(value: string | undefined): string {
+  if (!value) return "";
+
+  try {
+    const url = new URL(value);
+    return url.pathname.replace(/\/+$/, "").toLowerCase();
+  } catch {
+    return value.trim().replace(/\/+$/, "").toLowerCase();
+  }
+}
+
+function pageUrlContainsVanityName(
+  pageUrl: string | undefined,
+  vanityName: string
+): boolean {
+  const normalizedPath = normalizeComparablePageUrl(pageUrl);
+  if (!normalizedPath) return false;
+
+  return normalizedPath
+    .split("/")
+    .filter(Boolean)
+    .some((segment) => segment === vanityName);
 }
 
 function extractUrnId(urn: string, prefix: string): string | null {
