@@ -3,6 +3,10 @@ import { describe, test } from "node:test";
 
 import { buildHeaders, normalizeOrganizationId } from "../lib/social-platforms/linkedin/api";
 import { getLinkedInVersion, LINKEDIN_CONFIG } from "../lib/social-platforms/linkedin/config";
+import {
+  buildOrganizationAuthorizationActionsParam,
+  buildOrganizationPageEntityParam,
+} from "../lib/social-platforms/linkedin/dma";
 
 describe("LinkedIn DMA helpers", () => {
   test("normalizeOrganizationId strips organization URN", () => {
@@ -25,6 +29,25 @@ describe("LinkedIn DMA helpers", () => {
 
   test("uses the DMA OAuth scope", () => {
     assert.deepEqual(LINKEDIN_CONFIG.scopes, ["r_dma_admin_pages_content"]);
+  });
+
+  test("formats authorizationActions with raw Rest.li syntax", () => {
+    const value = buildOrganizationAuthorizationActionsParam(
+      "FOLLOWER_ANALYTICS_READ"
+    );
+
+    assert.equal(
+      value,
+      "List((authorizationAction:(organizationAnalyticsAuthorizationAction:(actionType:FOLLOWER_ANALYTICS_READ))))"
+    );
+    assert.equal(value.includes("%"), false);
+  });
+
+  test("formats pageEntity with raw Rest.li wrapper and encoded URN", () => {
+    assert.equal(
+      buildOrganizationPageEntityParam("urn:li:organization:12345"),
+      "(organization:urn%3Ali%3Aorganization%3A12345)"
+    );
   });
 });
 

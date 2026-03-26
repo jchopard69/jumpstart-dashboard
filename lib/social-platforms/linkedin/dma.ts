@@ -229,6 +229,22 @@ export function normalizeOrganizationId(value: string): string {
     .replace("urn:li:organizationalPage:", "");
 }
 
+export function buildRestliList(values: string[]): string {
+  return `List(${values.join(",")})`;
+}
+
+export function buildOrganizationAuthorizationActionsParam(
+  actionType: string
+): string {
+  return `List((authorizationAction:(organizationAnalyticsAuthorizationAction:(actionType:${actionType}))))`;
+}
+
+export function buildOrganizationPageEntityParam(
+  organizationUrn: string
+): string {
+  return `(organization:${encodeUrn(organizationUrn)})`;
+}
+
 export async function fetchLinkedInOrganizations(accessToken: string): Promise<
   Array<{
     organizationId: string;
@@ -559,9 +575,8 @@ async function fetchAuthorizedOrganizationsByAction(
   const count = 100;
 
   while (true) {
-    const authorizationActions = encodeRFC3986(
-      `List((authorizationAction:(organizationAnalyticsAuthorizationAction:(actionType:${actionType}))))`
-    );
+    const authorizationActions =
+      buildOrganizationAuthorizationActionsParam(actionType);
     const url =
       `${API_REST_URL}/dmaOrganizationAuthorizations` +
       `?bq=authorizationActionsAndImpersonator&authorizationActions=${authorizationActions}` +
@@ -604,9 +619,9 @@ async function fetchOrganizationsViaAcls(
   while (true) {
     const url =
       `${API_REST_URL}/dmaOrganizationAcls` +
-      `?q=roleAssignee&scopeFilter=${encodeRFC3986("(enabled:false)")}` +
-      `&role=${encodeRFC3986("(value:ADMINISTRATOR)")}` +
-      `&state=${encodeRFC3986("(value:APPROVED)")}` +
+      `?q=roleAssignee&scopeFilter=(enabled:false)` +
+      `&role=(value:ADMINISTRATOR)` +
+      `&state=(value:APPROVED)` +
       `&start=${start}&count=${count}`;
 
     const response = await apiRequest<OrganizationAclsResponse>(
@@ -650,8 +665,8 @@ async function fetchOrganizationContexts(
     return [];
   }
 
-  const idsParam = encodeRFC3986(`List(${organizationIds.join(",")})`);
-  const localeParam = encodeRFC3986(DEFAULT_LOCALE);
+  const idsParam = buildRestliList(organizationIds);
+  const localeParam = DEFAULT_LOCALE;
   const url =
     `${API_REST_URL}/dmaOrganizations` +
     `?ids=${idsParam}&locale=${localeParam}`;
@@ -742,8 +757,8 @@ async function fetchPageProfile(
   logoUrl?: string;
   name?: string;
 }> {
-  const pageEntity = encodeRFC3986(`(organization:${organizationUrn})`);
-  const locale = encodeRFC3986(DEFAULT_LOCALE);
+  const pageEntity = buildOrganizationPageEntityParam(organizationUrn);
+  const locale = DEFAULT_LOCALE;
   const url =
     `${API_REST_URL}/dmaOrganizationalPageProfiles` +
     `?q=pageEntity&pageEntity=${pageEntity}&locale=${locale}`;
@@ -822,7 +837,7 @@ async function fetchContentTrendElements(
   endpoint: string
 ): Promise<DmaContentAnalyticsElement[]> {
   const elements: DmaContentAnalyticsElement[] = [];
-  const metricTypes = encodeRFC3986(`List(${CONTENT_METRIC_TYPES.join(",")})`);
+  const metricTypes = buildRestliList([...CONTENT_METRIC_TYPES]);
   const ranges = splitDateRange(since, until, MAX_ANALYTICS_WINDOW_DAYS);
 
   for (const range of ranges) {
@@ -879,11 +894,15 @@ async function fetchPostUrnsByAuthor(
   let paginationCursor: string | null | undefined;
   const pageSize = Math.min(limit, 100);
 
-  const authorVariants = [organizationUrn, `List(${organizationUrn})`];
+  const encodedOrganizationUrn = encodeUrn(organizationUrn);
+  const authorVariants = [
+    encodedOrganizationUrn,
+    buildRestliList([encodedOrganizationUrn]),
+  ];
   let variantIndex = 0;
 
   while (urns.length < limit) {
-    const author = encodeRFC3986(authorVariants[variantIndex]);
+    const author = authorVariants[variantIndex];
     const cursorParam = paginationCursor
       ? `&paginationCursor=${encodeURIComponent(paginationCursor)}`
       : "";
@@ -936,7 +955,7 @@ async function fetchPostsByUrn(
 
   for (let index = 0; index < postUrns.length; index += POSTS_BATCH_SIZE) {
     const batch = postUrns.slice(index, index + POSTS_BATCH_SIZE);
-    const ids = encodeRFC3986(`List(${batch.join(",")})`);
+    const ids = buildRestliList(batch.map((urn) => encodeUrn(urn)));
     const url =
       `${API_REST_URL}/dmaPosts` +
       `?ids=${ids}&viewContext=READER`;
@@ -968,7 +987,7 @@ async function fetchSocialMetadataByUrn(
     index += SOCIAL_METADATA_BATCH_SIZE
   ) {
     const batch = postUrns.slice(index, index + SOCIAL_METADATA_BATCH_SIZE);
-    const ids = encodeRFC3986(`List(${batch.join(",")})`);
+    const ids = buildRestliList(batch.map((urn) => encodeUrn(urn)));
     const url = `${API_REST_URL}/dmaSocialMetadata?ids=${ids}`;
 
     const response = await apiRequest<DmaSocialMetadataResponse>(
@@ -1133,7 +1152,7 @@ async function resolveDimensionValue(
 
   const geoId = extractUrnId(urn, "urn:li:geo:");
   if (geoId) {
-    const locale = encodeRFC3986(DEFAULT_LOCALE);
+    const locale = DEFAULT_LOCALE;
     const url = `${API_REST_URL}/dmaGeo/${geoId}?locale=${locale}`;
     const response = await apiRequest<Record<string, unknown>>(
       "linkedin",
@@ -1163,7 +1182,7 @@ async function resolveDimensionValue(
 
   const seniorityId = extractUrnId(urn, "urn:li:seniority:");
   if (seniorityId) {
-    const locale = encodeRFC3986(DEFAULT_LOCALE);
+    const locale = DEFAULT_LOCALE;
     const url =
       `${API_REST_URL}/dmaStandardizedSeniorities/${seniorityId}` +
       `?locale=${locale}`;
@@ -1179,7 +1198,7 @@ async function resolveDimensionValue(
 
   const industryId = extractUrnId(urn, "urn:li:industry:");
   if (industryId) {
-    const locale = encodeRFC3986(DEFAULT_LOCALE);
+    const locale = DEFAULT_LOCALE;
     const url =
       `${API_REST_URL}/dmaIndustryTaxonomyVersions/DEFAULT/dmaIndustries/${industryId}` +
       `?locale=${locale}`;
@@ -1280,10 +1299,10 @@ function buildTimeIntervalVariants(since: Date, until: Date): string[] {
   const withoutGranularity = `(timeRange:(start:${start},end:${end}))`;
 
   return [
-    `timeIntervals=${encodeRFC3986(withDayGranularity)}`,
     `timeIntervals=${withDayGranularity}`,
-    `timeIntervals=${encodeRFC3986(withoutGranularity)}`,
     `timeIntervals=${withoutGranularity}`,
+    `timeIntervals=${encodeRFC3986(withDayGranularity)}`,
+    `timeIntervals=${encodeRFC3986(withoutGranularity)}`,
   ];
 }
 
@@ -1375,6 +1394,10 @@ function encodeRFC3986(value: string): string {
   return encodeURIComponent(value).replace(/[!'()*]/g, (char) =>
     `%${char.charCodeAt(0).toString(16).toUpperCase()}`
   );
+}
+
+function encodeUrn(value: string): string {
+  return encodeURIComponent(value);
 }
 
 function humanizeEnumValue(value: string): string {
