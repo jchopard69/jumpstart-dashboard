@@ -1,5 +1,5 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Image, Link, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
 const PAGE_PADDING_X = 34;
 const PAGE_PADDING_TOP = 76;
@@ -470,14 +470,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.line,
     borderRadius: 12,
-    padding: 10,
     backgroundColor: "#ffffff",
+    overflow: "hidden",
+  },
+  postPreview: {
+    height: 92,
+    backgroundColor: palette.surfaceStrong,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  postPreviewImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  postPreviewFallback: {
+    fontSize: 16,
+    color: palette.blue,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  postBody: {
+    padding: 10,
   },
   postHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 5,
+  },
+  postHeaderMeta: {
+    alignItems: "flex-end",
   },
   postIndex: {
     width: 22,
@@ -493,6 +519,17 @@ const styles = StyleSheet.create({
   postDate: {
     fontSize: 7.5,
     color: palette.subtle,
+  },
+  postPlatformTag: {
+    marginTop: 3,
+    fontSize: 6.9,
+    color: palette.blue,
+    backgroundColor: palette.blueSoft,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   postCaption: {
     fontSize: 8.1,
@@ -688,11 +725,16 @@ type PlatformSummary = {
 type PostSummary = {
   caption: string;
   date: string;
+  platform?: string;
+  platformLabel?: string;
+  thumbnailUrl?: string | null;
+  url?: string | null;
   visibility: {
     label: "Impressions" | "Vues" | "Portée";
     value: number;
   };
   engagements: number;
+  engagementRate?: number | null;
 };
 
 type ShootSummary = {
@@ -1043,38 +1085,66 @@ function PostCard({ post, index }: { post: PostSummary; index: number }) {
   const visibilityValue = post.visibility?.value ?? 0;
   const visibilityLabel = sanitizeText(post.visibility?.label ?? "Visibilité");
   const engagementRate =
-    visibilityValue > 0 ? `${formatNumber((post.engagements / visibilityValue) * 100, 1)}%` : "-";
+    post.engagementRate != null
+      ? `${formatNumber(post.engagementRate, 1)}%`
+      : visibilityValue > 0
+        ? `${formatNumber((post.engagements / visibilityValue) * 100, 1)}%`
+        : "-";
+  const safePlatformLabel = sanitizeText(post.platformLabel ?? post.platform ?? "Réseau");
 
-  return (
+  const cardContent = (
     <View style={styles.postCard} wrap={false}>
-      <View style={styles.postHeader}>
-        <Text style={styles.postIndex}>{String(index + 1).padStart(2, "0")}</Text>
-        <Text style={styles.postDate}>{sanitizeText(post.date)}</Text>
+        <View style={styles.postPreview}>
+          {post.thumbnailUrl ? (
+            // eslint-disable-next-line jsx-a11y/alt-text
+            <Image src={post.thumbnailUrl} style={styles.postPreviewImage} />
+          ) : (
+            <Text style={styles.postPreviewFallback}>{truncateText(safePlatformLabel, 16)}</Text>
+          )}
       </View>
-      <Text style={styles.postCaption}>{truncateText(safeCaption, 145)}</Text>
-      <View style={styles.postMetaRow}>
-        <View style={styles.postMetaCell}>
-          <View style={styles.postMetaCard}>
-            <Text style={styles.postMetaLabel}>Visibilité</Text>
-            <Text style={styles.postMetaValue}>{formatNumber(visibilityValue)}</Text>
-            <Text style={styles.postMetaHint}>{visibilityLabel}</Text>
+      <View style={styles.postBody}>
+        <View style={styles.postHeader}>
+          <Text style={styles.postIndex}>{String(index + 1).padStart(2, "0")}</Text>
+          <View style={styles.postHeaderMeta}>
+            <Text style={styles.postDate}>{sanitizeText(post.date)}</Text>
+            <Text style={styles.postPlatformTag}>{safePlatformLabel}</Text>
           </View>
         </View>
-        <View style={styles.postMetaCell}>
-          <View style={styles.postMetaCard}>
-            <Text style={styles.postMetaLabel}>Engagements</Text>
-            <Text style={styles.postMetaValue}>{formatNumber(post.engagements)}</Text>
+        <Text style={styles.postCaption}>{truncateText(safeCaption, 145)}</Text>
+        <View style={styles.postMetaRow}>
+          <View style={styles.postMetaCell}>
+            <View style={styles.postMetaCard}>
+              <Text style={styles.postMetaLabel}>Visibilité</Text>
+              <Text style={styles.postMetaValue}>
+                {visibilityValue > 0 ? formatNumber(visibilityValue) : "-"}
+              </Text>
+              <Text style={styles.postMetaHint}>{visibilityValue > 0 ? visibilityLabel : "-"}</Text>
+            </View>
           </View>
-        </View>
-        <View style={styles.postMetaCell}>
-          <View style={styles.postMetaCard}>
-            <Text style={styles.postMetaLabel}>Taux eng.</Text>
-            <Text style={styles.postMetaValue}>{engagementRate}</Text>
+          <View style={styles.postMetaCell}>
+            <View style={styles.postMetaCard}>
+              <Text style={styles.postMetaLabel}>Engagements</Text>
+              <Text style={styles.postMetaValue}>
+                {post.engagements > 0 ? formatNumber(post.engagements) : "-"}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.postMetaCell}>
+            <View style={styles.postMetaCard}>
+              <Text style={styles.postMetaLabel}>Taux eng.</Text>
+              <Text style={styles.postMetaValue}>{post.engagements > 0 ? engagementRate : "-"}</Text>
+            </View>
           </View>
         </View>
       </View>
     </View>
   );
+
+  if (post.url) {
+    return <Link src={post.url}>{cardContent}</Link>;
+  }
+
+  return cardContent;
 }
 
 function DnaCard({ pattern }: { pattern: ContentDnaPattern }) {

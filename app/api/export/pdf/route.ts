@@ -3,7 +3,6 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/s
 import { resolveActiveTenantId } from "@/lib/auth";
 import { toIsoDate } from "@/lib/date";
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
-import { getPostEngagements, getPostVisibility } from "@/lib/metrics";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
 import {
   generateStrategicInsights,
@@ -13,7 +12,7 @@ import {
 } from "@/lib/insights";
 import { analyzeContentDna } from "@/lib/content-dna";
 import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
-import { selectDisplayTopPosts } from "@/lib/top-posts";
+import { buildPdfPostSummaries } from "@/lib/pdf-posts";
 import {
   getDemoPdfWatermarkText,
   shouldUseDemoPdfWatermark,
@@ -206,13 +205,7 @@ export async function GET(request: Request) {
     })),
   });
 
-  const displayTopPosts = selectDisplayTopPosts(data.posts, 10)
-    .map((post) => ({
-      caption: post.caption ?? "Sans titre",
-      date: post.posted_at ? new Date(post.posted_at).toLocaleDateString("fr-FR") : "-",
-      visibility: getPostVisibility(post.metrics, post.media_type),
-      engagements: getPostEngagements(post.metrics),
-    }));
+  const displayTopPosts = await buildPdfPostSummaries(data.posts, 10);
 
   const isDemo = Boolean(tenant?.is_demo) || (await isDemoTenant(tenantId));
   const watermark = isDemo && shouldUseDemoPdfWatermark() ? getDemoPdfWatermarkText() : undefined;

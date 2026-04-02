@@ -1,7 +1,7 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
-import { getPostEngagements, getPostVisibility, coerceMetric } from "@/lib/metrics";
+import { coerceMetric } from "@/lib/metrics";
 import { toIsoDate } from "@/lib/date";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
 import {
@@ -11,7 +11,7 @@ import {
   type InsightsInput,
 } from "@/lib/insights";
 import { analyzeContentDna } from "@/lib/content-dna";
-import { selectDisplayTopPosts } from "@/lib/top-posts";
+import { buildPdfPostSummaries } from "@/lib/pdf-posts";
 import { sendReportEmail } from "@/lib/email";
 import { createTenantNotification } from "@/lib/notifications";
 import type { Platform } from "@/lib/types";
@@ -301,15 +301,7 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
     })),
   });
 
-  const displayTopPosts = selectDisplayTopPosts(postsList, 10)
-    .map((post) => ({
-      caption: post.caption ?? "Sans titre",
-      date: post.posted_at
-        ? new Date(post.posted_at).toLocaleDateString("fr-FR")
-        : "-",
-      visibility: getPostVisibility(post.metrics, post.media_type),
-      engagements: getPostEngagements(post.metrics),
-    }));
+  const displayTopPosts = await buildPdfPostSummaries(postsList, 10);
 
   // Fetch collaboration data
   const { data: collaboration } = await supabase
