@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { assertTenant, getUserTenants } from "@/lib/auth";
-import { buildPreviousRange, resolveDateRange } from "@/lib/date";
+import { buildPreviousRange, resolveDateRange, toIsoDate } from "@/lib/date";
 import { normalizeDashboardFilters } from "@/lib/dashboard-filters";
 import { getDashboardMetricAvailability } from "@/lib/dashboard-metric-availability";
 import { coerceMetric, getPostEngagements, getPostImpressions, getPostVisibility } from "@/lib/metrics";
@@ -73,15 +73,15 @@ export async function fetchDashboardData(params: {
     .from("social_daily_metrics")
     .select("date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform")
     .eq("tenant_id", tenantId)
-    .gte("date", range.start.toISOString().slice(0, 10))
-    .lte("date", range.end.toISOString().slice(0, 10));
+    .gte("date", toIsoDate(range.start))
+    .lte("date", toIsoDate(range.end));
 
   let prevQuery = supabase
     .from("social_daily_metrics")
     .select("date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform")
     .eq("tenant_id", tenantId)
-    .gte("date", prevRange.start.toISOString().slice(0, 10))
-    .lte("date", prevRange.end.toISOString().slice(0, 10));
+    .gte("date", toIsoDate(prevRange.start))
+    .lte("date", toIsoDate(prevRange.end));
 
   if (filters.platform) {
     metricsQuery = metricsQuery.eq("platform", filters.platform);

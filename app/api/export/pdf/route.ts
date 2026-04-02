@@ -1,6 +1,7 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveActiveTenantId } from "@/lib/auth";
+import { toIsoDate } from "@/lib/date";
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
 import { getPostEngagements, getPostVisibility } from "@/lib/metrics";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
@@ -257,8 +258,8 @@ export async function GET(request: Request) {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/-+$/, "");
-    const dateFrom = data.range.start.toISOString().slice(0, 10);
-    const dateTo = data.range.end.toISOString().slice(0, 10);
+    const dateFrom = toIsoDate(data.range.start);
+    const dateTo = toIsoDate(data.range.end);
 
     return new Response(new Uint8Array(pdfBuffer), {
       headers: {

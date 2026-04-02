@@ -28,6 +28,7 @@ import { BestTimeHeatmap } from "@/components/dashboard/best-time-heatmap";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
 import { getSupportContactHref } from "@/lib/support";
+import { toIsoDate } from "@/lib/date";
 import { cookies } from "next/headers";
 
 export const metadata: Metadata = {
@@ -102,7 +103,11 @@ export default async function ClientDashboardPage({
     : null;
 
   // Build a full date list so charts don't have holes when some days are missing in DB.
-  const toDateKey = (d: Date) => d.toISOString().slice(0, 10);
+  const toDateKey = (d: Date) => toIsoDate(d);
+  const parseDateKey = (dateKey: string) => {
+    const [year, month, day] = dateKey.split("-").map(Number);
+    return new Date(year, (month ?? 1) - 1, day ?? 1);
+  };
   const buildDateKeysInclusive = (start: Date, end: Date) => {
     const keys: string[] = [];
     const cursor = new Date(start);
@@ -171,9 +176,9 @@ export default async function ClientDashboardPage({
   };
 
   const shiftDate = (dateStr: string, days: number) => {
-    const date = new Date(dateStr);
+    const date = parseDateKey(dateStr);
     date.setDate(date.getDate() - days);
-    return date.toISOString().slice(0, 10);
+    return toDateKey(date);
   };
 
   const dateKeys = data.range ? buildDateKeysInclusive(data.range.start, data.range.end) : [];

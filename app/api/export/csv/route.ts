@@ -1,5 +1,5 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import { resolveDateRange, buildPreviousRange } from "@/lib/date";
+import { resolveDateRange, buildPreviousRange, toIsoDate } from "@/lib/date";
 import type { Platform } from "@/lib/types";
 
 function toCsv(rows: Array<Record<string, any>>) {
@@ -74,8 +74,8 @@ export async function GET(request: Request) {
       "date,platform,followers,impressions,reach,engagements,views,watch_time,posts_count"
     )
     .eq("tenant_id", tenantId)
-    .gte("date", range.start.toISOString().slice(0, 10))
-    .lte("date", range.end.toISOString().slice(0, 10))
+    .gte("date", toIsoDate(range.start))
+    .lte("date", toIsoDate(range.end))
     .order("date", { ascending: true });
 
   if (platform) {
@@ -112,7 +112,7 @@ export async function GET(request: Request) {
   }));
 
   const csv = toCsv(csvRows);
-  const filename = `${tenant?.name ?? "export"}-metrics-${range.start.toISOString().slice(0, 10)}-${range.end.toISOString().slice(0, 10)}.csv`;
+  const filename = `${tenant?.name ?? "export"}-metrics-${toIsoDate(range.start)}-${toIsoDate(range.end)}.csv`;
 
   return new Response(csv, {
     headers: {

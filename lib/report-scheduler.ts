@@ -2,6 +2,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
 import { getPostEngagements, getPostVisibility, coerceMetric } from "@/lib/metrics";
+import { toIsoDate } from "@/lib/date";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
 import {
   generateStrategicInsights,
@@ -92,8 +93,8 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
       "date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform"
     )
     .eq("tenant_id", tenantId)
-    .gte("date", rangeStart.toISOString().slice(0, 10))
-    .lte("date", rangeEnd.toISOString().slice(0, 10))
+    .gte("date", toIsoDate(rangeStart))
+    .lte("date", toIsoDate(rangeEnd))
     .order("date", { ascending: true });
 
   // Fetch metrics for previous period
@@ -103,8 +104,8 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
       "date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform"
     )
     .eq("tenant_id", tenantId)
-    .gte("date", prevStart.toISOString().slice(0, 10))
-    .lte("date", prevEnd.toISOString().slice(0, 10))
+    .gte("date", toIsoDate(prevStart))
+    .lte("date", toIsoDate(prevEnd))
     .order("date", { ascending: true });
 
   const normalise = (rows: typeof rawMetrics) =>

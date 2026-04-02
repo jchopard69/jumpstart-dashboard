@@ -9,6 +9,17 @@ export type DateRangePreset =
   | "last_month"
   | "custom";
 
+function parseCalendarDateInput(value: string): Date {
+  const trimmed = value.trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (match) {
+    const [, year, month, day] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  return new Date(trimmed);
+}
+
 export function resolveDateRange(preset: DateRangePreset, from?: string, to?: string, nowOverride?: Date) {
   const now = nowOverride ?? new Date();
   let start: Date;
@@ -44,8 +55,8 @@ export function resolveDateRange(preset: DateRangePreset, from?: string, to?: st
     }
     case "custom":
     default:
-      start = from ? new Date(from) : subDays(now, 6);
-      end = to ? new Date(to) : now;
+      start = from ? parseCalendarDateInput(from) : subDays(now, 6);
+      end = to ? parseCalendarDateInput(to) : now;
   }
 
   return {
