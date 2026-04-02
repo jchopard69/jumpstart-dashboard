@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { resolveActiveTenantId } from "@/lib/auth";
 import { buildPreviousRange, resolveDateRange, toIsoDate } from "@/lib/date";
 import { normalizeDashboardFilters } from "@/lib/dashboard-filters";
@@ -20,7 +20,10 @@ export async function fetchDashboardData(params: {
   profile: { id?: string; tenant_id: string | null; role?: string | null };
   tenantId?: string;
 }) {
-  const supabase = createSupabaseServerClient();
+  const isAdminTenantContext = params.profile.role === "agency_admin" && Boolean(params.tenantId);
+  const supabase = isAdminTenantContext
+    ? createSupabaseServiceClient()
+    : createSupabaseServerClient();
   const tenantId = await resolveActiveTenantId(params.profile as any, params.tenantId);
   if (!tenantId) {
     throw new Error("Aucun workspace selectionne.");
@@ -588,7 +591,10 @@ export async function fetchDashboardAccounts(params: {
   profile: { id?: string; tenant_id: string | null; role?: string | null };
   tenantId?: string;
 }) {
-  const supabase = createSupabaseServerClient();
+  const isAdminTenantContext = params.profile.role === "agency_admin" && Boolean(params.tenantId);
+  const supabase = isAdminTenantContext
+    ? createSupabaseServiceClient()
+    : createSupabaseServerClient();
   const tenantId = await resolveActiveTenantId(params.profile as any, params.tenantId);
   if (!tenantId) {
     throw new Error("Aucun workspace selectionne.");

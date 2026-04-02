@@ -2,7 +2,7 @@
  * Score History — persist and query JumpStart Score snapshots
  */
 
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { JumpStartScore } from "./scoring";
 
 /**
@@ -47,7 +47,7 @@ export async function fetchScoreHistory(
   tenantId: string,
   months: number = 6
 ): Promise<ScoreSnapshotRow[]> {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
   const since = new Date();
   since.setMonth(since.getMonth() - months);
 

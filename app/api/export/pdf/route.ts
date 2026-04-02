@@ -1,5 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { resolveActiveTenantId } from "@/lib/auth";
 import { toIsoDate } from "@/lib/date";
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
@@ -48,7 +48,12 @@ export async function GET(request: Request) {
     return Response.json({ error: "Tenant missing" }, { status: 403 });
   }
 
-  const { data: tenant } = await authClient
+  const dataClient =
+    profile.role === "agency_admin" && Boolean(requestedTenantId)
+      ? createSupabaseServiceClient()
+      : authClient;
+
+  const { data: tenant } = await dataClient
     .from("tenants")
     .select("name,is_demo")
     .eq("id", tenantId)

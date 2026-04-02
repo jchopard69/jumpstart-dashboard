@@ -2,7 +2,7 @@
  * Data fetching for audience demographics
  */
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export type DemographicEntry = {
   dimension: string;
@@ -27,7 +27,7 @@ export type DemographicsData = {
 export async function fetchDemographics(
   tenantId: string
 ): Promise<DemographicsData> {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
 
   const { data, error } = await supabase
     .from("audience_demographics")

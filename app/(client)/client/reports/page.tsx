@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessionProfile, requireClientAccess, resolveActiveTenantId } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { ReportScheduleList } from "@/components/reports/report-schedule-list";
 import { canManageReportSchedules } from "@/lib/tenant-selection";
 
@@ -29,7 +29,10 @@ export default async function ReportsPage({
   }
   const tenantId = resolvedTenantId;
 
-  const supabase = createSupabaseServerClient();
+  const isAdminTenantContext = profile.role === "agency_admin" && Boolean(searchParams?.tenantId);
+  const supabase = isAdminTenantContext
+    ? createSupabaseServiceClient()
+    : createSupabaseServerClient();
   const { data: tenantInfo } = await supabase
     .from("tenants")
     .select("is_demo")

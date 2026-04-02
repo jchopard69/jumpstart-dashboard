@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { resolveActiveTenantId } from "@/lib/auth";
 import { resolveDateRange, toIsoDate } from "@/lib/date";
 import type { Platform } from "@/lib/types";
@@ -44,7 +44,12 @@ export async function GET(request: Request) {
     return Response.json({ error: "Tenant missing" }, { status: 403 });
   }
 
-  const { data: tenant } = await supabase
+  const dataClient =
+    profile.role === "agency_admin" && Boolean(searchParams.get("tenantId"))
+      ? createSupabaseServiceClient()
+      : supabase;
+
+  const { data: tenant } = await dataClient
     .from("tenants")
     .select("name")
     .eq("id", tenantId)
@@ -61,7 +66,7 @@ export async function GET(request: Request) {
   const platform =
     platformParam && platformParam !== "all" ? (platformParam as Platform) : null;
 
-  let query = supabase
+  let query = dataClient
     .from("social_daily_metrics")
     .select(
       "date,platform,followers,impressions,reach,engagements,views,watch_time,posts_count"

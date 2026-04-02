@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSessionProfile, requireClientAccess, resolveActiveTenantId } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { assertTenantNotDemoWritable } from "@/lib/demo";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +33,10 @@ export default async function CollaborationPage({
   }
   const tenantId = resolvedTenantId;
 
-  const supabase = createSupabaseServerClient();
+  const isAdminTenantContext = profile.role === "agency_admin" && Boolean(searchParams?.tenantId);
+  const supabase = isAdminTenantContext
+    ? createSupabaseServiceClient()
+    : createSupabaseServerClient();
   const { data: tenantInfo } = await supabase
     .from("tenants")
     .select("is_demo")
@@ -76,7 +79,9 @@ export default async function CollaborationPage({
   async function updateNotes(formData: FormData) {
     "use server";
     const notes = String(formData.get("notes") ?? "");
-    const client = createSupabaseServerClient();
+    const client = isAdminTenantContext
+      ? createSupabaseServiceClient()
+      : createSupabaseServerClient();
     await assertTenantNotDemoWritable(tenantId, "update_collaboration_notes", client);
     await client
       .from("collaboration")
@@ -90,7 +95,9 @@ export default async function CollaborationPage({
     const location = String(formData.get("location") ?? "");
     const notes = String(formData.get("notes") ?? "");
     if (!shootDate) return;
-    const client = createSupabaseServerClient();
+    const client = isAdminTenantContext
+      ? createSupabaseServiceClient()
+      : createSupabaseServerClient();
     await assertTenantNotDemoWritable(tenantId, "add_collaboration_shoot", client);
     await client.from("upcoming_shoots").insert({
       tenant_id: tenantId,

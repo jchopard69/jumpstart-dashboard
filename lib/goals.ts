@@ -2,7 +2,7 @@
  * Tenant Goals — query and manage performance targets per client
  */
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export type TenantGoals = {
   followers_target: number | null;
@@ -17,7 +17,7 @@ export type TenantGoals = {
  * Fetch goals for a tenant
  */
 export async function fetchTenantGoals(tenantId: string): Promise<TenantGoals | null> {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase
     .from("tenant_goals")
     .select("followers_target,engagement_rate_target,posts_per_week_target,reach_target,views_target,notes")

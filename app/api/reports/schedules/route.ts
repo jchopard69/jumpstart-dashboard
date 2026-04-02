@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { resolveActiveTenantId } from "@/lib/auth";
 import { isDemoTenant, logDemoAccess } from "@/lib/demo";
 import { computeNextSendAt } from "@/lib/report-scheduler";
@@ -26,6 +26,12 @@ async function resolveTenantContext(
   return { tenantId, role: profile?.role ?? null };
 }
 
+function selectDataClient(role: UserRole | null, tenantId?: string | null) {
+  return role === "agency_admin" && tenantId
+    ? createSupabaseServiceClient()
+    : createSupabaseServerClient();
+}
+
 // GET /api/reports/schedules?tenantId=xxx
 export async function GET(request: Request) {
   try {
@@ -38,12 +44,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Non authentifie." }, { status: 401 });
     }
 
-    const { tenantId } = await resolveTenantContext(supabase, user.id, requestedTenantId);
+    const { tenantId, role } = await resolveTenantContext(supabase, user.id, requestedTenantId);
     if (!tenantId) {
       return NextResponse.json({ message: "Acces tenant indisponible." }, { status: 403 });
     }
 
-    const { data: schedules, error } = await supabase
+    const dataClient = selectDataClient(role, tenantId);
+
+    const { data: schedules, error } = await dataClient
       .from("report_schedules")
       .select("*")
       .eq("tenant_id", tenantId)
@@ -82,7 +90,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (await isDemoTenant(tenantId, supabase)) {
+    const dataClient = selectDataClient(role, tenantId);
+
+    if (await isDemoTenant(tenantId, dataClient)) {
       logDemoAccess("report_schedule_create_blocked", { tenantId, userId: user.id });
       return NextResponse.json(
         { message: "Modification desactivee pour le workspace demo." },
@@ -107,7 +117,7 @@ export async function POST(request: Request) {
 
     const nextSendAt = computeNextSendAt(frequency);
 
-    const { data: schedule, error } = await supabase
+    const { data: schedule, error } = await dataClient
       .from("report_schedules")
       .insert({
         tenant_id: tenantId,
@@ -157,7 +167,9 @@ export async function PATCH(request: Request) {
       );
     }
 
-    if (await isDemoTenant(tenantId, supabase)) {
+    const dataClient = selectDataClient(role, tenantId);
+
+    if (await isDemoTenant(tenantId, dataClient)) {
       logDemoAccess("report_schedule_update_blocked", { tenantId, userId: user.id });
       return NextResponse.json(
         { message: "Modification desactivee pour le workspace demo." },
@@ -188,7 +200,7 @@ export async function PATCH(request: Request) {
       updateFields.is_active = Boolean(body.is_active);
     }
 
-    const { data: schedule, error } = await supabase
+    const { data: schedule, error } = await dataClient
       .from("report_schedules")
       .update(updateFields)
       .eq("id", body.id)
@@ -233,7 +245,9 @@ export async function DELETE(request: Request) {
       );
     }
 
-    if (await isDemoTenant(tenantId, supabase)) {
+    const dataClient = selectDataClient(role, tenantId);
+
+    if (await isDemoTenant(tenantId, dataClient)) {
       logDemoAccess("report_schedule_delete_blocked", { tenantId, userId: user.id });
       return NextResponse.json(
         { message: "Modification desactivee pour le workspace demo." },
@@ -241,7 +255,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const { error } = await supabase
+    const { error } = await dataClient
       .from("report_schedules")
       .delete()
       .eq("id", body.id)
