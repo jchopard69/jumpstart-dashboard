@@ -11,9 +11,8 @@ export const LINKEDIN_CONFIG = {
   apiUrl: 'https://api.linkedin.com/rest',
   apiV2Url: 'https://api.linkedin.com/v2',
 
-  // Community Management / Organizations scopes.
+  // Community Management scopes required for organization analytics and post reads.
   scopes: [
-    'r_organization_admin',
     'rw_organization_admin',
     'r_organization_social',
   ],

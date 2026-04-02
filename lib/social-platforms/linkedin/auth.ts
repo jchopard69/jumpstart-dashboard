@@ -171,7 +171,7 @@ export async function handleLinkedInOAuthCallback(
   if (!organizations.length) {
     console.error('[linkedin-auth] No organizations found. This could mean:');
     console.error('  1. The user does not have admin access to any LinkedIn Organization Pages');
-    console.error('  2. Missing required Community Management scopes (r_organization_admin, rw_organization_admin, r_organization_social)');
+    console.error('  2. Missing required Community Management scopes (rw_organization_admin, r_organization_social)');
     console.error('  3. The LinkedIn app is not approved for Community Management / Organizations APIs');
     console.error('  4. The organizationAcls endpoint returned no approved administrator ACLs');
     throw new Error("Aucune page LinkedIn administrée n'a été trouvée pour ce compte.");

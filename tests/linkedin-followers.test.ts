@@ -30,7 +30,6 @@ describe("LinkedIn Community helpers", () => {
 
   test("uses Community Management OAuth scopes only", () => {
     assert.deepEqual(LINKEDIN_CONFIG.scopes, [
-      "r_organization_admin",
       "rw_organization_admin",
       "r_organization_social",
     ]);
