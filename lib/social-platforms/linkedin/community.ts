@@ -258,6 +258,16 @@ function buildOrganizationPageUrl(vanityName?: string): string | undefined {
     : undefined;
 }
 
+function buildFallbackOrganizationContext(
+  organizationId: string
+): LinkedInOrganizationContext {
+  return {
+    organizationId,
+    organizationUrn: `urn:li:organization:${organizationId}`,
+    name: `LinkedIn organization ${organizationId}`,
+  };
+}
+
 function readNumber(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -358,12 +368,27 @@ async function fetchOrganizationsByIds(
       `${API_REST_URL}/organizations` +
       `?ids=${buildRestliList(batch)}`;
 
-    const response = await apiRequest<OrganizationsResponse>(
-      "linkedin",
-      url,
-      { headers },
-      "linkedin_organizations_batch"
-    );
+    let response: OrganizationsResponse;
+    try {
+      response = await apiRequest<OrganizationsResponse>(
+        "linkedin",
+        url,
+        { headers },
+        "linkedin_organizations_batch"
+      );
+    } catch (error) {
+      if (error instanceof SocialApiError && error.statusCode === 429) {
+        console.warn(
+          "[linkedin] organizations batch throttled; falling back to unresolved organization contexts",
+          {
+            batch,
+          }
+        );
+        contexts.push(...batch.map((organizationId) => buildFallbackOrganizationContext(organizationId)));
+        continue;
+      }
+      throw error;
+    }
 
     for (const organizationId of batch) {
       const record = response.results?.[organizationId];
@@ -393,7 +418,7 @@ async function fetchOrganizationContext(
   const context = contexts[0];
 
   if (!context) {
-    throw new Error(`LinkedIn organization not found: ${organizationId}`);
+    return buildFallbackOrganizationContext(organizationId);
   }
 
   return context;

@@ -1,215 +1,654 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
+const PAGE_PADDING_X = 34;
+const PAGE_PADDING_TOP = 88;
+const PAGE_PADDING_BOTTOM = 52;
+
+const palette = {
+  ink: "#0f172a",
+  muted: "#64748b",
+  subtle: "#94a3b8",
+  line: "#dbe4ee",
+  lineSoft: "#e8eef5",
+  surface: "#f8fafc",
+  surfaceStrong: "#eef4ff",
+  navy: "#0f172a",
+  blue: "#2563eb",
+  blueSoft: "#dbeafe",
+  teal: "#0f766e",
+  tealSoft: "#ccfbf1",
+  amber: "#b45309",
+  amberSoft: "#fef3c7",
+  red: "#dc2626",
+  redSoft: "#fee2e2",
+};
+
 const styles = StyleSheet.create({
   page: {
-    padding: 32,
+    paddingTop: PAGE_PADDING_TOP,
+    paddingBottom: PAGE_PADDING_BOTTOM,
+    paddingHorizontal: PAGE_PADDING_X,
     fontFamily: "Helvetica",
     fontSize: 10,
-    color: "#0f172a",
+    color: palette.ink,
     backgroundColor: "#ffffff",
   },
   header: {
+    position: "absolute",
+    top: 24,
+    left: PAGE_PADDING_X,
+    right: PAGE_PADDING_X,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line,
     flexDirection: "row",
     justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-    paddingBottom: 16,
-    marginBottom: 20,
+    alignItems: "flex-end",
   },
-  brand: {
-    fontSize: 10,
-    letterSpacing: 2,
+  headerBrand: {
+    fontSize: 8,
+    color: palette.muted,
     textTransform: "uppercase",
-    color: "#64748b",
+    letterSpacing: 2.2,
   },
-  title: {
-    fontSize: 20,
-    fontFamily: "Helvetica-Bold",
+  headerTenant: {
     marginTop: 4,
+    fontSize: 12,
+    fontFamily: "Helvetica-Bold",
+    color: palette.ink,
   },
-  meta: {
-    fontSize: 10,
-    color: "#64748b",
+  headerMeta: {
+    fontSize: 8,
+    color: palette.subtle,
     textAlign: "right",
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontFamily: "Helvetica-Bold",
-    marginTop: 20,
-    marginBottom: 12,
-  },
-  kpiGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  kpiCard: {
-    width: "23%",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-  },
-  kpiLabel: {
-    fontSize: 8,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: "#64748b",
-    marginBottom: 4,
-  },
-  kpiValueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  kpiValue: {
-    fontSize: 16,
-    fontFamily: "Helvetica-Bold",
-  },
-  deltaPositive: {
-    fontSize: 9,
-    color: "#059669",
-    fontFamily: "Helvetica-Bold",
-  },
-  deltaNegative: {
-    fontSize: 9,
-    color: "#dc2626",
-    fontFamily: "Helvetica-Bold",
-  },
-  deltaZero: {
-    fontSize: 9,
-    color: "#64748b",
-  },
-  table: {
-    marginTop: 8,
-  },
-  tableHeader: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-    paddingBottom: 6,
-    marginBottom: 4,
-  },
-  tableHeaderCell: {
-    fontSize: 8,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: "#64748b",
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-  },
-  tableCell: {
-    fontSize: 9,
-  },
-  colWide: {
-    width: "40%",
-  },
-  colMedium: {
-    width: "20%",
-  },
-  colNarrow: {
-    width: "15%",
-  },
-  platformGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
-  },
-  platformCard: {
-    width: "31%",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 8,
-    padding: 10,
-  },
-  platformName: {
-    fontSize: 11,
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 6,
-    textTransform: "capitalize",
-  },
-  platformMetric: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 3,
-  },
-  platformLabel: {
-    fontSize: 8,
-    color: "#64748b",
-  },
-  platformValue: {
-    fontSize: 9,
-    fontFamily: "Helvetica-Bold",
-  },
-  collaborationGrid: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 8,
-  },
-  collaborationCard: {
-    width: "48%",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 8,
-    padding: 10,
-  },
-  collaborationTitle: {
-    fontSize: 10,
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 6,
-  },
-  listItem: {
-    fontSize: 9,
-    marginBottom: 3,
-    color: "#334155",
-  },
-  tag: {
-    fontSize: 8,
-    backgroundColor: "#f1f5f9",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 6,
-    color: "#64748b",
+    marginTop: 2,
   },
   footer: {
     position: "absolute",
-    bottom: 24,
-    left: 32,
-    right: 32,
+    bottom: 18,
+    left: PAGE_PADDING_X,
+    right: PAGE_PADDING_X,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: palette.lineSoft,
     flexDirection: "row",
     justifyContent: "space-between",
-    fontSize: 8,
-    color: "#94a3b8",
+    alignItems: "center",
   },
-  comparisonRow: {
+  footerNote: {
     fontSize: 8,
-    color: "#64748b",
-    marginTop: 2,
+    color: palette.subtle,
+    width: "72%",
   },
-  pageLabel: {
+  footerPage: {
     fontSize: 8,
-    color: "#94a3b8",
+    color: palette.subtle,
     textAlign: "right",
-    marginBottom: 16,
   },
   watermark: {
     position: "absolute",
-    top: "46%",
-    left: "24%",
-    fontSize: 72,
+    top: "43%",
+    left: "18%",
+    fontSize: 74,
     fontFamily: "Helvetica-Bold",
     color: "#94a3b8",
-    opacity: 0.15,
-    letterSpacing: 6,
-    zIndex: 0,
+    opacity: 0.12,
+    letterSpacing: 4,
+  },
+  hero: {
+    backgroundColor: palette.navy,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
+  },
+  heroEyebrow: {
+    fontSize: 8,
+    color: "#bfdbfe",
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  heroTitle: {
+    fontSize: 22,
+    lineHeight: 1.15,
+    color: "#ffffff",
+    fontFamily: "Helvetica-Bold",
+  },
+  heroSubtitle: {
+    marginTop: 6,
+    fontSize: 9,
+    lineHeight: 1.4,
+    color: "#cbd5e1",
+  },
+  heroFactsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 12,
+    marginLeft: -4,
+    marginRight: -4,
+  },
+  heroFactCell: {
+    width: "25%",
+    paddingLeft: 4,
+    paddingRight: 4,
+    marginBottom: 8,
+  },
+  heroFact: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 10,
+    padding: 9,
+  },
+  heroFactLabel: {
+    fontSize: 7,
+    color: "#93c5fd",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+    marginBottom: 3,
+  },
+  heroFactValue: {
+    fontSize: 11,
+    color: "#ffffff",
+    fontFamily: "Helvetica-Bold",
+  },
+  row: {
+    flexDirection: "row",
+    marginLeft: -6,
+    marginRight: -6,
+  },
+  colLeft: {
+    width: "40%",
+    paddingLeft: 6,
+    paddingRight: 6,
+  },
+  colRight: {
+    width: "60%",
+    paddingLeft: 6,
+    paddingRight: 6,
+  },
+  panel: {
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 16,
+    padding: 16,
+    backgroundColor: "#ffffff",
+  },
+  scorePanel: {
+    borderWidth: 1,
+    borderColor: "#bfd4ff",
+    borderRadius: 16,
+    padding: 14,
+    backgroundColor: palette.surfaceStrong,
+  },
+  panelEyebrow: {
+    fontSize: 7,
+    color: palette.muted,
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  scoreValue: {
+    fontSize: 30,
+    color: palette.blue,
+    fontFamily: "Helvetica-Bold",
+  },
+  scoreGrade: {
+    fontSize: 11,
+    color: palette.teal,
+    fontFamily: "Helvetica-Bold",
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  scoreSummary: {
+    fontSize: 8.2,
+    lineHeight: 1.4,
+    color: palette.ink,
+  },
+  subScoreRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  subScoreLabel: {
+    fontSize: 8,
+    color: palette.muted,
+  },
+  subScoreValue: {
+    fontSize: 8,
+    color: palette.ink,
+    fontFamily: "Helvetica-Bold",
+  },
+  progressTrack: {
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "#dbeafe",
+    marginTop: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: palette.blue,
+  },
+  takeawayCard: {
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 16,
+    padding: 14,
+    backgroundColor: "#ffffff",
+    minHeight: 188,
+  },
+  takeawayItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  takeawayBullet: {
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    marginRight: 8,
+    backgroundColor: palette.blueSoft,
+    color: palette.blue,
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+    paddingTop: 2,
+  },
+  takeawayText: {
+    flexGrow: 1,
+    flexShrink: 1,
+    fontSize: 8.4,
+    lineHeight: 1.35,
+    color: palette.ink,
+  },
+  section: {
+    marginTop: 14,
+  },
+  sectionEyebrow: {
+    fontSize: 7,
+    color: palette.blue,
+    textTransform: "uppercase",
+    letterSpacing: 1.4,
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontFamily: "Helvetica-Bold",
+    color: palette.ink,
+    marginBottom: 3,
+  },
+  sectionLead: {
+    fontSize: 8.1,
+    lineHeight: 1.35,
+    color: palette.muted,
+    marginBottom: 8,
+  },
+  metricGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginLeft: -6,
+    marginRight: -6,
+  },
+  metricCell: {
+    width: "33.3333%",
+    paddingLeft: 6,
+    paddingRight: 6,
+    marginBottom: 8,
+  },
+  metricCard: {
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 14,
+    padding: 12,
+    minHeight: 74,
+    backgroundColor: "#ffffff",
+  },
+  metricLabel: {
+    fontSize: 7,
+    color: palette.muted,
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  metricValueRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  metricValue: {
+    fontSize: 17,
+    lineHeight: 1.1,
+    fontFamily: "Helvetica-Bold",
+    color: palette.ink,
+    maxWidth: "68%",
+  },
+  deltaPill: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  deltaPillPositive: {
+    backgroundColor: palette.tealSoft,
+  },
+  deltaPillNegative: {
+    backgroundColor: palette.redSoft,
+  },
+  deltaPillNeutral: {
+    backgroundColor: "#e2e8f0",
+  },
+  deltaPillTextPositive: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: palette.teal,
+  },
+  deltaPillTextNegative: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: palette.red,
+  },
+  deltaPillTextNeutral: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: palette.muted,
+  },
+  insightGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginLeft: -6,
+    marginRight: -6,
+  },
+  insightCell: {
+    width: "50%",
+    paddingLeft: 6,
+    paddingRight: 6,
+    marginBottom: 8,
+  },
+  insightCard: {
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 14,
+    padding: 12,
+    minHeight: 84,
+    backgroundColor: "#ffffff",
+  },
+  insightTitle: {
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: palette.ink,
+    marginBottom: 4,
+  },
+  insightDescription: {
+    fontSize: 8.1,
+    lineHeight: 1.35,
+    color: palette.muted,
+  },
+  table: {
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: "#ffffff",
+  },
+  tableHeader: {
+    flexDirection: "row",
+    backgroundColor: palette.surface,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.line,
+  },
+  tableHeaderText: {
+    fontSize: 7,
+    textTransform: "uppercase",
+    letterSpacing: 1.1,
+    color: palette.muted,
+    fontFamily: "Helvetica-Bold",
+  },
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.lineSoft,
+  },
+  tableRowLast: {
+    borderBottomWidth: 0,
+  },
+  tablePlatform: {
+    width: "20%",
+    paddingRight: 8,
+  },
+  tableMetric: {
+    width: "13%",
+    paddingRight: 8,
+  },
+  tablePosts: {
+    width: "10%",
+    paddingRight: 8,
+  },
+  tableEngagements: {
+    width: "14%",
+    paddingRight: 8,
+  },
+  tableRate: {
+    width: "17%",
+  },
+  tableMain: {
+    fontSize: 9,
+    color: palette.ink,
+    fontFamily: "Helvetica-Bold",
+  },
+  tableSub: {
+    fontSize: 7.5,
+    color: palette.muted,
+    marginTop: 2,
+  },
+  platformName: {
+    fontSize: 8.5,
+    color: palette.ink,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "capitalize",
+  },
+  postGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginLeft: -6,
+    marginRight: -6,
+  },
+  postCell: {
+    width: "50%",
+    paddingLeft: 6,
+    paddingRight: 6,
+    marginBottom: 8,
+  },
+  postCard: {
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#ffffff",
+  },
+  postHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  postIndex: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    backgroundColor: palette.blueSoft,
+    color: palette.blue,
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+    paddingTop: 5,
+  },
+  postDate: {
+    fontSize: 7.5,
+    color: palette.subtle,
+  },
+  postCaption: {
+    fontSize: 8.6,
+    lineHeight: 1.35,
+    color: palette.ink,
+    marginBottom: 8,
+  },
+  postMetaRow: {
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    marginLeft: -4,
+    marginRight: -4,
+  },
+  postMetaCell: {
+    width: "33.3333%",
+    paddingLeft: 4,
+    paddingRight: 4,
+    marginBottom: 6,
+  },
+  postMetaCard: {
+    borderRadius: 10,
+    backgroundColor: palette.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  postMetaLabel: {
+    fontSize: 7,
+    color: palette.muted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 1,
+  },
+  postMetaValue: {
+    fontSize: 8.2,
+    color: palette.ink,
+    fontFamily: "Helvetica-Bold",
+  },
+  dnaGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginLeft: -6,
+    marginRight: -6,
+  },
+  dnaCell: {
+    width: "50%",
+    paddingLeft: 6,
+    paddingRight: 6,
+    marginBottom: 10,
+  },
+  dnaCard: {
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#ffffff",
+    minHeight: 104,
+  },
+  dnaLabel: {
+    fontSize: 10,
+    color: palette.blue,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 6,
+  },
+  dnaInsight: {
+    fontSize: 8.4,
+    lineHeight: 1.35,
+    color: palette.ink,
+    marginBottom: 4,
+  },
+  dnaDetail: {
+    fontSize: 7.5,
+    lineHeight: 1.35,
+    color: palette.muted,
+    marginBottom: 8,
+  },
+  strengthRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  strengthTrack: {
+    flexGrow: 1,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "#dbeafe",
+    overflow: "hidden",
+    marginRight: 8,
+  },
+  strengthFill: {
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: palette.blue,
+  },
+  strengthText: {
+    fontSize: 7.5,
+    color: palette.muted,
+    fontFamily: "Helvetica-Bold",
+  },
+  supportGrid: {
+    flexDirection: "row",
+    marginLeft: -6,
+    marginRight: -6,
+  },
+  supportCell: {
+    width: "50%",
+    paddingLeft: 6,
+    paddingRight: 6,
+  },
+  supportCard: {
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#ffffff",
+    minHeight: 126,
+  },
+  supportTitle: {
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: palette.ink,
+    marginBottom: 6,
+  },
+  supportSummary: {
+    fontSize: 8,
+    lineHeight: 1.35,
+    color: palette.muted,
+    marginBottom: 6,
+  },
+  supportItem: {
+    fontSize: 8,
+    lineHeight: 1.35,
+    color: palette.ink,
+    marginBottom: 4,
+  },
+  tagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+  tag: {
+    fontSize: 7.5,
+    color: palette.blue,
+    backgroundColor: palette.blueSoft,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginLeft: 6,
+    marginBottom: 4,
+  },
+  emptyState: {
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 14,
+    backgroundColor: palette.surface,
+    padding: 14,
+  },
+  emptyStateText: {
+    fontSize: 8.5,
+    color: palette.muted,
+    lineHeight: 1.45,
   },
 });
 
@@ -276,7 +715,6 @@ export type PdfDocumentProps = {
   shootDays: number;
   shoots: ShootSummary[];
   documents: DocumentSummary[];
-  // Premium: JumpStart Score & Insights
   score?: {
     global: number;
     grade: string;
@@ -290,307 +728,586 @@ export type PdfDocumentProps = {
   watermark?: string;
 };
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 })
-    .format(value)
-    // Replace narrow no-break space (U+202F) and no-break space (U+00A0) with regular space
-    // @react-pdf Helvetica doesn't support these Unicode chars, rendering them as slashes
-    .replace(/[\u00A0\u202F]/g, " ");
-}
-
 function sanitizeText(value: string): string {
   return value
+    .normalize("NFKC")
+    .replace(/[\u00A0\u202F]/g, " ")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[‐‑‒–—]/g, "-")
+    .replace(/[…]/g, "...")
+    .replace(/[•·]/g, "-")
     .replace(/[\r\n\t]+/g, " ")
-    .replace(/[^\x20-\x7EÀ-ÖØ-öø-ÿ'""«»—–·•]/g, "")
+    .replace(/[^\x20-\x7EÀ-ÖØ-öø-ÿŒœ€]/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
 
-function formatDelta(delta: number): string {
-  if (delta === 0) return "0%";
-  const sign = delta > 0 ? "+" : "";
-  return `${sign}${Math.round(delta)}%`;
+function formatNumber(value: number, digits = 0): string {
+  return new Intl.NumberFormat("fr-FR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })
+    .format(value)
+    .replace(/[\u00A0\u202F]/g, " ");
 }
 
-function DeltaText({ delta }: { delta: number }) {
-  if (delta === 0) {
-    return <Text style={styles.deltaZero}>0%</Text>;
+function formatMetricValue(value: number, suffix?: string): string {
+  if (suffix === "%") {
+    const digits = Number.isInteger(value) ? 0 : 1;
+    return `${formatNumber(value, digits)}%`;
   }
+  return formatNumber(value);
+}
+
+function formatDelta(delta: number): string {
+  if (!Number.isFinite(delta) || delta === 0) {
+    return "0%";
+  }
+  const digits = Math.abs(delta) < 10 && !Number.isInteger(delta) ? 1 : 0;
+  const sign = delta > 0 ? "+" : "";
+  return `${sign}${formatNumber(delta, digits)}%`;
+}
+
+function truncateText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+}
+
+function computeEngagementRate(engagements: number, views: number, reach: number): string {
+  if (views > 0) {
+    return `${formatNumber((engagements / views) * 100, 1)}%`;
+  }
+  if (reach > 0) {
+    return `${formatNumber((engagements / reach) * 100, 1)}%`;
+  }
+  return "-";
+}
+
+function DeltaPill({ delta }: { delta: number }) {
+  const containerStyle =
+    delta > 0
+      ? styles.deltaPillPositive
+      : delta < 0
+        ? styles.deltaPillNegative
+        : styles.deltaPillNeutral;
+  const textStyle =
+    delta > 0
+      ? styles.deltaPillTextPositive
+      : delta < 0
+        ? styles.deltaPillTextNegative
+        : styles.deltaPillTextNeutral;
+
   return (
-    <Text style={delta > 0 ? styles.deltaPositive : styles.deltaNegative}>
-      {formatDelta(delta)}
-    </Text>
+    <View style={[styles.deltaPill, containerStyle]}>
+      <Text style={textStyle}>{formatDelta(delta)}</Text>
+    </View>
   );
 }
 
-function KpiCard({ kpi }: { kpi: KpiData }) {
+function PageChrome(props: {
+  tenantName: string;
+  rangeLabel: string;
+  generatedAt: string;
+  watermark?: string;
+}) {
+  const safeTenantName = sanitizeText(props.tenantName) || "Client";
+  const safeRangeLabel = sanitizeText(props.rangeLabel);
+  const safeGeneratedAt = sanitizeText(props.generatedAt);
+  const safeWatermark = props.watermark ? sanitizeText(props.watermark) : undefined;
+
   return (
-    <View style={styles.kpiCard}>
-      <Text style={styles.kpiLabel}>{kpi.label}</Text>
-      <View style={styles.kpiValueRow}>
-        <Text style={styles.kpiValue}>
-          {formatNumber(kpi.value)}
-          {kpi.suffix ? kpi.suffix : ""}
+    <>
+      {safeWatermark ? (
+        <Text style={styles.watermark} fixed>
+          {safeWatermark}
         </Text>
-        <DeltaText delta={kpi.delta} />
+      ) : null}
+      <View style={styles.header} fixed>
+        <View>
+          <Text style={styles.headerBrand}>JumpStart Studio</Text>
+          <Text style={styles.headerTenant}>{safeTenantName}</Text>
+        </View>
+        <View>
+          <Text style={styles.headerMeta}>Période: {safeRangeLabel}</Text>
+          <Text style={styles.headerMeta}>Généré le {safeGeneratedAt}</Text>
+        </View>
+      </View>
+      <View style={styles.footer} fixed>
+        <Text style={styles.footerNote}>
+          Rapport social premium. Les variations comparent la période sélectionnée à la période
+          précédente équivalente.
+        </Text>
+        <Text
+          style={styles.footerPage}
+          render={({ pageNumber, totalPages }) => `Page ${pageNumber}/${totalPages}`}
+        />
+      </View>
+    </>
+  );
+}
+
+function MetricCard({ kpi }: { kpi: KpiData }) {
+  return (
+    <View style={styles.metricCell} wrap={false}>
+      <View style={styles.metricCard}>
+        <Text style={styles.metricLabel}>{sanitizeText(kpi.label)}</Text>
+        <View style={styles.metricValueRow}>
+          <Text style={styles.metricValue}>{formatMetricValue(kpi.value, kpi.suffix)}</Text>
+          <DeltaPill delta={kpi.delta} />
+        </View>
       </View>
     </View>
   );
 }
 
-function PlatformCard({ platform }: { platform: PlatformSummary }) {
-  const metrics = [
-    { label: "Abonnés", value: platform.totals.followers, delta: platform.delta.followers },
-    { label: "Vues", value: platform.totals.views, delta: platform.delta.views },
-    { label: "Portée", value: platform.totals.reach, delta: platform.delta.reach },
-    { label: "Engagements", value: platform.totals.engagements, delta: platform.delta.engagements },
-    { label: "Publications", value: platform.totals.posts_count, delta: platform.delta.posts_count },
-  ].filter((m) => m.value > 0 || m.delta !== 0);
+function ScorePanel({
+  score,
+  executiveSummary,
+}: {
+  score?: PdfDocumentProps["score"];
+  executiveSummary?: string;
+}) {
+  if (!score) {
+    return (
+      <View style={styles.scorePanel} wrap={false}>
+      <Text style={styles.panelEyebrow}>Synthèse</Text>
+      <Text style={styles.scoreSummary}>
+        {truncateText(
+          sanitizeText(
+            executiveSummary ??
+              "Le rapport rassemble la performance sociale, les contenus les plus visibles et les signaux éditoriaux utiles pour piloter la période."
+          ),
+          220
+        )}
+      </Text>
+    </View>
+  );
+}
 
   return (
-    <View style={styles.platformCard}>
-      <Text style={styles.platformName}>{platform.platform}</Text>
-      {metrics.map((metric, index) => (
-        <View key={index} style={styles.platformMetric}>
-          <Text style={styles.platformLabel}>{metric.label}</Text>
-          <View style={{ flexDirection: "row", gap: 4 }}>
-            <Text style={styles.platformValue}>{formatNumber(metric.value)}</Text>
-            <DeltaText delta={metric.delta} />
+    <View style={styles.scorePanel} wrap={false}>
+      <Text style={styles.panelEyebrow}>JumpStart Score</Text>
+      <Text style={styles.scoreValue}>{formatNumber(score.global)}</Text>
+      <Text style={styles.scoreGrade}>{sanitizeText(score.grade)}</Text>
+      <Text style={styles.scoreSummary}>
+        {truncateText(sanitizeText(executiveSummary ?? score.summary), 220)}
+      </Text>
+      <View style={{ marginTop: 12 }}>
+        {score.subScores.map((subScore, index) => {
+          const safeLabel = sanitizeText(subScore.label);
+          const clamped = Math.max(0, Math.min(100, subScore.value));
+          return (
+            <View key={`${safeLabel}-${index}`} style={{ marginBottom: 7 }}>
+              <View style={styles.subScoreRow}>
+                <Text style={styles.subScoreLabel}>{safeLabel}</Text>
+                <Text style={styles.subScoreValue}>{formatNumber(clamped)}/100</Text>
+              </View>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${clamped}%` }]} />
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function TakeawaysPanel({ keyTakeaways }: { keyTakeaways?: string[] }) {
+  const takeaways =
+    keyTakeaways
+      ?.map((item) => truncateText(sanitizeText(item), 120))
+      .filter(Boolean)
+      .slice(0, 4) ?? [];
+
+  return (
+    <View style={styles.takeawayCard} wrap={false}>
+      <Text style={styles.panelEyebrow}>À retenir</Text>
+      {takeaways.length > 0 ? (
+        takeaways.map((takeaway, index) => (
+          <View key={`${takeaway}-${index}`} style={styles.takeawayItem}>
+            <Text style={styles.takeawayBullet}>{index + 1}</Text>
+            <Text style={styles.takeawayText}>{takeaway}</Text>
+          </View>
+        ))
+      ) : (
+        <Text style={styles.takeawayText}>
+          Aucun point clé supplémentaire n'a été généré pour cette période.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function InsightCard({ title, description }: { title: string; description: string }) {
+  return (
+    <View style={styles.insightCell} wrap={false}>
+      <View style={styles.insightCard}>
+        <Text style={styles.insightTitle}>{sanitizeText(title)}</Text>
+        <Text style={styles.insightDescription}>
+          {truncateText(sanitizeText(description), 150)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function PlatformTable({ platforms }: { platforms: PlatformSummary[] }) {
+  if (platforms.length === 0) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyStateText}>
+          Aucune donnée de plateforme n'est disponible sur la période sélectionnée.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.table}>
+      <View style={styles.tableHeader}>
+        <Text style={[styles.tableHeaderText, styles.tablePlatform]}>Plateforme</Text>
+        <Text style={[styles.tableHeaderText, styles.tableMetric]}>Abonnés</Text>
+        <Text style={[styles.tableHeaderText, styles.tablePosts]}>Posts</Text>
+        <Text style={[styles.tableHeaderText, styles.tableEngagements]}>Engagements</Text>
+        <Text style={[styles.tableHeaderText, styles.tableMetric]}>Portée</Text>
+        <Text style={[styles.tableHeaderText, styles.tableMetric]}>Vues</Text>
+        <Text style={[styles.tableHeaderText, styles.tableRate]}>Taux eng.</Text>
+      </View>
+      {platforms.map((platform, index) => {
+        const rate = computeEngagementRate(
+          platform.totals.engagements,
+          platform.totals.views,
+          platform.totals.reach
+        );
+        return (
+          <View
+            key={`${platform.platform}-${index}`}
+            style={
+              index === platforms.length - 1
+                ? [styles.tableRow, styles.tableRowLast]
+                : styles.tableRow
+            }
+            wrap={false}
+          >
+            <View style={styles.tablePlatform}>
+              <Text style={styles.platformName}>{sanitizeText(platform.platform)}</Text>
+            </View>
+            <View style={styles.tableMetric}>
+              <Text style={styles.tableMain}>{formatNumber(platform.totals.followers)}</Text>
+              <Text style={styles.tableSub}>{formatDelta(platform.delta.followers)}</Text>
+            </View>
+            <View style={styles.tablePosts}>
+              <Text style={styles.tableMain}>{formatNumber(platform.totals.posts_count)}</Text>
+              <Text style={styles.tableSub}>{formatDelta(platform.delta.posts_count)}</Text>
+            </View>
+            <View style={styles.tableEngagements}>
+              <Text style={styles.tableMain}>{formatNumber(platform.totals.engagements)}</Text>
+              <Text style={styles.tableSub}>{formatDelta(platform.delta.engagements)}</Text>
+            </View>
+            <View style={styles.tableMetric}>
+              <Text style={styles.tableMain}>{formatNumber(platform.totals.reach)}</Text>
+              <Text style={styles.tableSub}>{formatDelta(platform.delta.reach)}</Text>
+            </View>
+            <View style={styles.tableMetric}>
+              <Text style={styles.tableMain}>{formatNumber(platform.totals.views)}</Text>
+              <Text style={styles.tableSub}>{formatDelta(platform.delta.views)}</Text>
+            </View>
+            <View style={styles.tableRate}>
+              <Text style={styles.tableMain}>{rate}</Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function PostCard({ post, index }: { post: PostSummary; index: number }) {
+  const safeCaption = sanitizeText(post.caption || "Sans titre");
+  const visibilityValue = post.visibility?.value ?? 0;
+  const visibilityLabel = sanitizeText(post.visibility?.label ?? "Visibilité");
+  const engagementRate =
+    visibilityValue > 0 ? `${formatNumber((post.engagements / visibilityValue) * 100, 1)}%` : "-";
+
+  return (
+    <View style={styles.postCard} wrap={false}>
+      <View style={styles.postHeader}>
+        <Text style={styles.postIndex}>{String(index + 1).padStart(2, "0")}</Text>
+        <Text style={styles.postDate}>{sanitizeText(post.date)}</Text>
+      </View>
+      <Text style={styles.postCaption}>{truncateText(safeCaption, 145)}</Text>
+      <View style={styles.postMetaRow}>
+        <View style={styles.postMetaCell}>
+          <View style={styles.postMetaCard}>
+            <Text style={styles.postMetaLabel}>Visibilité</Text>
+            <Text style={styles.postMetaValue}>
+              {formatNumber(visibilityValue)} {visibilityLabel}
+            </Text>
           </View>
         </View>
-      ))}
+        <View style={styles.postMetaCell}>
+          <View style={styles.postMetaCard}>
+            <Text style={styles.postMetaLabel}>Engagements</Text>
+            <Text style={styles.postMetaValue}>{formatNumber(post.engagements)}</Text>
+          </View>
+        </View>
+        <View style={styles.postMetaCell}>
+          <View style={styles.postMetaCard}>
+            <Text style={styles.postMetaLabel}>Taux eng.</Text>
+            <Text style={styles.postMetaValue}>{engagementRate}</Text>
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
 
-function StrengthBar({ strength }: { strength: number }) {
+function DnaCard({ pattern }: { pattern: ContentDnaPattern }) {
+  const clampedStrength = Math.max(0, Math.min(100, pattern.strength));
+
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
-      <View style={{ width: 60, height: 4, backgroundColor: "#e2e8f0", borderRadius: 2 }}>
-        <View style={{ width: `${Math.min(100, strength)}%`, height: 4, backgroundColor: "#7c3aed", borderRadius: 2 }} />
+    <View style={styles.dnaCell} wrap={false}>
+      <View style={styles.dnaCard}>
+        <Text style={styles.dnaLabel}>{sanitizeText(pattern.label)}</Text>
+        <Text style={styles.dnaInsight}>{truncateText(sanitizeText(pattern.insight), 96)}</Text>
+        <Text style={styles.dnaDetail}>{truncateText(sanitizeText(pattern.detail), 130)}</Text>
+        <View style={styles.strengthRow}>
+          <View style={styles.strengthTrack}>
+            <View style={[styles.strengthFill, { width: `${clampedStrength}%` }]} />
+          </View>
+          <Text style={styles.strengthText}>{formatNumber(clampedStrength)}%</Text>
+        </View>
       </View>
-      <Text style={{ fontSize: 7, color: "#64748b" }}>{strength}%</Text>
+    </View>
+  );
+}
+
+function CollaborationPanel(props: {
+  shootDays: number;
+  shoots: ShootSummary[];
+  documents: DocumentSummary[];
+}) {
+  const shoots = props.shoots.map((shoot) => ({
+    date: sanitizeText(shoot.date),
+    location: sanitizeText(shoot.location || "Lieu à définir"),
+  }));
+  const documents = props.documents.map((document) => ({
+    name: sanitizeText(document.name),
+    tag: sanitizeText(document.tag),
+  }));
+
+  return (
+    <View style={styles.supportGrid}>
+      <View style={styles.supportCell} wrap={false}>
+        <View style={styles.supportCard}>
+          <Text style={styles.supportTitle}>Production & shootings</Text>
+          <Text style={styles.supportSummary}>
+            Jours restants avant le prochain jalon de production: {formatNumber(props.shootDays)}
+          </Text>
+          {shoots.length > 0 ? (
+            shoots.map((shoot, index) => (
+              <Text key={`${shoot.date}-${index}`} style={styles.supportItem}>
+                - {shoot.date} - {shoot.location}
+              </Text>
+            ))
+          ) : (
+            <Text style={styles.supportItem}>- Aucun shooting planifié</Text>
+          )}
+        </View>
+      </View>
+      <View style={styles.supportCell} wrap={false}>
+        <View style={styles.supportCard}>
+          <Text style={styles.supportTitle}>Documents & ressources</Text>
+          <Text style={styles.supportSummary}>
+            Derniers documents partagés utiles au pilotage éditorial et à la production.
+          </Text>
+          {documents.length > 0 ? (
+            documents.map((document, index) => (
+              <View key={`${document.name}-${index}`} style={styles.tagRow}>
+                <Text style={styles.supportItem}>- {document.name}</Text>
+                {document.tag ? <Text style={styles.tag}>{document.tag}</Text> : null}
+              </View>
+            ))
+          ) : (
+            <Text style={styles.supportItem}>- Aucun document partagé</Text>
+          )}
+        </View>
+      </View>
     </View>
   );
 }
 
 export function PdfDocument(props: PdfDocumentProps) {
-  const {
-    tenantName,
-    rangeLabel,
-    prevRangeLabel,
-    generatedAt,
-    kpis,
-    platforms,
-    posts,
-    shootDays,
-    shoots,
-    documents,
-    score,
-    keyTakeaways,
-    executiveSummary,
-    insights,
-    contentDna,
-    watermark,
-  } = props;
+  const safeTenantName = sanitizeText(props.tenantName) || "Client";
+  const safeRangeLabel = sanitizeText(props.rangeLabel);
+  const safePrevRangeLabel = sanitizeText(props.prevRangeLabel);
+  const safeGeneratedAt = sanitizeText(props.generatedAt);
+  const safeExecutiveSummary = sanitizeText(
+    props.executiveSummary ??
+      "Vue synthétique de la performance sociale, des contenus les plus visibles et des leviers de progression immédiats."
+  );
+  const visibleInsights = props.insights?.slice(0, 4) ?? [];
+  const heroFacts = [
+    { label: "Période analysée", value: safeRangeLabel },
+    { label: "Comparaison", value: safePrevRangeLabel },
+    { label: "Canaux couverts", value: formatNumber(props.platforms.length) },
+    {
+      label: "Contenus en avant",
+      value: formatNumber(props.posts.length),
+    },
+  ];
 
   return (
     <Document>
-      {/* PAGE 1 — Synthese executive */}
       <Page size="A4" style={styles.page}>
-        {watermark ? <Text style={styles.watermark}>{sanitizeText(watermark)}</Text> : null}
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.brand}>JumpStart Studio</Text>
-            <Text style={styles.title}>{tenantName} -- Rapport Social</Text>
-            <Text style={styles.meta}>Periode : {rangeLabel}</Text>
-            <Text style={styles.comparisonRow}>vs. {prevRangeLabel}</Text>
-          </View>
-          <View>
-            <Text style={styles.meta}>Genere le {generatedAt}</Text>
-          </View>
-        </View>
+        <PageChrome
+          tenantName={safeTenantName}
+          rangeLabel={safeRangeLabel}
+          generatedAt={safeGeneratedAt}
+          watermark={props.watermark}
+        />
 
-        {/* JumpStart Score */}
-        {score && (
-          <View style={{ flexDirection: "row", gap: 16, marginTop: 4, marginBottom: 16 }}>
-            <View style={{ width: "25%", borderWidth: 2, borderColor: "#7c3aed", borderRadius: 12, padding: 12, alignItems: "center" }}>
-              <Text style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", marginBottom: 4 }}>JumpStart Score</Text>
-              <Text style={{ fontSize: 28, fontFamily: "Helvetica-Bold", color: "#7c3aed" }}>{score.global}</Text>
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#059669", marginTop: 2 }}>{score.grade}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              {score.subScores.map((sub, i) => (
-                <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
-                  <Text style={{ fontSize: 9, color: "#64748b" }}>{sub.label}</Text>
-                  <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold" }}>{Math.round(sub.value)}/100</Text>
+        <View style={styles.hero} wrap={false}>
+          <Text style={styles.heroEyebrow}>Rapport premium - performance sociale</Text>
+          <Text style={styles.heroTitle}>{safeTenantName}</Text>
+          <Text style={styles.heroSubtitle}>{truncateText(safeExecutiveSummary, 250)}</Text>
+          <View style={styles.heroFactsRow}>
+            {heroFacts.map((fact) => (
+              <View key={fact.label} style={styles.heroFactCell}>
+                <View style={styles.heroFact}>
+                  <Text style={styles.heroFactLabel}>{fact.label}</Text>
+                  <Text style={styles.heroFactValue}>{fact.value}</Text>
                 </View>
-              ))}
-              {executiveSummary && (
-                <Text style={{ fontSize: 8, color: "#64748b", marginTop: 6 }}>{sanitizeText(executiveSummary)}</Text>
-              )}
-            </View>
-            {keyTakeaways && keyTakeaways.length > 0 && (
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: 1, color: "#64748b", marginBottom: 6 }}>A retenir</Text>
-                {keyTakeaways.map((t, i) => (
-                  <Text key={i} style={{ fontSize: 8, color: "#334155", marginBottom: 3 }}>-- {sanitizeText(t)}</Text>
-                ))}
               </View>
-            )}
+            ))}
           </View>
-        )}
-
-        {/* Score Methodology */}
-        {score && (
-          <View style={{ marginBottom: 12, borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 6, padding: 8, backgroundColor: "#f8fafc" }}>
-            <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#64748b", marginBottom: 3 }}>Méthodologie JumpStart Score</Text>
-            <Text style={{ fontSize: 7, color: "#64748b", lineHeight: 1.4 }}>
-              Indice composite (0-100) sur 5 axes : Croissance (25%), Portée (25%), Engagement (25%), Régularité (15%), Momentum (10%). Chaque axe est normalisé selon des benchmarks sectoriels. La note ({score.grade}) résume la performance globale.
-            </Text>
-          </View>
-        )}
-
-        {/* Strategic Insights */}
-        {insights && insights.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Analyse stratégique</Text>
-            <View style={{ marginBottom: 12 }}>
-              {insights.slice(0, 4).map((insight, i) => (
-                <View key={i} style={{ marginBottom: 6, borderLeftWidth: 2, borderLeftColor: "#7c3aed", paddingLeft: 8 }}>
-                  <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#1e293b" }}>{sanitizeText(insight.title)}</Text>
-                  <Text style={{ fontSize: 8, color: "#64748b", marginTop: 1 }}>{sanitizeText(insight.description)}</Text>
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-
-        {/* KPIs */}
-        <Text style={styles.sectionTitle}>Indicateurs de performance</Text>
-        <View style={styles.kpiGrid}>
-          {kpis.map((kpi, index) => (
-            <KpiCard key={index} kpi={kpi} />
-          ))}
         </View>
 
-        {/* Top Posts — on page 1 for visibility */}
-        {posts.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Contenus phares</Text>
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, styles.colWide]}>Publication</Text>
-                <Text style={[styles.tableHeaderCell, styles.colNarrow]}>Date</Text>
-                <Text style={[styles.tableHeaderCell, styles.colMedium]}>Visibilite</Text>
-                <Text style={[styles.tableHeaderCell, styles.colMedium]}>Engagements</Text>
-              </View>
-              {posts.slice(0, 8).map((post, index) => {
-                const caption = sanitizeText(post.caption);
-                return (
-                  <View key={index} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, styles.colWide]}>
-                      {caption.slice(0, 60)}
-                      {caption.length > 60 ? "..." : ""}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.colNarrow]}>{post.date}</Text>
-                    <Text style={[styles.tableCell, styles.colMedium]}>
-                      {formatNumber(post.visibility.value)} {post.visibility.label}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.colMedium]}>{formatNumber(post.engagements)}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          </>
-        )}
-
-        {/* Footer Page 1 */}
-        <View style={styles.footer}>
-          <Text>Rapport généré par JumpStart Studio</Text>
-          <Text>Page 1/2 -- Synthese</Text>
+        <View style={styles.row}>
+          <View style={styles.colLeft}>
+            <ScorePanel
+              score={props.score}
+              executiveSummary={props.executiveSummary}
+            />
+          </View>
+          <View style={styles.colRight}>
+            <TakeawaysPanel keyTakeaways={props.keyTakeaways} />
+          </View>
         </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionEyebrow}>Performance</Text>
+          <Text style={styles.sectionTitle}>Indicateurs clés</Text>
+          <Text style={styles.sectionLead}>
+            Lecture rapide des métriques majeures de la période, avec variation versus la période
+            précédente.
+          </Text>
+          <View style={styles.metricGrid}>
+            {props.kpis.map((kpi, index) => (
+              <MetricCard key={`${kpi.label}-${index}`} kpi={kpi} />
+            ))}
+          </View>
+        </View>
+
       </Page>
 
-      {/* PAGE 2 — Données détaillées */}
-      <Page size="A4" style={styles.page}>
-        {watermark ? <Text style={styles.watermark}>{sanitizeText(watermark)}</Text> : null}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 16 }}>
-          <View>
-            <Text style={styles.brand}>JumpStart Studio</Text>
-            <Text style={{ fontSize: 14, fontFamily: "Helvetica-Bold", marginTop: 2 }}>{tenantName} — Données détaillées</Text>
-          </View>
-          <Text style={styles.pageLabel}>{rangeLabel}</Text>
-        </View>
+      <Page size="A4" style={styles.page} wrap>
+        <PageChrome
+          tenantName={safeTenantName}
+          rangeLabel={safeRangeLabel}
+          generatedAt={safeGeneratedAt}
+          watermark={props.watermark}
+        />
 
-        {/* Platforms breakdown */}
-        {platforms.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Ecosysteme digital</Text>
-            <View style={styles.platformGrid}>
-              {platforms.map((platform, index) => (
-                <PlatformCard key={index} platform={platform} />
-              ))}
-            </View>
-          </>
-        )}
-
-        {/* Content DNA */}
-        {contentDna && contentDna.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>ADN de contenu</Text>
-            <Text style={{ fontSize: 7, color: "#64748b", marginBottom: 6 }}>
-              Analyse des patterns gagnants (format, creneau horaire, longueur de legende) par comparaison des engagements moyens par categorie. La barre de confiance mesure la surperformance vs la moyenne.
-            </Text>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              {contentDna.map((pattern, i) => (
-                <View key={i} style={{ flex: 1, borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 8, padding: 10 }}>
-                  <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#7c3aed", marginBottom: 4 }}>{sanitizeText(pattern.label)}</Text>
-                  <Text style={{ fontSize: 8, color: "#1e293b", marginBottom: 2 }}>{sanitizeText(pattern.insight)}</Text>
-                  <Text style={{ fontSize: 7, color: "#64748b" }}>{sanitizeText(pattern.detail)}</Text>
-                  <StrengthBar strength={pattern.strength} />
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-
-        {/* Collaboration */}
-        <Text style={styles.sectionTitle}>Collaboration</Text>
-        <View style={styles.collaborationGrid}>
-          <View style={styles.collaborationCard}>
-            <Text style={styles.collaborationTitle}>Prochains shootings</Text>
-            <Text style={styles.listItem}>Jours restants : {shootDays}</Text>
-            {shoots.length > 0 ? (
-              shoots.slice(0, 4).map((shoot, index) => (
-                <Text key={index} style={styles.listItem}>
-                  -- {shoot.date} - {sanitizeText(shoot.location || "Lieu a definir")}
+        <View style={styles.section}>
+          <Text style={styles.sectionEyebrow}>Lecture stratégique</Text>
+          <Text style={styles.sectionTitle}>Angles d'analyse prioritaires</Text>
+          <Text style={styles.sectionLead}>
+            Les signaux suivants synthétisent les mouvements les plus importants observés sur la
+            période.
+          </Text>
+          <View style={styles.insightGrid}>
+            {visibleInsights.length > 0 ? (
+              visibleInsights.map((insight, index) => (
+                <InsightCard
+                  key={`${insight.title}-${index}`}
+                  title={insight.title}
+                  description={insight.description}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>
+                  Aucun insight supplémentaire n'est disponible pour cette période.
                 </Text>
-              ))
-            ) : (
-              <Text style={styles.listItem}>Aucun shooting planifie</Text>
-            )}
-          </View>
-          <View style={styles.collaborationCard}>
-            <Text style={styles.collaborationTitle}>Documents partages</Text>
-            {documents.length > 0 ? (
-              documents.slice(0, 5).map((doc, index) => (
-                <View key={index} style={{ flexDirection: "row", marginBottom: 3, alignItems: "center" }}>
-                  <Text style={styles.listItem}>-- {sanitizeText(doc.name)}</Text>
-                  <Text style={styles.tag}>{sanitizeText(doc.tag)}</Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.listItem}>Aucun document partage</Text>
+              </View>
             )}
           </View>
         </View>
 
-        {/* Footer Page 2 */}
-        <View style={styles.footer}>
-          <Text>Les variations (%) comparent la période sélectionnée à la période précédente équivalente</Text>
-          <Text>Page 2/2 — Données</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionEyebrow}>Canaux</Text>
+          <Text style={styles.sectionTitle}>Performance par plateforme</Text>
+          <Text style={styles.sectionLead}>
+            Détail des volumes, de la visibilité et du rendement par canal sur la période exportée.
+          </Text>
+          <PlatformTable platforms={props.platforms} />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionEyebrow}>Contenus</Text>
+          <Text style={styles.sectionTitle}>Contenus les plus performants</Text>
+          <Text style={styles.sectionLead}>
+            Sélection des contenus les plus solides de la période, ordonnés par performance
+            globale.
+          </Text>
+          {props.posts.length > 0 ? (
+            <View style={styles.postGrid}>
+              {props.posts.map((post, index) => (
+                <View key={`${post.date}-${index}`} style={styles.postCell} wrap={false}>
+                  <PostCard post={post} index={index} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                Aucun contenu n'est disponible sur cette période.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {props.contentDna && props.contentDna.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionEyebrow}>Création</Text>
+            <Text style={styles.sectionTitle}>ADN de contenu</Text>
+            <Text style={styles.sectionLead}>
+              Synthèse des patterns éditoriaux qui surperforment sur la période analysée.
+            </Text>
+            <View style={styles.dnaGrid}>
+              {props.contentDna.map((pattern, index) => (
+                <DnaCard key={`${pattern.label}-${index}`} pattern={pattern} />
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionEyebrow}>Pilotage</Text>
+          <Text style={styles.sectionTitle}>Collaboration & production</Text>
+          <Text style={styles.sectionLead}>
+            Éléments opérationnels utiles pour garder une lecture claire du contexte de production.
+          </Text>
+          <CollaborationPanel
+            shootDays={props.shootDays}
+            shoots={props.shoots}
+            documents={props.documents}
+          />
         </View>
       </Page>
     </Document>

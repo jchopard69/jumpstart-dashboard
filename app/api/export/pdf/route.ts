@@ -1,5 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveActiveTenantId } from "@/lib/auth";
 import { PdfDocument, type PdfDocumentProps } from "@/lib/pdf-document";
 import { getPostEngagements, getPostVisibility } from "@/lib/metrics";
 import { computeJumpStartScore, type ScoreInput } from "@/lib/scoring";
@@ -41,16 +42,12 @@ export async function GET(request: Request) {
   }
 
   const requestedTenantId = searchParams.get("tenantId") ?? undefined;
-  const isAdmin = profile.role === "agency_admin" && !!requestedTenantId;
-  const tenantId = isAdmin ? requestedTenantId! : profile.tenant_id;
-
+  const tenantId = await resolveActiveTenantId(profile, requestedTenantId);
   if (!tenantId) {
     return Response.json({ error: "Tenant missing" }, { status: 403 });
   }
 
-  const supabase = isAdmin ? createSupabaseServiceClient() : authClient;
-
-  const { data: tenant } = await supabase
+  const { data: tenant } = await authClient
     .from("tenants")
     .select("name,is_demo")
     .eq("id", tenantId)
@@ -62,7 +59,7 @@ export async function GET(request: Request) {
 
   const accounts = await fetchDashboardAccounts({
     profile,
-    tenantId: requestedTenantId,
+    tenantId,
   });
   const platformList = Array.from(new Set(accounts.map((account) => account.platform)));
 
@@ -74,7 +71,7 @@ export async function GET(request: Request) {
     socialAccountId: accountId,
     platforms: platformList,
     profile,
-    tenantId: requestedTenantId,
+    tenantId,
   });
 
   const totals = {
@@ -203,8 +200,7 @@ export async function GET(request: Request) {
     })),
   });
 
-  const displayTopPosts = selectDisplayTopPosts(data.posts.slice(0, 10), 10)
-    .slice(0, 8)
+  const displayTopPosts = selectDisplayTopPosts(data.posts, 10)
     .map((post) => ({
       caption: post.caption ?? "Sans titre",
       date: post.posted_at ? new Date(post.posted_at).toLocaleDateString("fr-FR") : "-",
@@ -228,11 +224,11 @@ export async function GET(request: Request) {
     })),
     posts: displayTopPosts,
     shootDays: data.collaboration?.shoot_days_remaining ?? 0,
-    shoots: (data.shoots ?? []).slice(0, 5).map((shoot) => ({
+    shoots: (data.shoots ?? []).map((shoot) => ({
       date: new Date(shoot.shoot_date).toLocaleDateString("fr-FR"),
       location: shoot.location ?? "",
     })),
-    documents: (data.documents ?? []).slice(0, 6).map((doc) => ({
+    documents: (data.documents ?? []).map((doc) => ({
       name: doc.file_name,
       tag: doc.tag,
     })),

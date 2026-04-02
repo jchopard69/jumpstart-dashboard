@@ -300,8 +300,7 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
     })),
   });
 
-  const displayTopPosts = selectDisplayTopPosts(postsList.slice(0, 10), 10)
-    .slice(0, 8)
+  const displayTopPosts = selectDisplayTopPosts(postsList, 10)
     .map((post) => ({
       caption: post.caption ?? "Sans titre",
       date: post.posted_at
@@ -322,15 +321,13 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
     .from("upcoming_shoots")
     .select("shoot_date,location")
     .eq("tenant_id", tenantId)
-    .order("shoot_date", { ascending: true })
-    .limit(5);
+    .order("shoot_date", { ascending: true });
 
   const { data: documents } = await supabase
     .from("documents")
     .select("file_name,tag")
     .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: false })
-    .limit(6);
+    .order("created_at", { ascending: false });
 
   const documentProps: PdfDocumentProps = {
     tenantName,

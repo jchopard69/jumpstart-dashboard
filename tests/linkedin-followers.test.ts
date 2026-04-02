@@ -3,6 +3,10 @@ import { describe, test } from "node:test";
 
 import { buildHeaders, normalizeOrganizationId } from "../lib/social-platforms/linkedin/api";
 import {
+  generateOAuthState,
+  handleLinkedInOAuthCallback,
+} from "../lib/social-platforms/linkedin/auth";
+import {
   DEFAULT_LINKEDIN_VERSION,
   getLinkedInVersion,
   LINKEDIN_CONFIG,
@@ -123,5 +127,82 @@ describe("LinkedIn follower cumsum behavior", () => {
     assert.equal(result[0].followers, 11);
     assert.equal(result[1].followers, 13);
     assert.equal(result[2].followers, 16);
+  });
+});
+
+describe("LinkedIn OAuth callback resilience", () => {
+  test("falls back to unresolved organization contexts when organizations batch is throttled", async () => {
+    const previousClientId = process.env.LINKEDIN_CLIENT_ID;
+    const previousClientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+    const previousVersion = process.env.LINKEDIN_VERSION;
+
+    process.env.LINKEDIN_CLIENT_ID = "linkedin-client-id";
+    process.env.LINKEDIN_CLIENT_SECRET = "linkedin-client-secret";
+    process.env.LINKEDIN_VERSION = "202603";
+
+    const state = generateOAuthState("tenant-xyz");
+    const originalFetch = global.fetch;
+
+    global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url === "https://www.linkedin.com/oauth/v2/accessToken") {
+        assert.equal(init?.method, "POST");
+        return new Response(
+          JSON.stringify({
+            access_token: "linkedin-token",
+            expires_in: 3600,
+            scope: "r_organization_social rw_organization_admin",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url.includes("/organizationAcls?q=roleAssignee")) {
+        return new Response(
+          JSON.stringify({
+            elements: [{ organizationTarget: "urn:li:organization:3866335" }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url.includes("/organizations?ids=List(3866335)")) {
+        return new Response(
+          JSON.stringify({
+            status: 429,
+            serviceErrorCode: 101,
+            code: "TOO_MANY_REQUESTS",
+            message: "Resource level throttle APPLICATION DAY limit for calls to this resource is reached.",
+          }),
+          { status: 429, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    try {
+      const result = await handleLinkedInOAuthCallback("oauth-code", state);
+
+      assert.equal(result.tenantId, "tenant-xyz");
+      assert.equal(result.accounts.length, 1);
+      assert.equal(result.accounts[0].platformUserId, "3866335");
+      assert.equal(result.accounts[0].accountName, "LinkedIn organization 3866335");
+      assert.deepEqual(result.accounts[0].metadata, {
+        accountType: "organization",
+        organizationId: "3866335",
+        organizationUrn: "urn:li:organization:3866335",
+        pageUrl: undefined,
+      });
+    } finally {
+      global.fetch = originalFetch;
+      if (previousClientId === undefined) delete process.env.LINKEDIN_CLIENT_ID;
+      else process.env.LINKEDIN_CLIENT_ID = previousClientId;
+      if (previousClientSecret === undefined) delete process.env.LINKEDIN_CLIENT_SECRET;
+      else process.env.LINKEDIN_CLIENT_SECRET = previousClientSecret;
+      if (previousVersion === undefined) delete process.env.LINKEDIN_VERSION;
+      else process.env.LINKEDIN_VERSION = previousVersion;
+    }
   });
 });

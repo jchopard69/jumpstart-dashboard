@@ -5,7 +5,8 @@ import { setOAuthCookies } from "@/lib/social-platforms/core/oauth-cookies";
 import { logDemoAccess } from "@/lib/demo";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
+  const requestUrl = new URL(request.url);
+  const { searchParams } = requestUrl;
   const tenantId = searchParams.get("tenantId");
 
   if (!tenantId) {
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const state = generateOAuthState(tenantId);
+    const state = generateOAuthState(tenantId, requestUrl.origin);
     const authUrl = generateYouTubeAuthUrl(tenantId, state);
     console.log(`[youtube-oauth] Initiating OAuth for tenant: ${tenant.name} (${tenantId})`);
     const response = NextResponse.redirect(authUrl);

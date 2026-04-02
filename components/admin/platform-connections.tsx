@@ -136,9 +136,14 @@ export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Pr
     }
     // YouTube
     else if (searchParams.get("youtube_success")) {
+      const count = Number(searchParams.get("youtube_channels") || "1");
+      const channel = searchParams.get("youtube_channel") || "Chaîne YouTube";
       setNotification({
         type: "success",
-        message: `YouTube connecté: ${searchParams.get("youtube_channel")}`,
+        message:
+          count > 1
+            ? `YouTube connecté: ${count} chaînes ajoutées. Première chaîne: ${channel}`
+            : `YouTube connecté: ${channel}`,
       });
     } else if (searchParams.get("youtube_error")) {
       setNotification({
