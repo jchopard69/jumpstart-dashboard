@@ -1,27 +1,35 @@
 /**
- * LinkedIn Pages Data Portability DMA configuration
+ * LinkedIn Community Management API configuration.
+ * Based on the Marketing API 2026-03 documentation.
  */
+
+export const DEFAULT_LINKEDIN_VERSION = "202603";
 
 export const LINKEDIN_CONFIG = {
   authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
   tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
   apiUrl: 'https://api.linkedin.com/rest',
-  // LinkedIn DMA endpoints are exposed on the REST API surface.
   apiV2Url: 'https://api.linkedin.com/v2',
 
-  // OAuth scope for Pages Data Portability.
-  scopes: ['r_dma_admin_pages_content'],
+  // Community Management / Organizations scopes.
+  scopes: [
+    'r_organization_admin',
+    'rw_organization_admin',
+    'r_organization_social',
+  ],
 };
 
-export function getLinkedInVersion(): string | undefined {
+export function getLinkedInVersion(): string {
   const raw = (process.env.LINKEDIN_VERSION || '').trim();
-  if (!raw || raw.toLowerCase() === 'auto') return undefined;
+  if (!raw || raw.toLowerCase() === 'auto') {
+    return DEFAULT_LINKEDIN_VERSION;
+  }
   // Normalize to YYYYMM to avoid accidental YYYYMMDD values from envs.
   const digits = raw.replace(/\D/g, '');
   if (digits.length >= 6) {
     return digits.slice(0, 6);
   }
-  return digits.length ? digits : raw;
+  return digits.length ? digits : DEFAULT_LINKEDIN_VERSION;
 }
 
 export function getLinkedInConfig() {

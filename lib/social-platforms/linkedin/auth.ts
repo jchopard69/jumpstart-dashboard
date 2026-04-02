@@ -5,7 +5,7 @@
 import { getLinkedInConfig } from './config';
 import { SocialAccount } from '../core/types';
 import crypto from 'crypto';
-import { fetchLinkedInOrganizations as fetchLinkedInDmaOrganizations } from './dma';
+import { fetchLinkedInOrganizations as fetchLinkedInCommunityOrganizations } from './community';
 
 /**
  * Generate OAuth state parameter
@@ -67,6 +67,7 @@ export async function exchangeLinkedInCode(code: string): Promise<{
   expiresIn: number;
   refreshToken?: string;
   refreshTokenExpiresIn?: number;
+  scope?: string;
 }> {
   const config = getLinkedInConfig();
 
@@ -95,6 +96,7 @@ export async function exchangeLinkedInCode(code: string): Promise<{
     expiresIn: data.expires_in,
     refreshToken: data.refresh_token,
     refreshTokenExpiresIn: data.refresh_token_expires_in,
+    scope: typeof data.scope === 'string' ? data.scope : undefined,
   };
 }
 
@@ -130,17 +132,15 @@ export async function fetchLinkedInProfile(accessToken: string): Promise<{
 
 /**
  * Fetch LinkedIn organization pages the user manages
- * Uses LinkedIn Pages Data Portability DMA APIs.
+ * Uses LinkedIn Community Management APIs.
  */
 export async function fetchLinkedInOrganizations(accessToken: string): Promise<Array<{
   organizationId: string;
   organizationUrn: string;
-  pageUrn: string;
   name: string;
-  logoUrl?: string;
   pageUrl?: string;
 }>> {
-  return fetchLinkedInDmaOrganizations(accessToken);
+  return fetchLinkedInCommunityOrganizations(accessToken);
 }
 
 /**
@@ -156,6 +156,9 @@ export async function handleLinkedInOAuthCallback(
   // Exchange code for tokens
   const tokenData = await exchangeLinkedInCode(code);
   console.log(`[linkedin-auth] Token exchange successful, expires in ${tokenData.expiresIn}s`);
+  if (tokenData.scope) {
+    console.log(`[linkedin-auth] Granted scopes: ${tokenData.scope}`);
+  }
 
   const tokenExpiresAt = new Date(Date.now() + tokenData.expiresIn * 1000);
   const accounts: SocialAccount[] = [];
@@ -167,10 +170,10 @@ export async function handleLinkedInOAuthCallback(
 
   if (!organizations.length) {
     console.error('[linkedin-auth] No organizations found. This could mean:');
-    console.error('  1. The user has no approved LinkedIn Pages Data Portability access on any page');
-    console.error('  2. Missing required DMA scope (r_dma_admin_pages_content)');
-    console.error('  3. The LinkedIn app is not approved for Pages Data Portability');
-    console.error('  4. The DMA authorization lookup returned no eligible organizations');
+    console.error('  1. The user does not have admin access to any LinkedIn Organization Pages');
+    console.error('  2. Missing required Community Management scopes (r_organization_admin, rw_organization_admin, r_organization_social)');
+    console.error('  3. The LinkedIn app is not approved for Community Management / Organizations APIs');
+    console.error('  4. The organizationAcls endpoint returned no approved administrator ACLs');
     throw new Error("Aucune page LinkedIn administrée n'a été trouvée pour ce compte.");
   }
 
@@ -179,7 +182,6 @@ export async function handleLinkedInOAuthCallback(
       platform: 'linkedin',
       platformUserId: org.organizationId,
       accountName: org.name,
-      profilePictureUrl: org.logoUrl,
       accessToken: tokenData.accessToken,
       refreshToken: tokenData.refreshToken,
       tokenExpiresAt,
@@ -187,7 +189,6 @@ export async function handleLinkedInOAuthCallback(
         accountType: 'organization',
         organizationId: org.organizationId,
         organizationUrn: org.organizationUrn,
-        pageUrn: org.pageUrn,
         pageUrl: org.pageUrl,
       },
     });

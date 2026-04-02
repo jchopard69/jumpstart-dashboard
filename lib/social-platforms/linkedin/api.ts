@@ -1,5 +1,5 @@
 /**
- * LinkedIn Pages Data Portability DMA client for dashboard sync.
+ * LinkedIn Community Management client for dashboard sync.
  */
 
 import type { DemographicEntry } from "../../demographics-queries";
@@ -8,9 +8,9 @@ import type { Connector } from "../../connectors/types";
 import {
   buildHeaders,
   fetchLinkedInDailyMetricsAndPosts,
-  fetchLinkedInDemographics as fetchLinkedInDmaDemographics,
+  fetchLinkedInDemographics as fetchLinkedInCommunityDemographics,
   normalizeOrganizationId,
-} from "./dma";
+} from "./community";
 
 export { buildHeaders, normalizeOrganizationId };
 
@@ -33,6 +33,7 @@ export const linkedinConnector: Connector = {
       until,
       postLimit: 50,
       includePostAnalytics: true,
+      includeViews: true,
     });
   },
 };
@@ -41,5 +42,5 @@ export async function fetchLinkedInDemographics(
   accessToken: string,
   organizationId: string
 ): Promise<DemographicEntry[]> {
-  return fetchLinkedInDmaDemographics(accessToken, organizationId);
+  return fetchLinkedInCommunityDemographics(accessToken, organizationId);
 }

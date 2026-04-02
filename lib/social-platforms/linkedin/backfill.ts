@@ -3,7 +3,7 @@ import type { DailyMetric, PostMetric } from "../core/types";
 import {
   fetchLinkedInDailyStatsRange,
   fetchLinkedInPosts,
-} from "./dma";
+} from "./community";
 
 const MAX_POSTS_BACKFILL = 200;
 
