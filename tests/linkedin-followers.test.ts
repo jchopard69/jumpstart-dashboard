@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { buildHeaders, normalizeOrganizationId } from "../lib/social-platforms/linkedin/api";
+import { normalizeLinkedInFollowerSeries } from "../lib/social-platforms/linkedin/community";
 import {
   generateOAuthState,
   handleLinkedInOAuthCallback,
@@ -69,53 +70,30 @@ describe("LinkedIn version normalization", () => {
 });
 
 describe("LinkedIn follower cumsum behavior", () => {
-  function applyCumsum(
-    metrics: Array<{ date: string; followers?: number }>,
-    baseline: number
-  ) {
-    const sorted = [...metrics].sort((a, b) => a.date.localeCompare(b.date));
-    const lastEntry = sorted[sorted.length - 1];
-    const lastValue = lastEntry?.followers ?? 0;
-    const dailyGains = sorted.slice(0, -1);
-    const maxDailyGain = dailyGains.reduce((max, m) => Math.max(max, m.followers ?? 0), 0);
-
-    const lastIsAbsoluteTotal = lastValue > 1 && (dailyGains.length === 0 || lastValue > maxDailyGain * 10);
-
-    if (lastIsAbsoluteTotal && lastValue > 0) {
-      let cumulative = baseline;
-      for (const metric of dailyGains) {
-        cumulative += metric.followers ?? 0;
-        metric.followers = cumulative;
-      }
-      lastEntry.followers = Math.max(lastValue, baseline);
-      return sorted;
-    }
-
-    let cumulative = baseline;
-    for (const metric of sorted) {
-      cumulative += metric.followers ?? 0;
-      metric.followers = cumulative;
-    }
-    return sorted;
-  }
-
   test("keeps absolute followers anchor on latest day", () => {
-    const result = applyCumsum(
+    const result = normalizeLinkedInFollowerSeries(
       [
         { date: "2026-01-01", followers: 3 },
         { date: "2026-01-02", followers: 4 },
-        { date: "2026-01-03", followers: 4437 },
+        {
+          date: "2026-01-03",
+          followers: 4437,
+          raw_json: {
+            linkedin_follower_total: 4437,
+            linkedin_follower_gain: 5,
+          },
+        },
       ],
       0
     );
 
-    assert.equal(result[0].followers, 3);
-    assert.equal(result[1].followers, 7);
+    assert.equal(result[0].followers, 4428);
+    assert.equal(result[1].followers, 4432);
     assert.equal(result[2].followers, 4437);
   });
 
   test("treats all small values as gains", () => {
-    const result = applyCumsum(
+    const result = normalizeLinkedInFollowerSeries(
       [
         { date: "2026-01-01", followers: 1 },
         { date: "2026-01-02", followers: 2 },
@@ -127,6 +105,52 @@ describe("LinkedIn follower cumsum behavior", () => {
     assert.equal(result[0].followers, 11);
     assert.equal(result[1].followers, 13);
     assert.equal(result[2].followers, 16);
+  });
+
+  test("reconstructs historical daily totals for custom ranges from the latest absolute total", () => {
+    const result = normalizeLinkedInFollowerSeries(
+      [
+        { date: "2026-03-29", followers: 20 },
+        { date: "2026-03-30", followers: 18 },
+        { date: "2026-03-31", followers: 14 },
+        {
+          date: "2026-04-01",
+          followers: 4519,
+          raw_json: {
+            linkedin_follower_total: 4519,
+            linkedin_follower_gain: 22,
+          },
+        },
+      ],
+      0
+    );
+
+    assert.equal(result[0].followers, 4465);
+    assert.equal(result[1].followers, 4483);
+    assert.equal(result[2].followers, 4497);
+    assert.equal(result[3].followers, 4519);
+  });
+
+  test("ignores a suspiciously low absolute total when a stronger baseline exists", () => {
+    const result = normalizeLinkedInFollowerSeries(
+      [
+        { date: "2026-03-29", followers: 3 },
+        { date: "2026-03-30", followers: 4 },
+        {
+          date: "2026-03-31",
+          followers: 74,
+          raw_json: {
+            linkedin_follower_total: 74,
+            linkedin_follower_gain: 2,
+          },
+        },
+      ],
+      4400
+    );
+
+    assert.equal(result[0].followers, 4403);
+    assert.equal(result[1].followers, 4407);
+    assert.equal(result[2].followers, 4409);
   });
 });
 

@@ -24,7 +24,7 @@ export const linkedinConnector: Connector = {
 
     const until = new Date();
     const since = new Date(until);
-    since.setDate(since.getDate() - 29);
+    since.setDate(since.getDate() - 89);
 
     return fetchLinkedInDailyMetricsAndPosts({
       externalAccountId,

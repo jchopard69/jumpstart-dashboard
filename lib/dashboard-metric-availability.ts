@@ -17,7 +17,7 @@ const DEFAULT_METRIC_AVAILABILITY: Record<Platform, MetricAvailability> = {
   instagram: { views: true, reach: true, engagements: true },
   linkedin: { views: false, reach: true, engagements: true },
   tiktok: { views: true, reach: true, engagements: true },
-  youtube: { views: true, reach: true, engagements: true },
+  youtube: { views: true, reach: false, engagements: true },
   twitter: { views: false, reach: false, engagements: false },
 };
 

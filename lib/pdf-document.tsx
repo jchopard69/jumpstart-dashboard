@@ -2,8 +2,8 @@ import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
 const PAGE_PADDING_X = 34;
-const PAGE_PADDING_TOP = 88;
-const PAGE_PADDING_BOTTOM = 52;
+const PAGE_PADDING_TOP = 76;
+const PAGE_PADDING_BOTTOM = 44;
 
 const palette = {
   ink: "#0f172a",
@@ -36,10 +36,10 @@ const styles = StyleSheet.create({
   },
   header: {
     position: "absolute",
-    top: 24,
+    top: 20,
     left: PAGE_PADDING_X,
     right: PAGE_PADDING_X,
-    paddingBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: palette.line,
     flexDirection: "row",
@@ -66,10 +66,10 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: "absolute",
-    bottom: 18,
+    bottom: 14,
     left: PAGE_PADDING_X,
     right: PAGE_PADDING_X,
-    paddingTop: 8,
+    paddingTop: 7,
     borderTopWidth: 1,
     borderTopColor: palette.lineSoft,
     flexDirection: "row",
@@ -98,9 +98,9 @@ const styles = StyleSheet.create({
   },
   hero: {
     backgroundColor: palette.navy,
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 14,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 10,
   },
   heroEyebrow: {
     fontSize: 8,
@@ -110,21 +110,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   heroTitle: {
-    fontSize: 22,
+    fontSize: 24,
     lineHeight: 1.15,
     color: "#ffffff",
     fontFamily: "Helvetica-Bold",
   },
   heroSubtitle: {
-    marginTop: 6,
-    fontSize: 9,
-    lineHeight: 1.4,
+    marginTop: 5,
+    fontSize: 8.4,
+    lineHeight: 1.35,
     color: "#cbd5e1",
   },
   heroFactsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 12,
+    marginTop: 10,
     marginLeft: -4,
     marginRight: -4,
   },
@@ -136,8 +136,8 @@ const styles = StyleSheet.create({
   },
   heroFact: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 10,
-    padding: 9,
+    borderRadius: 12,
+    padding: 8,
   },
   heroFactLabel: {
     fontSize: 7,
@@ -153,18 +153,18 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    marginLeft: -6,
-    marginRight: -6,
+    marginLeft: -5,
+    marginRight: -5,
   },
   colLeft: {
-    width: "40%",
-    paddingLeft: 6,
-    paddingRight: 6,
+    width: "39%",
+    paddingLeft: 5,
+    paddingRight: 5,
   },
   colRight: {
-    width: "60%",
-    paddingLeft: 6,
-    paddingRight: 6,
+    width: "61%",
+    paddingLeft: 5,
+    paddingRight: 5,
   },
   panel: {
     borderWidth: 1,
@@ -176,8 +176,8 @@ const styles = StyleSheet.create({
   scorePanel: {
     borderWidth: 1,
     borderColor: "#bfd4ff",
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 14,
+    padding: 12,
     backgroundColor: palette.surfaceStrong,
   },
   panelEyebrow: {
@@ -188,27 +188,27 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   scoreValue: {
-    fontSize: 30,
+    fontSize: 28,
     color: palette.blue,
     fontFamily: "Helvetica-Bold",
   },
   scoreGrade: {
-    fontSize: 11,
+    fontSize: 10,
     color: palette.teal,
     fontFamily: "Helvetica-Bold",
     marginTop: 2,
     marginBottom: 8,
   },
   scoreSummary: {
-    fontSize: 8.2,
-    lineHeight: 1.4,
+    fontSize: 7.7,
+    lineHeight: 1.35,
     color: palette.ink,
   },
   subScoreRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 5,
   },
   subScoreLabel: {
     fontSize: 8,
@@ -234,15 +234,15 @@ const styles = StyleSheet.create({
   takeawayCard: {
     borderWidth: 1,
     borderColor: palette.line,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 14,
+    padding: 12,
     backgroundColor: "#ffffff",
-    minHeight: 188,
+    minHeight: 164,
   },
   takeawayItem: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   takeawayBullet: {
     width: 16,
@@ -259,12 +259,12 @@ const styles = StyleSheet.create({
   takeawayText: {
     flexGrow: 1,
     flexShrink: 1,
-    fontSize: 8.4,
+    fontSize: 8,
     lineHeight: 1.35,
     color: palette.ink,
   },
   section: {
-    marginTop: 14,
+    marginTop: 10,
   },
   sectionEyebrow: {
     fontSize: 7,
@@ -274,35 +274,35 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: "Helvetica-Bold",
     color: palette.ink,
     marginBottom: 3,
   },
   sectionLead: {
-    fontSize: 8.1,
+    fontSize: 7.8,
     lineHeight: 1.35,
     color: palette.muted,
-    marginBottom: 8,
+    marginBottom: 7,
   },
   metricGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginLeft: -6,
-    marginRight: -6,
+    marginLeft: -5,
+    marginRight: -5,
   },
   metricCell: {
     width: "33.3333%",
-    paddingLeft: 6,
-    paddingRight: 6,
-    marginBottom: 8,
+    paddingLeft: 5,
+    paddingRight: 5,
+    marginBottom: 6,
   },
   metricCard: {
     borderWidth: 1,
     borderColor: palette.line,
-    borderRadius: 14,
-    padding: 12,
-    minHeight: 74,
+    borderRadius: 12,
+    padding: 10,
+    minHeight: 64,
     backgroundColor: "#ffffff",
   },
   metricLabel: {
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     color: palette.muted,
     textTransform: "uppercase",
     letterSpacing: 1.2,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   metricValueRow: {
     flexDirection: "row",
@@ -318,16 +318,16 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   metricValue: {
-    fontSize: 17,
+    fontSize: 16,
     lineHeight: 1.1,
     fontFamily: "Helvetica-Bold",
     color: palette.ink,
-    maxWidth: "68%",
+    maxWidth: "66%",
   },
   deltaPill: {
     borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
   deltaPillPositive: {
     backgroundColor: palette.tealSoft,
@@ -356,21 +356,21 @@ const styles = StyleSheet.create({
   insightGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginLeft: -6,
-    marginRight: -6,
+    marginLeft: -5,
+    marginRight: -5,
   },
   insightCell: {
     width: "50%",
-    paddingLeft: 6,
-    paddingRight: 6,
-    marginBottom: 8,
+    paddingLeft: 5,
+    paddingRight: 5,
+    marginBottom: 6,
   },
   insightCard: {
     borderWidth: 1,
     borderColor: palette.line,
-    borderRadius: 14,
-    padding: 12,
-    minHeight: 84,
+    borderRadius: 12,
+    padding: 10,
+    minHeight: 72,
     backgroundColor: "#ffffff",
   },
   insightTitle: {
@@ -380,22 +380,22 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   insightDescription: {
-    fontSize: 8.1,
+    fontSize: 7.8,
     lineHeight: 1.35,
     color: palette.muted,
   },
   table: {
     borderWidth: 1,
     borderColor: palette.line,
-    borderRadius: 14,
+    borderRadius: 12,
     overflow: "hidden",
     backgroundColor: "#ffffff",
   },
   tableHeader: {
     flexDirection: "row",
     backgroundColor: palette.surface,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: palette.line,
   },
@@ -408,10 +408,13 @@ const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: palette.lineSoft,
+  },
+  tableRowAlt: {
+    backgroundColor: palette.surface,
   },
   tableRowLast: {
     borderBottomWidth: 0,
@@ -436,17 +439,17 @@ const styles = StyleSheet.create({
     width: "17%",
   },
   tableMain: {
-    fontSize: 9,
+    fontSize: 8.6,
     color: palette.ink,
     fontFamily: "Helvetica-Bold",
   },
   tableSub: {
-    fontSize: 7.5,
+    fontSize: 7.2,
     color: palette.muted,
     marginTop: 2,
   },
   platformName: {
-    fontSize: 8.5,
+    fontSize: 8.2,
     color: palette.ink,
     fontFamily: "Helvetica-Bold",
     textTransform: "capitalize",
@@ -454,48 +457,48 @@ const styles = StyleSheet.create({
   postGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginLeft: -6,
-    marginRight: -6,
+    marginLeft: -5,
+    marginRight: -5,
   },
   postCell: {
     width: "50%",
-    paddingLeft: 6,
-    paddingRight: 6,
-    marginBottom: 8,
+    paddingLeft: 5,
+    paddingRight: 5,
+    marginBottom: 6,
   },
   postCard: {
     borderWidth: 1,
     borderColor: palette.line,
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 12,
+    padding: 10,
     backgroundColor: "#ffffff",
   },
   postHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 5,
   },
   postIndex: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     borderRadius: 999,
     backgroundColor: palette.blueSoft,
     color: palette.blue,
     fontSize: 9,
     fontFamily: "Helvetica-Bold",
     textAlign: "center",
-    paddingTop: 5,
+    paddingTop: 4,
   },
   postDate: {
     fontSize: 7.5,
     color: palette.subtle,
   },
   postCaption: {
-    fontSize: 8.6,
+    fontSize: 8.1,
     lineHeight: 1.35,
     color: palette.ink,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   postMetaRow: {
     flexDirection: "row",
@@ -512,40 +515,45 @@ const styles = StyleSheet.create({
   postMetaCard: {
     borderRadius: 10,
     backgroundColor: palette.surface,
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 6,
   },
   postMetaLabel: {
-    fontSize: 7,
+    fontSize: 6.7,
     color: palette.muted,
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 1,
   },
   postMetaValue: {
-    fontSize: 8.2,
+    fontSize: 9.2,
     color: palette.ink,
     fontFamily: "Helvetica-Bold",
+  },
+  postMetaHint: {
+    fontSize: 6.7,
+    color: palette.subtle,
+    marginTop: 1,
   },
   dnaGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginLeft: -6,
-    marginRight: -6,
+    marginLeft: -5,
+    marginRight: -5,
   },
   dnaCell: {
     width: "50%",
-    paddingLeft: 6,
-    paddingRight: 6,
-    marginBottom: 10,
+    paddingLeft: 5,
+    paddingRight: 5,
+    marginBottom: 8,
   },
   dnaCard: {
     borderWidth: 1,
     borderColor: palette.line,
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 12,
+    padding: 10,
     backgroundColor: "#ffffff",
-    minHeight: 104,
+    minHeight: 92,
   },
   dnaLabel: {
     fontSize: 10,
@@ -563,7 +571,7 @@ const styles = StyleSheet.create({
     fontSize: 7.5,
     lineHeight: 1.35,
     color: palette.muted,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   strengthRow: {
     flexDirection: "row",
@@ -589,21 +597,21 @@ const styles = StyleSheet.create({
   },
   supportGrid: {
     flexDirection: "row",
-    marginLeft: -6,
-    marginRight: -6,
+    marginLeft: -5,
+    marginRight: -5,
   },
   supportCell: {
     width: "50%",
-    paddingLeft: 6,
-    paddingRight: 6,
+    paddingLeft: 5,
+    paddingRight: 5,
   },
   supportCard: {
     borderWidth: 1,
     borderColor: palette.line,
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 12,
+    padding: 10,
     backgroundColor: "#ffffff",
-    minHeight: 126,
+    minHeight: 108,
   },
   supportTitle: {
     fontSize: 9.5,
@@ -612,16 +620,16 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   supportSummary: {
-    fontSize: 8,
+    fontSize: 7.7,
     lineHeight: 1.35,
     color: palette.muted,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   supportItem: {
-    fontSize: 8,
+    fontSize: 7.7,
     lineHeight: 1.35,
     color: palette.ink,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   tagRow: {
     flexDirection: "row",
@@ -880,7 +888,7 @@ function ScorePanel({
             executiveSummary ??
               "Le rapport rassemble la performance sociale, les contenus les plus visibles et les signaux éditoriaux utiles pour piloter la période."
           ),
-          220
+          170
         )}
       </Text>
     </View>
@@ -893,7 +901,7 @@ function ScorePanel({
       <Text style={styles.scoreValue}>{formatNumber(score.global)}</Text>
       <Text style={styles.scoreGrade}>{sanitizeText(score.grade)}</Text>
       <Text style={styles.scoreSummary}>
-        {truncateText(sanitizeText(executiveSummary ?? score.summary), 220)}
+        {truncateText(sanitizeText(executiveSummary ?? score.summary), 170)}
       </Text>
       <View style={{ marginTop: 12 }}>
         {score.subScores.map((subScore, index) => {
@@ -919,7 +927,7 @@ function ScorePanel({
 function TakeawaysPanel({ keyTakeaways }: { keyTakeaways?: string[] }) {
   const takeaways =
     keyTakeaways
-      ?.map((item) => truncateText(sanitizeText(item), 120))
+      ?.map((item) => truncateText(sanitizeText(item), 102))
       .filter(Boolean)
       .slice(0, 4) ?? [];
 
@@ -983,14 +991,18 @@ function PlatformTable({ platforms }: { platforms: PlatformSummary[] }) {
           platform.totals.views,
           platform.totals.reach
         );
+        const rowStyles =
+          index === platforms.length - 1
+            ? index % 2 === 1
+              ? [styles.tableRow, styles.tableRowAlt, styles.tableRowLast]
+              : [styles.tableRow, styles.tableRowLast]
+            : index % 2 === 1
+              ? [styles.tableRow, styles.tableRowAlt]
+              : [styles.tableRow];
         return (
           <View
             key={`${platform.platform}-${index}`}
-            style={
-              index === platforms.length - 1
-                ? [styles.tableRow, styles.tableRowLast]
-                : styles.tableRow
-            }
+            style={rowStyles}
             wrap={false}
           >
             <View style={styles.tablePlatform}>
@@ -1044,9 +1056,8 @@ function PostCard({ post, index }: { post: PostSummary; index: number }) {
         <View style={styles.postMetaCell}>
           <View style={styles.postMetaCard}>
             <Text style={styles.postMetaLabel}>Visibilité</Text>
-            <Text style={styles.postMetaValue}>
-              {formatNumber(visibilityValue)} {visibilityLabel}
-            </Text>
+            <Text style={styles.postMetaValue}>{formatNumber(visibilityValue)}</Text>
+            <Text style={styles.postMetaHint}>{visibilityLabel}</Text>
           </View>
         </View>
         <View style={styles.postMetaCell}>
@@ -1174,7 +1185,7 @@ export function PdfDocument(props: PdfDocumentProps) {
         <View style={styles.hero} wrap={false}>
           <Text style={styles.heroEyebrow}>Rapport premium - performance sociale</Text>
           <Text style={styles.heroTitle}>{safeTenantName}</Text>
-          <Text style={styles.heroSubtitle}>{truncateText(safeExecutiveSummary, 250)}</Text>
+          <Text style={styles.heroSubtitle}>{truncateText(safeExecutiveSummary, 190)}</Text>
           <View style={styles.heroFactsRow}>
             {heroFacts.map((fact) => (
               <View key={fact.label} style={styles.heroFactCell}>

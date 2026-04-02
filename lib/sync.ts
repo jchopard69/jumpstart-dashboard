@@ -3,6 +3,7 @@ import { coerceMetric } from "@/lib/metrics";
 import { decryptToken } from "@/lib/crypto";
 import { getConnector } from "@/lib/connectors";
 import { getValidAccessToken } from "@/lib/social-platforms/core/token-manager";
+import { normalizeLinkedInFollowerSeries } from "@/lib/social-platforms/linkedin/community";
 import { computeJumpStartScore } from "@/lib/scoring";
 import { saveScoreSnapshot } from "@/lib/score-history";
 import { isDemoTenant, logDemoAccess } from "@/lib/demo";
@@ -113,68 +114,11 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
             .maybeSingle();
           baseline = baselineRow?.followers ?? 0;
         }
-
-        // The connector puts an absolute total on the latest date (much larger
-        // than daily gains on other dates).  Detect this: if the last entry's
-        // followers value is significantly larger than the typical daily gain,
-        // treat it as the absolute total rather than a delta.
-        const lastEntry = sorted[sorted.length - 1];
-        let lastValue = lastEntry?.followers ?? 0;
-        const dailyGains = sorted.slice(0, -1);
-        const maxDailyGain = dailyGains.reduce((max, m) => Math.max(max, m.followers ?? 0), 0);
-
-        // Validate networkSize: if it's suspiciously low compared to baseline, discard it
-        if (lastValue > 0 && baseline > 100 && lastValue < baseline * 0.5) {
-          console.warn(
-            `[sync] LinkedIn networkSize anomaly: networkSize=${lastValue} is <50% of baseline=${baseline} for tenant=${tenantId}, account=${account.id}. Keeping baseline.`
-          );
-          lastValue = 0; // Treat as if networkSize was unavailable
-          if (lastEntry) lastEntry.followers = 0;
-        }
-
-        // Heuristic: if lastValue > 10× the max daily gain AND lastValue > 1,
-        // it's the absolute total, not a gain.
-        const lastIsAbsoluteTotal = lastValue > 1 && (dailyGains.length === 0 || lastValue > maxDailyGain * 10);
-
-        if (lastIsAbsoluteTotal && lastValue > 0) {
-          // Use the absolute total for the latest date, cumsum gains for earlier dates
-          let cumulative = baseline;
-          for (const metric of dailyGains) {
-            const delta = metric.followers ?? 0;
-            cumulative += delta;
-            metric.followers = cumulative;
-          }
-          // Latest date gets the absolute total (or baseline if it's higher —
-          // guard against regression to a suspiciously low value).
-          lastEntry.followers = Math.max(lastValue, baseline);
-          console.log(`[sync] LinkedIn cumsum: tenant=${tenantId}, account=${account.id}, baseline=${baseline}, gains=${dailyGains.length}, networkSize=${lastValue}, final=${lastEntry.followers}`);
-        } else {
-          // Standard cumsum: all values are daily gains
-          let cumulative = baseline;
-          for (const metric of sorted) {
-            const delta = metric.followers ?? 0;
-            cumulative += delta;
-            metric.followers = cumulative;
-          }
-          const finalValue = sorted[sorted.length - 1]?.followers ?? 0;
-          // Guard: never regress below the baseline
-          if (sorted.length > 0 && finalValue < baseline && baseline > 0) {
-            console.warn(`[sync] LinkedIn cumsum result (${finalValue}) < baseline (${baseline}) for tenant=${tenantId}, account=${account.id}. Keeping baseline.`);
-            sorted[sorted.length - 1].followers = baseline;
-          }
-          // Validate cumul result against networkSize when available
-          if (lastValue > 0 && sorted.length > 0) {
-            const cumulResult = sorted[sorted.length - 1].followers ?? 0;
-            if (Math.abs(cumulResult - lastValue) > lastValue * 0.5) {
-              console.warn(
-                `[sync] LinkedIn cumul/networkSize mismatch: cumulResult=${cumulResult}, networkSize=${lastValue} for tenant=${tenantId}, account=${account.id}. Preferring networkSize.`
-              );
-              sorted[sorted.length - 1].followers = lastValue;
-            }
-          }
-          console.log(`[sync] LinkedIn cumsum: tenant=${tenantId}, account=${account.id}, baseline=${baseline}, gains=${sorted.length}, final=${sorted[sorted.length - 1]?.followers}`);
-        }
-        result.dailyMetrics = sorted;
+        const normalized = normalizeLinkedInFollowerSeries(sorted, baseline);
+        console.log(
+          `[sync] LinkedIn follower series normalized: tenant=${tenantId}, account=${account.id}, baseline=${baseline}, first=${normalized[0]?.followers ?? 0}, final=${normalized[normalized.length - 1]?.followers ?? 0}`
+        );
+        result.dailyMetrics = normalized;
 
         const linkedinContentKeys = ["impressions", "reach", "engagements", "views", "likes", "comments", "shares"] as const;
         type LinkedInContentSnapshot = {
@@ -187,15 +131,15 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           comments?: number | null;
           shares?: number | null;
         };
-        const hasContentSignals = sorted.some((metric) =>
+        const hasContentSignals = normalized.some((metric) =>
           linkedinContentKeys.some((key) => coerceMetric(metric[key]) > 0)
         );
 
         // When DMA analytics is throttled (429), connector can return valid posts but
         // all content metrics as 0. Keep previous values instead of wiping history.
         if (!hasContentSignals && result.posts.length > 0) {
-          const startDate = sorted[0]?.date;
-          const endDate = sorted[sorted.length - 1]?.date;
+          const startDate = normalized[0]?.date;
+          const endDate = normalized[normalized.length - 1]?.date;
           if (startDate && endDate) {
             const { data: existingRows, error: existingRowsError } = await supabase
               .from("social_daily_metrics")
@@ -214,7 +158,7 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
               );
               let restoredDays = 0;
 
-              for (const metric of sorted) {
+              for (const metric of normalized) {
                 const dateKey = String(metric.date ?? "");
                 const existing = existingByDate.get(dateKey);
                 if (!existing) continue;

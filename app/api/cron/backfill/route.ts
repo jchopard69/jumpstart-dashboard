@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { decryptToken } from "@/lib/crypto";
 import { fetchInstagramMediaBackfill, fetchInstagramReachSeries, fetchInstagramTotalValueSnapshot, buildInstagramDailyMetrics } from "@/lib/social-platforms/meta/backfill";
 import { fetchLinkedInDailyStats, fetchLinkedInPostsBackfill } from "@/lib/social-platforms/linkedin/backfill";
+import { normalizeLinkedInFollowerSeries } from "@/lib/social-platforms/linkedin/community";
 import { apiRequest, buildUrl } from "@/lib/social-platforms/core/api-client";
 import { META_CONFIG } from "@/lib/social-platforms/meta/config";
 import { isDemoTenant, logDemoAccess } from "@/lib/demo";
@@ -122,14 +123,8 @@ export async function POST(request: Request) {
               .maybeSingle();
             baseline = baselineRow?.followers ?? 0;
           }
-
-          let cumulative = baseline;
-          for (const metric of sorted) {
-            const delta = metric.followers ?? 0;
-            cumulative += delta;
-            metric.followers = cumulative;
-          }
-          dailyMetrics.splice(0, dailyMetrics.length, ...sorted);
+          const normalized = normalizeLinkedInFollowerSeries(sorted, baseline);
+          dailyMetrics.splice(0, dailyMetrics.length, ...normalized);
         }
 
         if (posts.length) {

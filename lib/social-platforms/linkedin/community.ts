@@ -167,6 +167,11 @@ type SocialCounts = {
   comments: number;
 };
 
+type LinkedInFollowerSnapshotMeta = {
+  linkedin_follower_gain?: number;
+  linkedin_follower_total?: number;
+};
+
 export function buildHeaders(accessToken: string): Record<string, string> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
@@ -277,6 +282,98 @@ function readNumber(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
   }
   return 0;
+}
+
+function readFollowerSnapshotMeta(metric: DailyMetric): LinkedInFollowerSnapshotMeta {
+  const raw = metric.raw_json as Record<string, unknown> | null | undefined;
+  if (!raw || typeof raw !== "object") {
+    return {};
+  }
+
+  return {
+    linkedin_follower_gain: readNumber(raw.linkedin_follower_gain),
+    linkedin_follower_total: readNumber(raw.linkedin_follower_total),
+  };
+}
+
+export function normalizeLinkedInFollowerSeries(
+  metrics: DailyMetric[],
+  baseline: number
+): DailyMetric[] {
+  const sorted = [...metrics]
+    .map((metric) => ({
+      ...metric,
+      raw_json: metric.raw_json ? { ...metric.raw_json } : metric.raw_json,
+    }))
+    .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
+
+  if (!sorted.length) {
+    return sorted;
+  }
+
+  const lastEntry = sorted[sorted.length - 1];
+  const lastMeta = readFollowerSnapshotMeta(lastEntry);
+  let absoluteTotal = lastMeta.linkedin_follower_total ?? 0;
+  const lastRecordedValue = lastEntry.followers ?? 0;
+  const lastRecordedGain = lastMeta.linkedin_follower_gain ?? 0;
+  const dailyGains = sorted.map((metric, index) =>
+    index === sorted.length - 1
+      ? Math.max(lastRecordedGain, 0)
+      : Math.max(metric.followers ?? 0, 0)
+  );
+  const maxDailyGain = sorted.reduce((max, metric, index) => {
+    const meta = readFollowerSnapshotMeta(metric);
+    const gain =
+      index === sorted.length - 1
+        ? Math.max(metric.followers ?? 0, meta.linkedin_follower_gain ?? 0)
+        : metric.followers ?? 0;
+    return Math.max(max, gain);
+  }, 0);
+
+  if (
+    absoluteTotal <= 0 &&
+    lastRecordedValue > 1 &&
+    (sorted.length === 1 || lastRecordedValue > maxDailyGain * 10)
+  ) {
+    absoluteTotal = lastRecordedValue;
+  }
+
+  if (absoluteTotal > 0 && baseline > 100 && absoluteTotal < baseline * 0.5) {
+    console.warn(
+      `[linkedin] Ignoring suspicious follower total ${absoluteTotal} because it is <50% of baseline ${baseline}.`
+    );
+    absoluteTotal = 0;
+    if (lastRecordedGain > 0) {
+      lastEntry.followers = lastRecordedGain;
+    }
+  }
+
+  if (absoluteTotal > 0) {
+    let runningTotal = Math.max(absoluteTotal, baseline);
+    lastEntry.followers = runningTotal;
+
+    let nextDayGain = dailyGains[sorted.length - 1] ?? 0;
+    for (let index = sorted.length - 2; index >= 0; index -= 1) {
+      runningTotal = Math.max(0, runningTotal - nextDayGain);
+      sorted[index].followers = runningTotal;
+      nextDayGain = dailyGains[index] ?? 0;
+    }
+
+    return sorted;
+  }
+
+  let cumulative = baseline;
+  for (const metric of sorted) {
+    const delta = metric.followers ?? 0;
+    cumulative += delta;
+    metric.followers = cumulative;
+  }
+
+  if (sorted.length > 0 && (sorted[sorted.length - 1].followers ?? 0) < baseline && baseline > 0) {
+    sorted[sorted.length - 1].followers = baseline;
+  }
+
+  return sorted;
 }
 
 function buildTimeIntervalQueries(
@@ -1057,6 +1154,12 @@ export async function fetchLinkedInDailyMetricsAndPosts(params: {
     if (latestDate && totalFollowers > 0) {
       const entry = dailyMap.get(latestDate);
       if (entry) {
+        const followerGain = entry.followers ?? 0;
+        entry.raw_json = {
+          ...(entry.raw_json ?? {}),
+          linkedin_follower_gain: followerGain,
+          linkedin_follower_total: totalFollowers,
+        };
         entry.followers = totalFollowers;
       }
     }
