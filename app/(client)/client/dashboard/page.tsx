@@ -127,6 +127,7 @@ export default async function ClientDashboardPage({
     const byDate = new Map<string, { views: number; engagements: number; reach: number }>();
     for (const row of metrics) {
       const date = row.date;
+      if (!date) continue;
       const existing = byDate.get(date) ?? { views: 0, engagements: 0, reach: 0 };
       existing.views += row.views ?? 0;
       existing.engagements += row.engagements ?? 0;

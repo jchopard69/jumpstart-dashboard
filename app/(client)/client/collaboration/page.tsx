@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getSessionProfile, requireClientAccess, assertTenant } from "@/lib/auth";
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
+import { getSessionProfile, requireClientAccess, resolveActiveTenantId } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { assertTenantNotDemoWritable } from "@/lib/demo";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,12 +27,13 @@ export default async function CollaborationPage({
     await requireClientAccess(profile);
   }
 
-  const isAdmin = profile.role === "agency_admin" && !!searchParams?.tenantId;
-  const tenantId = isAdmin ? (searchParams?.tenantId ?? "") : assertTenant(profile);
-  if (!tenantId) {
-    redirect("/admin");
+  const resolvedTenantId = await resolveActiveTenantId(profile, searchParams?.tenantId);
+  if (!resolvedTenantId) {
+    redirect(profile.role === "agency_admin" ? "/admin" : "/client/dashboard");
   }
-  const supabase = isAdmin ? createSupabaseServiceClient() : createSupabaseServerClient();
+  const tenantId = resolvedTenantId;
+
+  const supabase = createSupabaseServerClient();
   const { data: tenantInfo } = await supabase
     .from("tenants")
     .select("is_demo")

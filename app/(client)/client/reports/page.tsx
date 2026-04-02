@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getSessionProfile, requireClientAccess, assertTenant } from "@/lib/auth";
-import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { getSessionProfile, requireClientAccess, resolveActiveTenantId } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ReportScheduleList } from "@/components/reports/report-schedule-list";
+import { canManageReportSchedules } from "@/lib/tenant-selection";
 
 export const metadata: Metadata = {
   title: "Rapports automatiques",
@@ -22,22 +23,21 @@ export default async function ReportsPage({
     await requireClientAccess(profile);
   }
 
-  const isAdmin = profile.role === "agency_admin" && !!searchParams?.tenantId;
-  const tenantId = isAdmin ? (searchParams?.tenantId ?? "") : assertTenant(profile);
-  if (!tenantId) {
-    redirect("/admin");
+  const resolvedTenantId = await resolveActiveTenantId(profile, searchParams?.tenantId);
+  if (!resolvedTenantId) {
+    redirect(profile.role === "agency_admin" ? "/admin" : "/client/dashboard");
   }
+  const tenantId = resolvedTenantId;
 
-  // Check demo tenant
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseServerClient();
   const { data: tenantInfo } = await supabase
     .from("tenants")
     .select("is_demo")
     .eq("id", tenantId)
     .maybeSingle();
   const isDemoTenant = Boolean(tenantInfo?.is_demo);
+  const canManage = canManageReportSchedules(profile.role);
 
-  // Fetch schedules
   const { data: schedules } = await supabase
     .from("report_schedules")
     .select("*")
@@ -63,6 +63,7 @@ export default async function ReportsPage({
         initialSchedules={schedules ?? []}
         tenantId={tenantId}
         isDemoTenant={isDemoTenant}
+        canManage={canManage}
       />
     </div>
   );

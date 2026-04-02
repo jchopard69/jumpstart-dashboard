@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,8 @@ type ReportScheduleFormProps = {
   tenantId: string;
   schedule: Schedule | null;
   onSaved: () => void;
+  canManage: boolean;
+  isDemoTenant: boolean;
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -35,6 +37,8 @@ export function ReportScheduleForm({
   tenantId,
   schedule,
   onSaved,
+  canManage,
+  isDemoTenant,
 }: ReportScheduleFormProps) {
   const isEditing = !!schedule;
 
@@ -47,6 +51,13 @@ export function ReportScheduleForm({
   const [emailInput, setEmailInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFrequency(schedule?.frequency ?? "weekly");
+    setRecipients(schedule?.recipients ?? []);
+    setEmailInput("");
+    setError(null);
+  }, [open, schedule]);
 
   function addRecipient() {
     const email = emailInput.trim().toLowerCase();
@@ -80,6 +91,11 @@ export function ReportScheduleForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!canManage || isDemoTenant) {
+      setError("Modification non autorisee.");
+      return;
+    }
 
     if (recipients.length === 0) {
       setError("Ajoutez au moins un destinataire.");
@@ -137,6 +153,7 @@ export function ReportScheduleForm({
               <button
                 type="button"
                 onClick={() => setFrequency("weekly")}
+                disabled={!canManage || isDemoTenant}
                 className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
                   frequency === "weekly"
                     ? "border-purple-500 bg-purple-50 text-purple-700"
@@ -151,6 +168,7 @@ export function ReportScheduleForm({
               <button
                 type="button"
                 onClick={() => setFrequency("monthly")}
+                disabled={!canManage || isDemoTenant}
                 className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
                   frequency === "monthly"
                     ? "border-purple-500 bg-purple-50 text-purple-700"
@@ -172,6 +190,7 @@ export function ReportScheduleForm({
               <Input
                 type="email"
                 value={emailInput}
+                disabled={!canManage || isDemoTenant}
                 onChange={(e) => {
                   setEmailInput(e.target.value);
                   setError(null);
@@ -180,7 +199,13 @@ export function ReportScheduleForm({
                 placeholder="email@exemple.com"
                 className="flex-1"
               />
-              <Button type="button" variant="outline" size="sm" onClick={addRecipient}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addRecipient}
+                disabled={!canManage || isDemoTenant}
+              >
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -197,6 +222,7 @@ export function ReportScheduleForm({
                     <button
                       type="button"
                       onClick={() => removeRecipient(email)}
+                      disabled={!canManage || isDemoTenant}
                       className="rounded-full p-0.5 hover:bg-muted"
                     >
                       <X className="h-2.5 w-2.5" />
@@ -220,7 +246,7 @@ export function ReportScheduleForm({
             >
               Annuler
             </Button>
-            <Button type="submit" size="sm" disabled={saving}>
+            <Button type="submit" size="sm" disabled={saving || !canManage || isDemoTenant}>
               {saving
                 ? "Enregistrement..."
                 : isEditing

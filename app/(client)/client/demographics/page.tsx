@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import {
   getSessionProfile,
   requireClientAccess,
-  assertTenant,
+  resolveActiveTenantId,
 } from "@/lib/auth";
 import { fetchDemographics } from "@/lib/demographics-queries";
 import { AgeChart } from "@/components/demographics/age-chart";
@@ -29,14 +29,11 @@ export default async function DemographicsPage({
     await requireClientAccess(profile);
   }
 
-  const isAdmin =
-    profile.role === "agency_admin" && !!searchParams?.tenantId;
-  const tenantId = isAdmin
-    ? (searchParams?.tenantId ?? "")
-    : assertTenant(profile);
-  if (!tenantId) {
-    redirect("/admin");
+  const resolvedTenantId = await resolveActiveTenantId(profile, searchParams?.tenantId);
+  if (!resolvedTenantId) {
+    redirect(profile.role === "agency_admin" ? "/admin" : "/client/dashboard");
   }
+  const tenantId = resolvedTenantId;
 
   const demographics = await fetchDemographics(tenantId);
 

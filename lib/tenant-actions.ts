@@ -1,8 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-
-const TENANT_COOKIE = "active_tenant_id";
+import { TENANT_COOKIE } from "@/lib/tenant-selection";
 
 export async function setActiveTenant(tenantId: string) {
   const cookieStore = cookies();

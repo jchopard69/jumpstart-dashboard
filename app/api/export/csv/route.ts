@@ -1,5 +1,6 @@
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import { resolveDateRange, buildPreviousRange, toIsoDate } from "@/lib/date";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveActiveTenantId } from "@/lib/auth";
+import { resolveDateRange, toIsoDate } from "@/lib/date";
 import type { Platform } from "@/lib/types";
 
 function toCsv(rows: Array<Record<string, any>>) {
@@ -38,18 +39,12 @@ export async function GET(request: Request) {
     return Response.json({ error: "Profile missing" }, { status: 403 });
   }
 
-  // Handle agency_admin accessing client data via tenantId param
-  const isAdmin = profile.role === "agency_admin" && searchParams.get("tenantId");
-  const tenantId = isAdmin ? searchParams.get("tenantId")! : profile.tenant_id;
-
+  const tenantId = await resolveActiveTenantId(profile, searchParams.get("tenantId"));
   if (!tenantId) {
     return Response.json({ error: "Tenant missing" }, { status: 403 });
   }
 
-  // Use service client for admin access to bypass RLS
-  const dbClient = isAdmin ? createSupabaseServiceClient() : supabase;
-
-  const { data: tenant } = await dbClient
+  const { data: tenant } = await supabase
     .from("tenants")
     .select("name")
     .eq("id", tenantId)
@@ -61,14 +56,12 @@ export async function GET(request: Request) {
     searchParams.get("from") ?? undefined,
     searchParams.get("to") ?? undefined
   );
-  const prevRange = buildPreviousRange(range);
 
   const platformParam = searchParams.get("platform");
   const platform =
     platformParam && platformParam !== "all" ? (platformParam as Platform) : null;
 
-  // Build queries for current and previous period
-  let query = dbClient
+  let query = supabase
     .from("social_daily_metrics")
     .select(
       "date,platform,followers,impressions,reach,engagements,views,watch_time,posts_count"

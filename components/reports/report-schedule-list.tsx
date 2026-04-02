@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toaster";
-import { cn } from "@/lib/utils";
 import { ReportScheduleForm } from "./report-schedule-form";
 import { Plus, Mail, Calendar, Clock, Trash2, Pencil } from "lucide-react";
 
@@ -25,6 +24,7 @@ type ReportScheduleListProps = {
   initialSchedules: Schedule[];
   tenantId: string;
   isDemoTenant: boolean;
+  canManage: boolean;
 };
 
 const FREQ_LABELS: Record<string, string> = {
@@ -47,6 +47,7 @@ export function ReportScheduleList({
   initialSchedules,
   tenantId,
   isDemoTenant,
+  canManage,
 }: ReportScheduleListProps) {
   const [schedules, setSchedules] = useState<Schedule[]>(initialSchedules);
   const [showForm, setShowForm] = useState(false);
@@ -57,6 +58,7 @@ export function ReportScheduleList({
   const router = useRouter();
 
   async function toggleActive(schedule: Schedule) {
+    if (!canManage) return;
     setTogglingId(schedule.id);
     try {
       const res = await fetch("/api/reports/schedules", {
@@ -89,6 +91,7 @@ export function ReportScheduleList({
   }
 
   async function handleDelete(id: string) {
+    if (!canManage) return;
     if (!confirm("Supprimer ce rapport automatique ?")) return;
     setDeletingId(id);
     try {
@@ -140,7 +143,7 @@ export function ReportScheduleList({
           </div>
           <Button
             onClick={() => setShowForm(true)}
-            disabled={isDemoTenant}
+            disabled={isDemoTenant || !canManage}
           >
             <Plus className="mr-1.5 h-4 w-4" />
             Configurer un rapport
@@ -148,6 +151,11 @@ export function ReportScheduleList({
           {isDemoTenant && (
             <p className="text-xs text-muted-foreground">
               Configuration desactivee en mode demo.
+            </p>
+          )}
+          {!isDemoTenant && !canManage && (
+            <p className="text-xs text-muted-foreground">
+              Seuls les managers client peuvent modifier les rapports automatiques.
             </p>
           )}
         </div>
@@ -158,6 +166,8 @@ export function ReportScheduleList({
           tenantId={tenantId}
           schedule={null}
           onSaved={handleSaved}
+          canManage={canManage}
+          isDemoTenant={isDemoTenant}
         />
       </section>
     );
@@ -175,7 +185,7 @@ export function ReportScheduleList({
             setEditingSchedule(null);
             setShowForm(true);
           }}
-          disabled={isDemoTenant}
+          disabled={isDemoTenant || !canManage}
         >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           Ajouter
@@ -222,7 +232,7 @@ export function ReportScheduleList({
                 variant="ghost"
                 size="sm"
                 onClick={() => toggleActive(schedule)}
-                disabled={togglingId === schedule.id || isDemoTenant}
+                disabled={togglingId === schedule.id || isDemoTenant || !canManage}
               >
                 {schedule.is_active ? "Desactiver" : "Activer"}
               </Button>
@@ -233,7 +243,7 @@ export function ReportScheduleList({
                   setEditingSchedule(schedule);
                   setShowForm(true);
                 }}
-                disabled={isDemoTenant}
+                disabled={isDemoTenant || !canManage}
               >
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
@@ -241,7 +251,7 @@ export function ReportScheduleList({
                 variant="ghost"
                 size="icon"
                 onClick={() => handleDelete(schedule.id)}
-                disabled={deletingId === schedule.id || isDemoTenant}
+                disabled={deletingId === schedule.id || isDemoTenant || !canManage}
                 className="text-rose-500 hover:text-rose-600 hover:bg-rose-50"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -257,6 +267,8 @@ export function ReportScheduleList({
         tenantId={tenantId}
         schedule={editingSchedule}
         onSaved={handleSaved}
+        canManage={canManage}
+        isDemoTenant={isDemoTenant}
       />
     </section>
   );

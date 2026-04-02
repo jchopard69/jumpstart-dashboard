@@ -5,6 +5,7 @@ import type { DemographicEntry } from "../../demographics-queries";
 import { LINKEDIN_CONFIG, getLinkedInVersion } from "./config";
 
 const API_REST_URL = LINKEDIN_CONFIG.apiUrl;
+const API_V2_URL = LINKEDIN_CONFIG.apiV2Url ?? "https://api.linkedin.com/v2";
 const API_VERSION = getLinkedInVersion();
 const DEFAULT_LOCALE = "(language:en,country:US)";
 const DEFAULT_FUNCTION_LOCALE = "en_US";
@@ -380,22 +381,40 @@ export async function fetchLinkedInDailyMetricsAndPosts(params: {
   const since = startOfDay(params.since);
   const until = endOfDay(params.until);
   const dailyMap = seedDailyMap(since, until, params.includeViews === true);
+  let dmaFollowerTrend: Record<string, number> = {};
 
   try {
-    const followerTrend = await fetchFollowerTrendByDay(
+    dmaFollowerTrend = await fetchFollowerTrendByDay(
       headers,
       context.pageUrn,
       since,
       until
     );
-    for (const [dateKey, count] of Object.entries(followerTrend)) {
-      const entry = dailyMap.get(dateKey);
-      if (entry) {
-        entry.followers = (entry.followers ?? 0) + count;
-      }
-    }
   } catch (error) {
     console.warn("[linkedin] Failed to fetch DMA follower trend:", error);
+  }
+
+  let communityFollowerTrend: Record<string, number> = {};
+  try {
+    communityFollowerTrend = await fetchCommunityFollowerGains(
+      headers,
+      context.organizationUrn,
+      since,
+      until
+    );
+  } catch (error) {
+    console.warn("[linkedin] Failed to fetch LinkedIn Community follower trend fallback:", error);
+  }
+
+  const selectedFollowerTrend = mergeFollowerTrends(
+    dmaFollowerTrend,
+    communityFollowerTrend
+  );
+  for (const [dateKey, count] of Object.entries(selectedFollowerTrend)) {
+    const entry = dailyMap.get(dateKey);
+    if (entry) {
+      entry.followers = (entry.followers ?? 0) + count;
+    }
   }
 
   try {
@@ -411,17 +430,38 @@ export async function fetchLinkedInDailyMetricsAndPosts(params: {
     console.warn("[linkedin] Failed to fetch DMA page content trend:", error);
   }
 
+  let dmaTotalFollowers = 0;
   try {
-    const totalFollowers = await fetchFollowerTotal(headers, context.pageUrn);
-    const latestDate = [...dailyMap.keys()].sort().slice(-1)[0];
-    if (latestDate && totalFollowers > 0) {
-      const entry = dailyMap.get(latestDate);
-      if (entry) {
-        entry.followers = totalFollowers;
-      }
-    }
+    dmaTotalFollowers = await fetchFollowerTotal(headers, context.pageUrn);
   } catch (error) {
     console.warn("[linkedin] Failed to fetch DMA follower total:", error);
+  }
+
+  let communityNetworkSize = 0;
+  try {
+    communityNetworkSize = await fetchCommunityNetworkSize(
+      headers,
+      context.organizationId
+    );
+  } catch (error) {
+    console.warn(
+      "[linkedin] Failed to fetch LinkedIn Community network size fallback:",
+      error
+    );
+  }
+
+  const totalFollowers = Math.max(dmaTotalFollowers, communityNetworkSize);
+  if (communityNetworkSize > dmaTotalFollowers) {
+    console.log(
+      `[linkedin] Using Community network size fallback for ${context.organizationUrn}: community=${communityNetworkSize}, dma=${dmaTotalFollowers}`
+    );
+  }
+  const latestDate = [...dailyMap.keys()].sort().slice(-1)[0];
+  if (latestDate && totalFollowers > 0) {
+    const entry = dailyMap.get(latestDate);
+    if (entry) {
+      entry.followers = totalFollowers;
+    }
   }
 
   const posts = await fetchLinkedInPosts({
@@ -939,6 +979,89 @@ async function fetchFollowerTrendByDay(
   return daily;
 }
 
+async function fetchCommunityFollowerGains(
+  headers: Record<string, string>,
+  organizationUrn: string,
+  since: Date,
+  until: Date
+): Promise<Record<string, number>> {
+  const variants = buildLegacyTimeIntervalQueries(since, until, "DAY");
+  let lastError: unknown = null;
+
+  for (const variant of variants) {
+    const url =
+      `${API_REST_URL}/organizationalEntityFollowerStatistics` +
+      `?q=organizationalEntity&organizationalEntity=${encodeURIComponent(organizationUrn)}` +
+      `&${variant}`;
+
+    try {
+      const response = await apiRequest<{
+        elements?: Array<{
+          timeRange?: { start?: number; end?: number };
+          followerGains?: {
+            organicFollowerGain?: number;
+            paidFollowerGain?: number;
+          };
+        }>;
+      }>("linkedin", url, { headers }, "linkedin_community_follower_stats", true);
+
+      const daily: Record<string, number> = {};
+      for (const element of response.elements ?? []) {
+        const startMs = element.timeRange?.start;
+        if (!startMs) continue;
+        const dateKey = new Date(startMs).toISOString().slice(0, 10);
+        const organic = element.followerGains?.organicFollowerGain ?? 0;
+        const paid = element.followerGains?.paidFollowerGain ?? 0;
+        daily[dateKey] = (daily[dateKey] ?? 0) + organic + paid;
+      }
+      return daily;
+    } catch (error) {
+      lastError = error;
+      if (!isTimeIntervalsError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError ?? new Error("LinkedIn Community follower stats failed");
+}
+
+async function fetchCommunityNetworkSize(
+  headers: Record<string, string>,
+  organizationId: string
+): Promise<number> {
+  const organizationUrn = `urn:li:organization:${organizationId}`;
+  const edgeTypes = [
+    "CompanyFollowedByMember",
+    "COMPANY_FOLLOWED_BY_MEMBER",
+  ];
+
+  for (const baseUrl of [API_REST_URL, API_V2_URL]) {
+    for (const edgeType of edgeTypes) {
+      const url =
+        `${baseUrl}/networkSizes/${encodeURIComponent(organizationUrn)}` +
+        `?edgeType=${edgeType}`;
+
+      try {
+        const response = await apiRequest<{ firstDegreeSize?: number }>(
+          "linkedin",
+          url,
+          { headers },
+          "linkedin_community_network_size",
+          true
+        );
+        if (typeof response.firstDegreeSize === "number" && response.firstDegreeSize > 0) {
+          return response.firstDegreeSize;
+        }
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  return 0;
+}
+
 async function fetchContentTrendElements(
   headers: Record<string, string>,
   sourceEntityUrn: string,
@@ -1132,6 +1255,9 @@ function applyContentTrendToDailyMap(
     switch (element.type) {
       case "IMPRESSIONS":
         entry.impressions = (entry.impressions ?? 0) + value;
+        if (typeof entry.views === "number") {
+          entry.views += value;
+        }
         break;
       case "UNIQUE_IMPRESSIONS":
         entry.reach = (entry.reach ?? 0) + value;
@@ -1414,6 +1540,42 @@ function buildTimeIntervalVariants(since: Date, until: Date): string[] {
     `timeIntervals=${encodeRFC3986(withDayGranularity)}`,
     `timeIntervals=${encodeRFC3986(withoutGranularity)}`,
   ];
+}
+
+function buildLegacyTimeIntervalQueries(
+  since: Date,
+  until: Date,
+  granularity?: "DAY"
+): string[] {
+  const start = since.getTime();
+  const end = until.getTime();
+  const dotNotation = granularity
+    ? `timeIntervals.timeGranularityType=${granularity}&timeIntervals.timeRange.start=${start}&timeIntervals.timeRange.end=${end}`
+    : `timeIntervals.timeRange.start=${start}&timeIntervals.timeRange.end=${end}`;
+  const tupleFormat = `(timeRange:(start:${start},end:${end})${granularity ? `,timeGranularityType:${granularity}` : ""})`;
+
+  return [
+    dotNotation,
+    `timeIntervals=${encodeRFC3986(tupleFormat)}`,
+    `timeIntervals=${tupleFormat}`,
+  ];
+}
+
+export function mergeFollowerTrends(
+  dmaTrend: Record<string, number>,
+  communityTrend: Record<string, number>
+): Record<string, number> {
+  const merged: Record<string, number> = {};
+  const keys = new Set([
+    ...Object.keys(dmaTrend),
+    ...Object.keys(communityTrend),
+  ]);
+
+  for (const key of keys) {
+    merged[key] = Math.max(dmaTrend[key] ?? 0, communityTrend[key] ?? 0);
+  }
+
+  return merged;
 }
 
 export function buildPostAnalyticsWindow(

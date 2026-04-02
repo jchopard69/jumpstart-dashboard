@@ -376,6 +376,21 @@ export function normalizeLinkedInFollowerSeries(
   return sorted;
 }
 
+export function shouldRepairLinkedInFollowerSeries(
+  metrics: Array<Pick<DailyMetric, "followers">>
+): boolean {
+  if (metrics.length < 2) {
+    return false;
+  }
+
+  const lastValue = Math.max(metrics[metrics.length - 1]?.followers ?? 0, 0);
+  const maxBeforeLast = metrics
+    .slice(0, -1)
+    .reduce((max, metric) => Math.max(max, Math.max(metric.followers ?? 0, 0)), 0);
+
+  return lastValue > 0 && lastValue > maxBeforeLast * 10;
+}
+
 function buildTimeIntervalQueries(
   start: Date,
   end: Date,

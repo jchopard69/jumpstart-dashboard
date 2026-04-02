@@ -1,38 +1,27 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveActiveTenantId } from "@/lib/auth";
 import { isDemoTenant, logDemoAccess } from "@/lib/demo";
 import { computeNextSendAt } from "@/lib/report-scheduler";
+import { canManageReportSchedules } from "@/lib/tenant-selection";
+import type { UserRole } from "@/lib/types";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-async function resolveTenantId(
+async function resolveTenantContext(
   supabase: ReturnType<typeof createSupabaseServerClient>,
   userId: string,
   requestedTenantId?: string | null
-): Promise<{ tenantId: string | null; role: string | null }> {
+): Promise<{ tenantId: string | null; role: UserRole | null }> {
   const { data: profile } = await supabase
     .from("profiles")
-    .select("tenant_id,role")
+    .select("id,tenant_id,role")
     .eq("id", userId)
     .single();
 
-  let tenantId = profile?.tenant_id ?? null;
-
-  if (requestedTenantId) {
-    if (profile?.role === "agency_admin") {
-      tenantId = requestedTenantId;
-    } else {
-      const { data: access } = await supabase
-        .from("user_tenant_access")
-        .select("tenant_id")
-        .eq("user_id", userId)
-        .eq("tenant_id", requestedTenantId)
-        .maybeSingle();
-      if (access || profile?.tenant_id === requestedTenantId) {
-        tenantId = requestedTenantId;
-      }
-    }
-  }
+  const tenantId = profile
+    ? await resolveActiveTenantId(profile, requestedTenantId)
+    : null;
 
   return { tenantId, role: profile?.role ?? null };
 }
@@ -49,13 +38,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "Non authentifie." }, { status: 401 });
     }
 
-    const { tenantId } = await resolveTenantId(supabase, user.id, requestedTenantId);
+    const { tenantId } = await resolveTenantContext(supabase, user.id, requestedTenantId);
     if (!tenantId) {
       return NextResponse.json({ message: "Acces tenant indisponible." }, { status: 403 });
     }
 
-    const serviceClient = createSupabaseServiceClient();
-    const { data: schedules, error } = await serviceClient
+    const { data: schedules, error } = await supabase
       .from("report_schedules")
       .select("*")
       .eq("tenant_id", tenantId)
@@ -83,9 +71,15 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { tenantId } = await resolveTenantId(supabase, user.id, body.tenantId);
+    const { tenantId, role } = await resolveTenantContext(supabase, user.id, body.tenantId);
     if (!tenantId) {
       return NextResponse.json({ message: "Acces tenant indisponible." }, { status: 403 });
+    }
+    if (!canManageReportSchedules(role)) {
+      return NextResponse.json(
+        { message: "Role manager requis pour modifier les rapports automatiques." },
+        { status: 403 }
+      );
     }
 
     if (await isDemoTenant(tenantId, supabase)) {
@@ -113,8 +107,7 @@ export async function POST(request: Request) {
 
     const nextSendAt = computeNextSendAt(frequency);
 
-    const serviceClient = createSupabaseServiceClient();
-    const { data: schedule, error } = await serviceClient
+    const { data: schedule, error } = await supabase
       .from("report_schedules")
       .insert({
         tenant_id: tenantId,
@@ -153,9 +146,15 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ message: "L'id est requis." }, { status: 400 });
     }
 
-    const { tenantId } = await resolveTenantId(supabase, user.id, body.tenantId);
+    const { tenantId, role } = await resolveTenantContext(supabase, user.id, body.tenantId);
     if (!tenantId) {
       return NextResponse.json({ message: "Acces tenant indisponible." }, { status: 403 });
+    }
+    if (!canManageReportSchedules(role)) {
+      return NextResponse.json(
+        { message: "Role manager requis pour modifier les rapports automatiques." },
+        { status: 403 }
+      );
     }
 
     if (await isDemoTenant(tenantId, supabase)) {
@@ -189,8 +188,7 @@ export async function PATCH(request: Request) {
       updateFields.is_active = Boolean(body.is_active);
     }
 
-    const serviceClient = createSupabaseServiceClient();
-    const { data: schedule, error } = await serviceClient
+    const { data: schedule, error } = await supabase
       .from("report_schedules")
       .update(updateFields)
       .eq("id", body.id)
@@ -224,9 +222,15 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ message: "L'id est requis." }, { status: 400 });
     }
 
-    const { tenantId } = await resolveTenantId(supabase, user.id, body.tenantId);
+    const { tenantId, role } = await resolveTenantContext(supabase, user.id, body.tenantId);
     if (!tenantId) {
       return NextResponse.json({ message: "Acces tenant indisponible." }, { status: 403 });
+    }
+    if (!canManageReportSchedules(role)) {
+      return NextResponse.json(
+        { message: "Role manager requis pour modifier les rapports automatiques." },
+        { status: 403 }
+      );
     }
 
     if (await isDemoTenant(tenantId, supabase)) {
@@ -237,8 +241,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const serviceClient = createSupabaseServiceClient();
-    const { error } = await serviceClient
+    const { error } = await supabase
       .from("report_schedules")
       .delete()
       .eq("id", body.id)

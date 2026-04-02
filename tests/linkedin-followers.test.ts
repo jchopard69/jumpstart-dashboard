@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { buildHeaders, normalizeOrganizationId } from "../lib/social-platforms/linkedin/api";
-import { normalizeLinkedInFollowerSeries } from "../lib/social-platforms/linkedin/community";
+import {
+  normalizeLinkedInFollowerSeries,
+  shouldRepairLinkedInFollowerSeries,
+} from "../lib/social-platforms/linkedin/community";
 import {
   generateOAuthState,
   handleLinkedInOAuthCallback,
@@ -151,6 +154,28 @@ describe("LinkedIn follower cumsum behavior", () => {
     assert.equal(result[0].followers, 4403);
     assert.equal(result[1].followers, 4407);
     assert.equal(result[2].followers, 4409);
+  });
+
+  test("detects stale historical follower gains anchored by a later absolute total", () => {
+    assert.equal(
+      shouldRepairLinkedInFollowerSeries([
+        { followers: 2 },
+        { followers: 4 },
+        { followers: 6 },
+        { followers: 769 },
+      ]),
+      true
+    );
+
+    assert.equal(
+      shouldRepairLinkedInFollowerSeries([
+        { followers: 742 },
+        { followers: 748 },
+        { followers: 756 },
+        { followers: 769 },
+      ]),
+      false
+    );
   });
 });
 

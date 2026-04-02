@@ -1,51 +1,14 @@
-import { cookies } from "next/headers";
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
-import { assertTenant, getUserTenants } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveActiveTenantId } from "@/lib/auth";
 import { buildPreviousRange, resolveDateRange, toIsoDate } from "@/lib/date";
 import { normalizeDashboardFilters } from "@/lib/dashboard-filters";
 import { getDashboardMetricAvailability } from "@/lib/dashboard-metric-availability";
 import { coerceMetric, getPostEngagements, getPostImpressions, getPostVisibility } from "@/lib/metrics";
+import {
+  normalizeLinkedInFollowerSeries,
+  shouldRepairLinkedInFollowerSeries,
+} from "@/lib/social-platforms/linkedin/community";
 import type { Platform } from "@/lib/types";
-
-const TENANT_COOKIE = "active_tenant_id";
-
-/**
- * Resolve the effective tenant ID for a user.
- * Priority: explicit tenantId param > profile.tenant_id > cookie > first accessible tenant.
- */
-async function resolveClientTenant(profile: { id?: string; tenant_id: string | null }, explicitTenantId?: string): Promise<string> {
-  const tenants = profile.id ? await getUserTenants(profile.id) : [];
-  const tenantIds = new Set(tenants.map((tenant) => tenant.id));
-
-  if (explicitTenantId) {
-    if (tenantIds.has(explicitTenantId)) {
-      return explicitTenantId;
-    }
-    if (tenantIds.size > 0) {
-      console.warn("[dashboard] Ignoring unauthorized explicit tenantId", {
-        tenantId: explicitTenantId,
-        userId: profile.id?.slice(0, 8)
-      });
-    }
-  }
-
-  if (profile.tenant_id) return profile.tenant_id;
-
-  // Check cookie
-  const cookieStore = cookies();
-  const cookieTenantId = cookieStore.get(TENANT_COOKIE)?.value;
-
-  if (cookieTenantId && tenantIds.has(cookieTenantId)) {
-    return cookieTenantId;
-  }
-
-  if (tenants.length > 0) {
-    return tenants[0].id;
-  }
-
-  // Fallback to assertTenant which will throw a user-friendly error
-  return assertTenant(profile as any);
-}
 
 export async function fetchDashboardData(params: {
   preset: any;
@@ -57,11 +20,11 @@ export async function fetchDashboardData(params: {
   profile: { id?: string; tenant_id: string | null; role?: string | null };
   tenantId?: string;
 }) {
-  const isAdmin = params.profile.role === "agency_admin" && params.tenantId;
-  const supabase = isAdmin ? createSupabaseServiceClient() : createSupabaseServerClient();
-  const tenantId = isAdmin
-    ? params.tenantId!
-    : await resolveClientTenant(params.profile as any, params.tenantId);
+  const supabase = createSupabaseServerClient();
+  const tenantId = await resolveActiveTenantId(params.profile as any, params.tenantId);
+  if (!tenantId) {
+    throw new Error("Aucun workspace selectionne.");
+  }
   const range = resolveDateRange(params.preset, params.from, params.to);
   const prevRange = buildPreviousRange(range);
   const filters = normalizeDashboardFilters({
@@ -121,6 +84,9 @@ export async function fetchDashboardData(params: {
     posts_count?: number | string | null;
   }>(rows?: T[]) => (rows ?? []).map((row) => ({
     ...row,
+    date: String(row.date ?? ""),
+    platform: (row.platform ?? null) as Platform | null,
+    social_account_id: row.social_account_id ? String(row.social_account_id) : null,
     followers: coerceMetric(row.followers),
     impressions: coerceMetric(row.impressions),
     reach: coerceMetric(row.reach),
@@ -138,8 +104,153 @@ export async function fetchDashboardData(params: {
     posts_count: number;
   }>;
 
-  const normalizedMetrics = normalizeMetrics(metrics ?? undefined);
-  const normalizedPrevMetrics = normalizeMetrics(prevMetrics ?? undefined);
+  type NormalizedMetricRow = {
+    date: string;
+    platform?: Platform | null;
+    social_account_id?: string | null;
+    followers: number;
+    impressions: number;
+    reach: number;
+    engagements: number;
+    views: number;
+    watch_time: number;
+    posts_count: number;
+  };
+
+  const repairLinkedInFollowersOnRead = async (
+    currentRows: NormalizedMetricRow[],
+    previousRows: NormalizedMetricRow[]
+  ) => {
+    const linkedinRows = [...currentRows, ...previousRows].filter(
+      (row) => row.platform === "linkedin" && row.social_account_id && row.date
+    );
+    if (!linkedinRows.length) {
+      return { currentRows, previousRows };
+    }
+
+    const accountIds = Array.from(
+      new Set(
+        linkedinRows
+          .map((row) => String(row.social_account_id ?? ""))
+          .filter((value) => value.length > 0)
+      )
+    );
+    const earliestDate = linkedinRows.reduce((min, row) => {
+      const date = String(row.date ?? "");
+      return !min || date < min ? date : min;
+    }, "");
+
+    if (!accountIds.length || !earliestDate) {
+      return { currentRows, previousRows };
+    }
+
+    const [{ data: historicalRows, error: historicalError }, { data: baselineRows, error: baselineError }] =
+      await Promise.all([
+        supabase
+          .from("social_daily_metrics")
+          .select("date,followers,social_account_id,platform")
+          .eq("tenant_id", tenantId)
+          .eq("platform", "linkedin")
+          .in("social_account_id", accountIds)
+          .gte("date", earliestDate)
+          .order("date", { ascending: true }),
+        supabase
+          .from("social_daily_metrics")
+          .select("date,followers,social_account_id")
+          .eq("tenant_id", tenantId)
+          .eq("platform", "linkedin")
+          .in("social_account_id", accountIds)
+          .lt("date", earliestDate)
+          .order("date", { ascending: false }),
+      ]);
+
+    if (historicalError || baselineError) {
+      console.warn("[dashboard] Failed to repair LinkedIn follower series on read", {
+        tenantId,
+        historicalError,
+        baselineError,
+      });
+      return { currentRows, previousRows };
+    }
+
+    const baselineByAccount = new Map<string, number>();
+    for (const row of baselineRows ?? []) {
+      const accountId = String(row.social_account_id ?? "");
+      if (!accountId || baselineByAccount.has(accountId)) continue;
+      baselineByAccount.set(accountId, coerceMetric(row.followers));
+    }
+
+    const seriesByAccount = new Map<string, Array<{ date: string; followers: number }>>();
+    for (const row of historicalRows ?? []) {
+      const accountId = String(row.social_account_id ?? "");
+      const date = String(row.date ?? "");
+      if (!accountId || !date) continue;
+      const series = seriesByAccount.get(accountId) ?? [];
+      series.push({ date, followers: coerceMetric(row.followers) });
+      seriesByAccount.set(accountId, series);
+    }
+
+    const repairedByKey = new Map<string, number>();
+    let repairedAccounts = 0;
+
+    for (const [accountId, series] of seriesByAccount.entries()) {
+      if (!shouldRepairLinkedInFollowerSeries(series)) {
+        continue;
+      }
+
+      const normalizedSeries = normalizeLinkedInFollowerSeries(
+        series.map((row) => ({
+          date: row.date,
+          followers: row.followers,
+        })),
+        baselineByAccount.get(accountId) ?? 0
+      );
+
+      for (const row of normalizedSeries) {
+        repairedByKey.set(`${accountId}:${row.date}`, coerceMetric(row.followers));
+      }
+      repairedAccounts++;
+    }
+
+    if (!repairedAccounts) {
+      return { currentRows, previousRows };
+    }
+
+    const applyRepairs = (rows: NormalizedMetricRow[]) =>
+      rows.map((row) => {
+        if (row.platform !== "linkedin" || !row.social_account_id || !row.date) {
+          return row;
+        }
+        const repairedFollowers = repairedByKey.get(
+          `${String(row.social_account_id)}:${String(row.date)}`
+        );
+        if (repairedFollowers == null) {
+          return row;
+        }
+        return {
+          ...row,
+          followers: repairedFollowers,
+        };
+      });
+
+    console.warn(
+      `[dashboard] Repaired stale LinkedIn follower rows on read for ${repairedAccounts} account(s)`
+    );
+
+    return {
+      currentRows: applyRepairs(currentRows),
+      previousRows: applyRepairs(previousRows),
+    };
+  };
+
+  let normalizedMetrics = normalizeMetrics(metrics ?? undefined) as NormalizedMetricRow[];
+  let normalizedPrevMetrics = normalizeMetrics(prevMetrics ?? undefined) as NormalizedMetricRow[];
+  const repairedLinkedInRows = await repairLinkedInFollowersOnRead(
+    normalizedMetrics,
+    normalizedPrevMetrics
+  );
+  normalizedMetrics = repairedLinkedInRows.currentRows;
+  normalizedPrevMetrics = repairedLinkedInRows.previousRows;
 
   const sumLatestFollowers = (rows?: Array<{ social_account_id?: string | null; date?: string | null; followers?: number | null }>) => {
     if (!rows?.length) return 0;
@@ -477,11 +588,11 @@ export async function fetchDashboardAccounts(params: {
   profile: { id?: string; tenant_id: string | null; role?: string | null };
   tenantId?: string;
 }) {
-  const isAdmin = params.profile.role === "agency_admin" && params.tenantId;
-  const supabase = isAdmin ? createSupabaseServiceClient() : createSupabaseServerClient();
-  const tenantId = isAdmin
-    ? params.tenantId!
-    : await resolveClientTenant(params.profile as any, params.tenantId);
+  const supabase = createSupabaseServerClient();
+  const tenantId = await resolveActiveTenantId(params.profile as any, params.tenantId);
+  if (!tenantId) {
+    throw new Error("Aucun workspace selectionne.");
+  }
 
   const { data: accounts, error } = await supabase
     .from("social_accounts")
