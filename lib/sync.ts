@@ -12,11 +12,16 @@ import { createTenantNotification } from "@/lib/notifications";
 import { buildMetricDropAlert, buildScoreDropAlert } from "@/lib/alerting";
 import type { Platform } from "@/lib/types";
 
-const CONCURRENCY_LIMIT = 2;
+const ACCOUNT_SYNC_CONCURRENCY_LIMIT = 2;
+const TENANT_SYNC_CONCURRENCY_LIMIT = 3;
 
-async function runWithLimit<T>(items: T[], handler: (item: T) => Promise<void>) {
+async function runWithLimit<T>(
+  items: T[],
+  concurrencyLimit: number,
+  handler: (item: T) => Promise<void>
+) {
   const queue = [...items];
-  const workers = new Array(CONCURRENCY_LIMIT).fill(null).map(async () => {
+  const workers = new Array(Math.max(1, concurrencyLimit)).fill(null).map(async () => {
     while (queue.length) {
       const item = queue.shift();
       if (!item) return;
@@ -51,7 +56,7 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
 
   let syncSucceeded = false;
 
-  await runWithLimit(filtered, async (account) => {
+  await runWithLimit(filtered, ACCOUNT_SYNC_CONCURRENCY_LIMIT, async (account) => {
     // Clean up stale "running" sync logs (safety net for crashes)
     await supabase
       .from("sync_logs")
@@ -543,18 +548,94 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
 
 }
 
-export async function runGlobalSync() {
+type GlobalSyncTarget = {
+  tenantId: string;
+  lastSyncAt: string | null;
+};
+
+async function listGlobalSyncTargets() {
   const supabase = createSupabaseServiceClient();
-  const { data: tenants, error } = await supabase
-    .from("tenants")
-    .select("id")
-    .eq("is_active", true)
-    .eq("is_demo", false);
-  if (error) {
-    throw new Error(error.message);
+  const [{ data: tenants, error: tenantsError }, { data: accounts, error: accountsError }] = await Promise.all([
+    supabase
+      .from("tenants")
+      .select("id")
+      .eq("is_active", true)
+      .eq("is_demo", false),
+    supabase
+      .from("social_accounts")
+      .select("tenant_id,last_sync_at")
+      .eq("auth_status", "active"),
+  ]);
+
+  if (tenantsError) {
+    throw new Error(tenantsError.message);
   }
 
-  for (const tenant of tenants) {
-    await runTenantSync(tenant.id);
+  if (accountsError) {
+    throw new Error(accountsError.message);
   }
+
+  const activeTenantIds = new Set((tenants ?? []).map((tenant) => tenant.id));
+  const lastSyncByTenant = new Map<string, string | null>();
+
+  for (const account of accounts ?? []) {
+    const tenantId = String(account.tenant_id ?? "");
+    if (!tenantId || !activeTenantIds.has(tenantId)) continue;
+
+    const lastSyncAt =
+      typeof account.last_sync_at === "string" && account.last_sync_at.length > 0
+        ? account.last_sync_at
+        : null;
+    const existing = lastSyncByTenant.get(tenantId);
+
+    if (!existing || !lastSyncAt || lastSyncAt < existing) {
+      lastSyncByTenant.set(tenantId, lastSyncAt);
+    }
+  }
+
+  return Array.from(lastSyncByTenant.entries())
+    .map(([tenantId, lastSyncAt]) => ({ tenantId, lastSyncAt }))
+    .sort((a, b) => {
+      if (!a.lastSyncAt && !b.lastSyncAt) return a.tenantId.localeCompare(b.tenantId);
+      if (!a.lastSyncAt) return -1;
+      if (!b.lastSyncAt) return 1;
+      return a.lastSyncAt.localeCompare(b.lastSyncAt);
+    });
+}
+
+export async function runGlobalSync() {
+  const targets = await listGlobalSyncTargets();
+
+  const summary = {
+    totalTenants: targets.length,
+    succeeded: 0,
+    failed: 0,
+    failures: [] as Array<{ tenantId: string; error: string }>,
+  };
+
+  await runWithLimit(targets, TENANT_SYNC_CONCURRENCY_LIMIT, async (target) => {
+    try {
+      await runTenantSync(target.tenantId);
+      summary.succeeded += 1;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      summary.failed += 1;
+      summary.failures.push({
+        tenantId: target.tenantId,
+        error: errorMessage,
+      });
+      console.error("[sync] Global sync tenant failed", {
+        tenantId: target.tenantId,
+        error: errorMessage,
+      });
+    }
+  });
+
+  console.log("[sync] Global sync summary", summary);
+
+  if (summary.failed === summary.totalTenants && summary.totalTenants > 0) {
+    throw new Error("Global sync failed for every tenant");
+  }
+
+  return summary;
 }

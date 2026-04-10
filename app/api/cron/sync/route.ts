@@ -58,7 +58,18 @@ export async function POST(request: Request) {
       }
       await runTenantSync(tenantId, platform ?? undefined);
     } else {
-      await runGlobalSync();
+      const summary = await runGlobalSync();
+      const duration = Date.now() - startTime;
+
+      console.log(`[cron] Sync completed in ${duration}ms`, summary);
+
+      return NextResponse.json({
+        ok: summary.failed === 0,
+        duration,
+        scope: "global",
+        platform: platform || "all",
+        summary,
+      });
     }
 
     const duration = Date.now() - startTime;
@@ -95,3 +106,5 @@ export async function GET(request: Request) {
 }
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 300;
