@@ -31,6 +31,7 @@ import { DataQualityCard } from "@/components/dashboard/data-quality-card";
 import { OpportunityCard } from "@/components/dashboard/opportunity-card";
 import { PlatformDiagnosisCard } from "@/components/dashboard/platform-diagnosis-card";
 import { TrendTrajectoryCard } from "@/components/dashboard/trend-trajectory-card";
+import { PlatformMixCard } from "@/components/dashboard/platform-mix-card";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
 import { getSupportContactHref } from "@/lib/support";
@@ -41,6 +42,7 @@ import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
 import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
 import { buildTrendTrajectory } from "@/lib/trend-trajectory";
+import { buildPlatformMix } from "@/lib/platform-mix";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -398,6 +400,7 @@ export default async function ClientDashboardPage({
     url: post.url,
   })));
   const platformDiagnosis = buildPlatformDiagnosis(data.perPlatform);
+  const platformMix = buildPlatformMix(data.perPlatform);
 
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
@@ -684,12 +687,15 @@ export default async function ClientDashboardPage({
         {bestTimeData && <BestTimeHeatmap data={bestTimeData} />}
       </div>
 
-      <PlatformTable
-        perPlatform={data.perPlatform}
-        showViews={showViews}
-        showReach={showReach}
-        showEngagements={showEngagements}
-      />
+      <section id="dashboard-platforms" className="scroll-mt-6 space-y-6">
+        <PlatformMixCard mix={platformMix} />
+        <PlatformTable
+          perPlatform={data.perPlatform}
+          showViews={showViews}
+          showReach={showReach}
+          showEngagements={showEngagements}
+        />
+      </section>
 
       {/* ─── Operations ─── */}
       <div className="section-divider" />

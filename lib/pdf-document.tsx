@@ -5,6 +5,7 @@ import type { DashboardOpportunity } from "./dashboard-opportunities";
 import type { PlatformDiagnosis, PlatformDiagnosisItem } from "./platform-diagnosis";
 import type { ContentPortfolio } from "./content-portfolio";
 import type { TrendTrajectoryItem } from "./trend-trajectory";
+import type { PlatformMix } from "./platform-mix";
 
 const PAGE_PADDING_X = 34;
 const PAGE_PADDING_TOP = 76;
@@ -470,6 +471,72 @@ const styles = StyleSheet.create({
     fontSize: 6.8,
     lineHeight: 1.25,
     color: palette.muted,
+  },
+  platformMixPanel: {
+    borderWidth: 1,
+    borderColor: "#bae6fd",
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#f0f9ff",
+    marginBottom: 10,
+  },
+  platformMixGrid: {
+    flexDirection: "row",
+    marginLeft: -4,
+    marginRight: -4,
+  },
+  platformMixCell: {
+    width: "25%",
+    paddingLeft: 4,
+    paddingRight: 4,
+  },
+  platformMixCard: {
+    borderWidth: 1,
+    borderColor: "#dbeafe",
+    borderRadius: 12,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 105,
+  },
+  platformMixRole: {
+    fontSize: 6.7,
+    color: palette.blue,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 5,
+  },
+  platformMixName: {
+    fontSize: 10.2,
+    color: palette.ink,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 6,
+    textTransform: "capitalize",
+  },
+  platformMixMetricRow: {
+    marginBottom: 5,
+  },
+  platformMixMetricLabel: {
+    fontSize: 6.8,
+    color: palette.muted,
+    marginBottom: 2,
+  },
+  platformMixTrack: {
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "#dbeafe",
+    overflow: "hidden",
+  },
+  platformMixFill: {
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: palette.blue,
+  },
+  platformMixSummary: {
+    fontSize: 6.8,
+    lineHeight: 1.25,
+    color: palette.muted,
+    marginTop: 3,
   },
   qualityScore: {
     fontSize: 22,
@@ -1019,6 +1086,7 @@ export type PdfDocumentProps = {
   platformDiagnosis?: PlatformDiagnosis;
   contentPortfolio?: ContentPortfolio;
   trendTrajectory?: TrendTrajectoryItem[];
+  platformMix?: PlatformMix;
   dataQuality?: DashboardDataQuality;
   watermark?: string;
 };
@@ -1430,6 +1498,57 @@ function TrendTrajectoryPanel({ items }: { items?: TrendTrajectoryItem[] }) {
   );
 }
 
+function PlatformMixPanel({ mix }: { mix?: PlatformMix }) {
+  const visibleItems = (mix?.items ?? []).slice(0, 4);
+  if (visibleItems.length === 0) return null;
+
+  return (
+    <View style={styles.platformMixPanel} wrap={false}>
+      <Text style={styles.panelEyebrow}>Mix de canaux</Text>
+      <Text style={styles.sectionLead}>
+        Contribution de chaque canal à la visibilité et à l'engagement, avant le détail chiffré.
+      </Text>
+      <View style={styles.platformMixGrid}>
+        {visibleItems.map((item) => (
+          <View key={item.platform} style={styles.platformMixCell}>
+            <View style={styles.platformMixCard}>
+              <Text style={styles.platformMixRole}>{sanitizeText(item.role)}</Text>
+              <Text style={styles.platformMixName}>{sanitizeText(item.platform)}</Text>
+              <View style={styles.platformMixMetricRow}>
+                <Text style={styles.platformMixMetricLabel}>
+                  Visibilité {formatNumber(item.visibilityShare)}%
+                </Text>
+                <View style={styles.platformMixTrack}>
+                  <View style={[styles.platformMixFill, { width: `${Math.min(100, item.visibilityShare)}%` }]} />
+                </View>
+              </View>
+              <View style={styles.platformMixMetricRow}>
+                <Text style={styles.platformMixMetricLabel}>
+                  Engagement {formatNumber(item.engagementShare)}%
+                </Text>
+                <View style={styles.platformMixTrack}>
+                  <View
+                    style={[
+                      styles.platformMixFill,
+                      {
+                        width: `${Math.min(100, item.engagementShare)}%`,
+                        backgroundColor: palette.teal,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+              <Text style={styles.platformMixSummary}>
+                {truncateText(sanitizeText(item.summary), 76)}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function InsightCard({ title, description }: { title: string; description: string }) {
   return (
     <View style={styles.insightCell} wrap={false}>
@@ -1786,6 +1905,7 @@ export function PdfDocument(props: PdfDocumentProps) {
           <Text style={styles.sectionLead}>
             Détail des volumes, de la visibilité et du rendement par canal sur la période exportée.
           </Text>
+          <PlatformMixPanel mix={props.platformMix} />
           <PlatformTable platforms={props.platforms} />
         </View>
 

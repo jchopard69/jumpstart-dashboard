@@ -18,6 +18,7 @@ import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
 import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
 import { buildContentPortfolio } from "@/lib/content-portfolio";
 import { buildTrendTrajectoryFromDailyMetrics } from "@/lib/trend-trajectory";
+import { buildPlatformMix } from "@/lib/platform-mix";
 import {
   getDemoPdfWatermarkText,
   shouldUseDemoPdfWatermark,
@@ -216,6 +217,7 @@ export async function GET(request: Request) {
   })));
   const platformDiagnosis = buildPlatformDiagnosis(data.perPlatform);
   const trendTrajectory = buildTrendTrajectoryFromDailyMetrics(data.metrics);
+  const platformMix = buildPlatformMix(data.perPlatform);
 
   const contentDna = analyzeContentDna({
     posts: data.posts.map((post) => ({
@@ -269,6 +271,7 @@ export async function GET(request: Request) {
     platformDiagnosis,
     contentPortfolio,
     trendTrajectory,
+    platformMix,
     dataQuality,
     contentDna:
       contentDna.patterns.length > 0

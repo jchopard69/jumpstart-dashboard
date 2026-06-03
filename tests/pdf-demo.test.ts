@@ -83,6 +83,21 @@ test("PdfDocument renders with demo watermark", async () => {
           bars: [18, 32, 45, 61, 74, 88],
         },
       ],
+      platformMix: {
+        leader: "instagram",
+        concentrationLabel: "Mix assumé",
+        items: [
+          {
+            platform: "instagram",
+            visibilityShare: 68,
+            engagementShare: 82,
+            engagementRate: 7.7,
+            postsShare: 60,
+            role: "Moteur relationnel",
+            summary: "68% de la visibilité, 82% de l'engagement.",
+          },
+        ],
+      },
       contentDna: [
         {
           label: "Reels",
