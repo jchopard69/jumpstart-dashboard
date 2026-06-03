@@ -820,24 +820,6 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontFamily: "Helvetica-Bold",
   },
-  supportGrid: {
-    flexDirection: "row",
-    marginLeft: -5,
-    marginRight: -5,
-  },
-  supportCell: {
-    width: "50%",
-    paddingLeft: 5,
-    paddingRight: 5,
-  },
-  supportCard: {
-    borderWidth: 1,
-    borderColor: palette.line,
-    borderRadius: 12,
-    padding: 10,
-    backgroundColor: "#ffffff",
-    minHeight: 108,
-  },
   productionHero: {
     borderWidth: 1,
     borderColor: "#ccfbf1",
@@ -884,37 +866,32 @@ const styles = StyleSheet.create({
     color: palette.muted,
     marginBottom: 8,
   },
-  supportTitle: {
-    fontSize: 9.5,
-    fontFamily: "Helvetica-Bold",
-    color: palette.ink,
-    marginBottom: 6,
-  },
-  supportSummary: {
-    fontSize: 7.7,
-    lineHeight: 1.35,
-    color: palette.muted,
-    marginBottom: 5,
-  },
-  supportItem: {
-    fontSize: 7.7,
-    lineHeight: 1.35,
-    color: palette.ink,
-    marginBottom: 3,
-  },
-  tagRow: {
+  productionResources: {
+    borderTopWidth: 1,
+    borderTopColor: "#ccfbf1",
+    marginTop: 9,
+    paddingTop: 8,
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
   },
-  tag: {
+  productionResourceLabel: {
+    fontSize: 7,
+    color: palette.teal,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.9,
+    marginRight: 6,
+    marginBottom: 4,
+  },
+  productionTag: {
     fontSize: 7.5,
-    color: palette.blue,
-    backgroundColor: palette.blueSoft,
+    color: palette.teal,
+    backgroundColor: palette.tealSoft,
     borderRadius: 999,
     paddingHorizontal: 7,
     paddingVertical: 3,
-    marginLeft: 6,
+    marginRight: 5,
     marginBottom: 4,
   },
   emptyState: {
@@ -1532,17 +1509,12 @@ function CollaborationPanel(props: {
     })),
     documents: props.documents,
   });
-  const shoots = props.shoots.map((shoot) => ({
-    date: sanitizeText(shoot.date),
-    location: sanitizeText(shoot.location || "Lieu à définir"),
-  }));
-  const documents = props.documents.map((document) => ({
-    name: sanitizeText(document.name),
-    tag: sanitizeText(document.tag),
-  }));
+  const featuredDocuments = readiness.featuredDocuments
+    .map((document) => sanitizeText(document.name || document.tag))
+    .filter(Boolean)
+    .slice(0, 3);
 
   return (
-    <>
     <View style={styles.productionHero} wrap={false}>
       <Text style={styles.panelEyebrow}>Continuité créative</Text>
       <Text style={styles.productionSummary}>
@@ -1570,45 +1542,17 @@ function CollaborationPanel(props: {
           </View>
         </View>
       </View>
-    </View>
-    <View style={styles.supportGrid}>
-      <View style={styles.supportCell} wrap={false}>
-        <View style={styles.supportCard}>
-          <Text style={styles.supportTitle}>Production & shootings</Text>
-          <Text style={styles.supportSummary}>
-            Jours restants avant le prochain jalon de production: {formatNumber(props.shootDays)}
-          </Text>
-          {shoots.length > 0 ? (
-            shoots.map((shoot, index) => (
-              <Text key={`${shoot.date}-${index}`} style={styles.supportItem}>
-                - {shoot.date} - {shoot.location}
-              </Text>
-            ))
-          ) : (
-            <Text style={styles.supportItem}>- Aucun shooting planifié</Text>
-          )}
+      {featuredDocuments.length > 0 ? (
+        <View style={styles.productionResources}>
+          <Text style={styles.productionResourceLabel}>Ressources clés</Text>
+          {featuredDocuments.map((name, index) => (
+            <Text key={`${name}-${index}`} style={styles.productionTag}>
+              {truncateText(name, 26)}
+            </Text>
+          ))}
         </View>
-      </View>
-      <View style={styles.supportCell} wrap={false}>
-        <View style={styles.supportCard}>
-          <Text style={styles.supportTitle}>Documents & ressources</Text>
-          <Text style={styles.supportSummary}>
-            Derniers documents partagés utiles au pilotage éditorial et à la production.
-          </Text>
-          {documents.length > 0 ? (
-            documents.map((document, index) => (
-              <View key={`${document.name}-${index}`} style={styles.tagRow}>
-                <Text style={styles.supportItem}>- {document.name}</Text>
-                {document.tag ? <Text style={styles.tag}>{document.tag}</Text> : null}
-              </View>
-            ))
-          ) : (
-            <Text style={styles.supportItem}>- Aucun document partagé</Text>
-          )}
-        </View>
-      </View>
+      ) : null}
     </View>
-    </>
   );
 }
 
