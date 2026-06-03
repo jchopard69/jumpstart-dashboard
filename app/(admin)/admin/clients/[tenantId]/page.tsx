@@ -30,6 +30,10 @@ import { InviteUserForm } from "@/components/admin/invite-user-form";
 import type { Platform } from "@/lib/types";
 import { fetchClientStrategySnapshot } from "@/lib/client-strategy";
 import { AdminStrategyForms } from "@/components/strategy/admin-strategy-forms";
+import { AdminClientReadinessCard } from "@/components/admin/admin-client-readiness-card";
+import { buildAdminClientReadiness } from "@/lib/admin-client-readiness";
+import { buildStrategyHealth } from "@/lib/strategy-health";
+import { buildCollaborationNextActions } from "@/lib/collaboration-actions";
 
 export async function generateMetadata({ params }: { params: { tenantId: string } }): Promise<Metadata> {
   const supabase = createSupabaseServiceClient();
@@ -66,7 +70,7 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
     .order("created_at", { ascending: false });
   const { data: collaboration } = await supabase
     .from("collaboration")
-    .select("shoot_days_remaining,notes")
+    .select("shoot_days_remaining,notes,updated_at")
     .eq("tenant_id", params.tenantId)
     .single();
   const { data: shoots } = await supabase
@@ -95,6 +99,21 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
     tenantId: params.tenantId,
     admin: true,
     includeDraftBriefs: true,
+  });
+  const strategyHealth = buildStrategyHealth({ snapshot: strategySnapshot });
+  const collaborationActions = buildCollaborationNextActions({
+    collaboration: collaboration ?? null,
+    shoots: shoots ?? [],
+    documents: documents ?? [],
+  });
+  const clientReadiness = buildAdminClientReadiness({
+    accounts: accounts ?? [],
+    logs: logs ?? [],
+    goals: goals ?? null,
+    strategyStatus: strategyHealth.status,
+    strategyCoverage: strategyHealth.coverage,
+    highPriorityCollaborationActions: collaborationActions.filter((action) => action.priority === "high").length,
+    isDemoTenant,
   });
 
   const { data: allUsers } = await supabase
@@ -172,6 +191,8 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
         </div>
       </section>
 
+      <AdminClientReadinessCard readiness={clientReadiness} />
+
       <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Inviter un utilisateur</h2>
         {isDemoTenant ? (
@@ -204,17 +225,19 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
         </div>
       </Card>
 
-      <SocialAccountsSection
-        tenantId={params.tenantId}
-        isDemo={isDemoTenant}
-        accounts={(accounts ?? []).map((a) => ({
-          ...a,
-          platform: a.platform as Platform,
-        }))}
-        deleteAction={deleteSocialAccount}
-      />
+      <section id="accounts" className="scroll-mt-6">
+        <SocialAccountsSection
+          tenantId={params.tenantId}
+          isDemo={isDemoTenant}
+          accounts={(accounts ?? []).map((a) => ({
+            ...a,
+            platform: a.platform as Platform,
+          }))}
+          deleteAction={deleteSocialAccount}
+        />
+      </section>
 
-      <Card className="card-surface p-6 fade-in-up">
+      <Card id="goals" className="card-surface scroll-mt-6 p-6 fade-in-up">
         <h2 className="section-title">Objectifs de performance</h2>
         <p className="text-sm text-muted-foreground mt-1">Definissez des cibles pour suivre la progression sur le dashboard client.</p>
         <form action={updateTenantGoals} className="mt-4 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -243,17 +266,19 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
         </form>
       </Card>
 
-      <AdminStrategyForms
-        tenantId={params.tenantId}
-        snapshot={strategySnapshot}
-        isDemoTenant={isDemoTenant}
-        updateProfileAction={updateClientStrategyProfile}
-        upsertBriefAction={upsertMonthlyStrategyBrief}
-        addActionItemAction={addStrategyActionItem}
-        updateActionStatusAction={updateStrategyActionStatus}
-      />
+      <section id="strategy" className="scroll-mt-6">
+        <AdminStrategyForms
+          tenantId={params.tenantId}
+          snapshot={strategySnapshot}
+          isDemoTenant={isDemoTenant}
+          updateProfileAction={updateClientStrategyProfile}
+          upsertBriefAction={upsertMonthlyStrategyBrief}
+          addActionItemAction={addStrategyActionItem}
+          updateActionStatusAction={updateStrategyActionStatus}
+        />
+      </section>
 
-      <Card className="card-surface p-6 fade-in-up">
+      <Card id="collaboration" className="card-surface scroll-mt-6 p-6 fade-in-up">
         <h2 className="section-title">Collaboration</h2>
         <form action={updateCollaboration} className="mt-4 grid gap-4 md:grid-cols-3">
           <div>
@@ -330,7 +355,7 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
         />
       )}
 
-      <Card className="card-surface p-6 fade-in-up">
+      <Card id="sync-logs" className="card-surface scroll-mt-6 p-6 fade-in-up">
         <h2 className="section-title">Logs de synchronisation</h2>
         <Table className="table-premium">
           <TableHeader>
