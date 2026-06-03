@@ -16,12 +16,23 @@ export type ContentPattern = {
   strength: number; // 0-100, confidence in the pattern
 };
 
+export type ContentBrief = {
+  id: string;
+  title: string;
+  angle: string;
+  format: string;
+  timing: string;
+  captionGuidance: string;
+  automation: string;
+};
+
 export type ContentDnaResult = {
   patterns: ContentPattern[];
   topFormat: string | null;
   bestTimeWindow: string | null;
   optimalCaptionLength: string | null;
   postsAnalyzed: number;
+  briefs: ContentBrief[];
 };
 
 export type ContentDnaInput = {
@@ -69,7 +80,7 @@ export function analyzeContentDna(input: ContentDnaInput): ContentDnaResult {
   const { posts } = input;
 
   if (posts.length < 3) {
-    return { patterns: [], topFormat: null, bestTimeWindow: null, optimalCaptionLength: null, postsAnalyzed: posts.length };
+    return { patterns: [], topFormat: null, bestTimeWindow: null, optimalCaptionLength: null, postsAnalyzed: posts.length, briefs: [] };
   }
 
   const formatPattern = analyzeFormats(posts);
@@ -83,13 +94,64 @@ export function analyzeContentDna(input: ContentDnaInput): ContentDnaResult {
   // Sort by strength
   patterns.sort((a, b) => b.strength - a.strength);
 
+  const briefs = buildContentBriefs({
+    topFormat: formatPattern?.label ?? null,
+    bestTimeWindow: timingPattern?.label ?? null,
+    optimalCaptionLength: captionPattern?.label ?? null,
+    patterns,
+  });
+
   return {
     patterns: patterns.slice(0, 3),
     topFormat: formatPattern ? formatPattern.label : null,
     bestTimeWindow: timingPattern ? timingPattern.label : null,
     optimalCaptionLength: captionPattern ? captionPattern.label : null,
     postsAnalyzed: posts.length,
+    briefs,
   };
+}
+
+function buildContentBriefs(params: {
+  topFormat: string | null;
+  bestTimeWindow: string | null;
+  optimalCaptionLength: string | null;
+  patterns: ContentPattern[];
+}): ContentBrief[] {
+  if (params.patterns.length === 0) return [];
+
+  const format = params.topFormat ?? "format le plus engageant";
+  const timing = params.bestTimeWindow ?? "créneau habituel le plus fiable";
+  const captionGuidance = params.optimalCaptionLength ?? "légende claire avec bénéfice, preuve et appel à l'action";
+
+  return [
+    {
+      id: "proof-to-action",
+      title: "Transformer le meilleur pattern en preuve client",
+      angle: "Reprendre le format gagnant pour montrer un résultat concret, un avant/après ou une preuve terrain.",
+      format,
+      timing,
+      captionGuidance,
+      automation: "Préparer automatiquement un brief avec hook, preuve, CTA et variante sponsorisable.",
+    },
+    {
+      id: "educational-repeat",
+      title: "Créer une variation pédagogique courte",
+      angle: "Décliner le sujet du post le plus fort en conseil actionnable ou checklist rapide.",
+      format,
+      timing,
+      captionGuidance,
+      automation: "Générer une variation orientée apprentissage pour nourrir la prochaine grille éditoriale.",
+    },
+    {
+      id: "conversion-follow-up",
+      title: "Ajouter une suite orientée conversion",
+      angle: "Utiliser le même ADN créatif pour pousser une prise de contact, une demande de devis ou une ressource.",
+      format,
+      timing,
+      captionGuidance,
+      automation: "Créer une suite de publication qui relie le contenu organique gagnant à une action commerciale.",
+    },
+  ];
 }
 
 function analyzeFormats(posts: ContentDnaInput["posts"]): ContentPattern | null {
