@@ -93,10 +93,22 @@ function formatMetric(value: number): string {
   return value.toLocaleString("fr-FR");
 }
 
-const SORT_MODE_LABELS: Record<TopPostsSortMode, { title: string; subtitle: string }> = {
-  performance: { title: "Contenus les plus performants", subtitle: "Les publications ayant généré le plus d'impact sur la période." },
-  visibility: { title: "Contenus les plus visibles", subtitle: "Les publications ayant touché le plus de personnes." },
-  engagement: { title: "Contenus les plus engageants", subtitle: "Les publications avec le meilleur taux d'interaction." },
+const SORT_MODE_LABELS: Record<TopPostsSortMode, { title: string; subtitle: string; rule: string }> = {
+  performance: {
+    title: "Contenus les plus performants",
+    subtitle: "Les publications ayant généré le plus d'impact sur la période.",
+    rule: "Classement par score mixte : visibilité, engagements et rendement relatif.",
+  },
+  visibility: {
+    title: "Contenus les plus visibles",
+    subtitle: "Les publications ayant touché le plus de personnes.",
+    rule: "Classement par portée, vues ou impressions selon la donnée disponible.",
+  },
+  engagement: {
+    title: "Contenus les plus engageants",
+    subtitle: "Les publications avec le plus d'interactions exploitables.",
+    rule: "Classement par volume d'engagements, puis par taux en cas d'égalité.",
+  },
 };
 
 const INITIAL_COUNT = 5;
@@ -130,7 +142,7 @@ export function TopPosts({ posts }: TopPostsProps) {
     avgEngagements: cohortEngagements.length > 0 ? cohortEngagements.reduce((a, b) => a + b, 0) / cohortEngagements.length : 0,
   };
 
-  const { title, subtitle } = SORT_MODE_LABELS[sortMode];
+  const { title, subtitle, rule } = SORT_MODE_LABELS[sortMode];
 
   return (
     <Card className="card-surface p-6 fade-in-up">
@@ -154,6 +166,7 @@ export function TopPosts({ posts }: TopPostsProps) {
             type="button"
             role="tab"
             aria-selected={sortMode === mode}
+            aria-label={`${mode === "performance" ? "Performance" : mode === "visibility" ? "Visibilité" : "Engagements"} : ${SORT_MODE_LABELS[mode].rule}`}
             onClick={() => { setSortMode(mode); setExpanded(false); }}
             className={cn(
               "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
@@ -165,6 +178,12 @@ export function TopPosts({ posts }: TopPostsProps) {
             {mode === "performance" ? "Performance" : mode === "visibility" ? "Visibilité" : "Engagements"}
           </button>
         ))}
+      </div>
+
+      <div className="mb-4 rounded-xl border border-primary/10 bg-primary/5 px-3 py-2">
+        <p className="text-xs leading-relaxed text-foreground/75">
+          <span className="font-semibold text-primary">Signal actif :</span> {rule}
+        </p>
       </div>
 
       {posts.length === 0 ? (
