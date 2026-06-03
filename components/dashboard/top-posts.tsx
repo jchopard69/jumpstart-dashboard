@@ -122,6 +122,43 @@ function hasModeSignal(post: PostData, mode: TopPostsSortMode): boolean {
   return visibility > 0 || engagements > 0;
 }
 
+function truncateCaption(caption?: string | null): string {
+  if (!caption) return "Publication sans titre";
+  return caption.length > 72 ? `${caption.slice(0, 69).trim()}...` : caption;
+}
+
+function buildModeInsight(posts: PostData[], mode: TopPostsSortMode): { signal: string; nextStep: string } | null {
+  const leader = posts[0];
+  if (!leader) return null;
+
+  const visibility = getPostVisibility(leader.metrics, leader.media_type);
+  const engagements = getPostEngagements(leader.metrics);
+  const engagementRate = visibility.value > 0 ? (engagements / visibility.value) * 100 : null;
+  const title = truncateCaption(leader.caption);
+
+  if (mode === "visibility") {
+    return {
+      signal: `${title} domine avec ${formatMetric(visibility.value)} ${visibility.label.toLowerCase()}.`,
+      nextStep: "Transformer ce format en relai, sponsorisation ou variation courte pour amplifier la portée.",
+    };
+  }
+
+  if (mode === "engagement") {
+    const rateLabel = engagementRate !== null
+      ? `${engagementRate < 0.1 && engagementRate > 0 ? "< 0.1" : engagementRate.toFixed(1)}%`
+      : "taux non disponible";
+    return {
+      signal: `${title} génère ${formatMetric(engagements)} engagements (${rateLabel}).`,
+      nextStep: "Réutiliser son angle éditorial pour préparer un brief de contenu interactif ou conversationnel.",
+    };
+  }
+
+  return {
+    signal: `${title} combine ${formatMetric(visibility.value)} ${visibility.label.toLowerCase()} et ${formatMetric(engagements)} engagements.`,
+    nextStep: "En faire la référence créative de la prochaine série et comparer les variations sur 7 jours.",
+  };
+}
+
 export function TopPosts({ posts }: TopPostsProps) {
   const [expanded, setExpanded] = useState(false);
   const [sortMode, setSortMode] = useState<TopPostsSortMode>("performance");
@@ -143,6 +180,7 @@ export function TopPosts({ posts }: TopPostsProps) {
   };
 
   const { title, subtitle, rule } = SORT_MODE_LABELS[sortMode];
+  const modeInsight = buildModeInsight(displayPosts, sortMode);
 
   return (
     <Card className="card-surface p-6 fade-in-up">
@@ -185,6 +223,19 @@ export function TopPosts({ posts }: TopPostsProps) {
           <span className="font-semibold text-primary">Signal actif :</span> {rule}
         </p>
       </div>
+
+      {modeInsight && hasSignalForMode ? (
+        <div className="mb-4 grid gap-2 rounded-xl border border-border/60 bg-white/70 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.03)] sm:grid-cols-[1fr_auto]">
+          <div>
+            <p className="text-[11px] font-semibold uppercase text-primary">Diagnostic automatique</p>
+            <p className="mt-1 text-sm font-medium leading-snug text-foreground">{modeInsight.signal}</p>
+          </div>
+          <div className="rounded-lg border border-primary/10 bg-primary/5 px-3 py-2 sm:max-w-[260px]">
+            <p className="text-[11px] font-semibold text-primary">Prochaine action</p>
+            <p className="mt-1 text-xs leading-relaxed text-foreground/75">{modeInsight.nextStep}</p>
+          </div>
+        </div>
+      ) : null}
 
       {posts.length === 0 ? (
         <EmptyPosts />
