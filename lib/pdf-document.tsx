@@ -105,16 +105,18 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
   },
   hero: {
-    backgroundColor: palette.navy,
+    backgroundColor: "#15122e",
+    borderWidth: 1,
+    borderColor: "#312e81",
     borderRadius: 18,
     padding: 18,
     marginBottom: 12,
   },
   heroAccent: {
-    width: 96,
+    width: 118,
     height: 4,
     borderRadius: 999,
-    backgroundColor: "#20d6a2",
+    backgroundColor: palette.teal,
     marginBottom: 12,
   },
   heroEyebrow: {
@@ -150,11 +152,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   heroFact: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "#211c4f",
     borderRadius: 10,
     padding: 8,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: "#3d367c",
   },
   heroFactLabel: {
     fontSize: 7,
@@ -192,10 +194,10 @@ const styles = StyleSheet.create({
   },
   scorePanel: {
     borderWidth: 1,
-    borderColor: "#bfd4ff",
+    borderColor: "#c7d2fe",
     borderRadius: 14,
     padding: 12,
-    backgroundColor: palette.surfaceStrong,
+    backgroundColor: "#f8f7ff",
   },
   panelEyebrow: {
     fontSize: 7,
@@ -250,10 +252,10 @@ const styles = StyleSheet.create({
   },
   takeawayCard: {
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: "#ccfbf1",
     borderRadius: 14,
     padding: 12,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#f0fdfa",
     minHeight: 164,
   },
   takeawayItem: {
@@ -266,8 +268,8 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 999,
     marginRight: 8,
-    backgroundColor: palette.blueSoft,
-    color: palette.blue,
+    backgroundColor: palette.tealSoft,
+    color: palette.teal,
     fontSize: 9,
     fontFamily: "Helvetica-Bold",
     textAlign: "center",
