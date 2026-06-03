@@ -74,9 +74,11 @@ export function ExportButtons({ query }: { query: string }) {
         onClick={() => handleExport("pdf")}
         disabled={loadingPdf}
         title="Télécharger le rapport PDF"
+        aria-busy={loadingPdf}
         aria-label={loadingPdf ? "Export PDF en cours" : "Télécharger le rapport PDF"}
       >
         {loadingPdf ? <SpinnerIcon className="h-4 w-4" /> : <DocumentIcon className="h-4 w-4" />}
+        {loadingPdf ? <span className="sr-only" role="status">Export PDF en cours.</span> : null}
         <span className="hidden sm:inline">{loadingPdf ? "Export..." : "PDF"}</span>
       </Button>
       <Button
@@ -86,9 +88,11 @@ export function ExportButtons({ query }: { query: string }) {
         onClick={() => handleExport("csv")}
         disabled={loadingCsv}
         title="Télécharger les données CSV"
+        aria-busy={loadingCsv}
         aria-label={loadingCsv ? "Export CSV en cours" : "Télécharger les données CSV"}
       >
         {loadingCsv ? <SpinnerIcon className="h-4 w-4" /> : <TableIcon className="h-4 w-4" />}
+        {loadingCsv ? <span className="sr-only" role="status">Export CSV en cours.</span> : null}
         <span className="hidden sm:inline">{loadingCsv ? "Export..." : "CSV"}</span>
       </Button>
     </div>
