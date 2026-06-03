@@ -85,6 +85,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ...result,
+      context: {
+        tenantId,
+        query: search.toString(),
+      },
       quota: {
         limit: quotaMax,
         remaining: quota.remaining,

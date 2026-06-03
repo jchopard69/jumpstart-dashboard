@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { Bot, CalendarPlus, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,21 @@ type Quota = {
   retryAfterMs?: number;
 };
 
-export function AiContentIdeasCard() {
+type AiContentIdeasCardProps = {
+  tenantId?: string;
+  initialQuery?: string;
+};
+
+export function AiContentIdeasCard({ tenantId, initialQuery }: AiContentIdeasCardProps) {
   const searchParams = useSearchParams();
+  const fallbackQuery = searchParams.toString();
+  const activeQuery = useMemo(() => {
+    const params = new URLSearchParams(initialQuery || fallbackQuery);
+    if (tenantId) {
+      params.set("tenantId", tenantId);
+    }
+    return params.toString();
+  }, [fallbackQuery, initialQuery, tenantId]);
   const [prompt, setPrompt] = useState("Propose des idées de posts pour les 2 prochaines semaines.");
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
   const [usage, setUsage] = useState<Usage | null>(null);
@@ -40,14 +53,23 @@ export function AiContentIdeasCard() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    setIdeas([]);
+    setUsage(null);
+    setQuota(null);
+    setError(null);
+  }, [activeQuery]);
+
   const generateIdeas = () => {
     setError(null);
+    const requestQuery = activeQuery;
     startTransition(async () => {
       const response = await fetch("/api/client/content-ideas", {
         method: "POST",
+        cache: "no-store",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: searchParams.toString(),
+          query: requestQuery,
           prompt,
         }),
       });

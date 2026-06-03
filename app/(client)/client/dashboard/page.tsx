@@ -109,6 +109,11 @@ export default async function ClientDashboardPage({
   if (searchParams.tenantId) queryParams.set("tenantId", searchParams.tenantId);
   if (searchParams.accountId) queryParams.set("accountId", searchParams.accountId);
   const queryString = queryParams.toString();
+  const aiQueryParams = new URLSearchParams(queryString);
+  if (effectiveTenantId) {
+    aiQueryParams.set("tenantId", effectiveTenantId);
+  }
+  const aiQueryString = aiQueryParams.toString();
 
   const msDay = 24 * 60 * 60 * 1000;
   const offsetDays = data.range && data.prevRange
@@ -607,7 +612,7 @@ export default async function ClientDashboardPage({
 
       <section id="dashboard-opportunities" className="scroll-mt-6 space-y-6">
         <OpportunityCard opportunities={opportunities} />
-        <AiContentIdeasCard />
+        <AiContentIdeasCard tenantId={effectiveTenantId} initialQuery={aiQueryString} />
 
         <StrategyDashboardCard
           snapshot={strategySnapshot}
