@@ -810,6 +810,42 @@ const styles = StyleSheet.create({
     color: palette.muted,
     marginBottom: 6,
   },
+  briefGrid: {
+    flexDirection: "row",
+    marginLeft: -4,
+    marginRight: -4,
+  },
+  briefCell: {
+    width: "33.3333%",
+    paddingLeft: 4,
+    paddingRight: 4,
+  },
+  briefCard: {
+    borderWidth: 1,
+    borderColor: "#ddd6fe",
+    borderRadius: 12,
+    padding: 9,
+    backgroundColor: "#faf5ff",
+    minHeight: 104,
+  },
+  briefTitle: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: palette.ink,
+    marginBottom: 4,
+  },
+  briefText: {
+    fontSize: 7.1,
+    lineHeight: 1.28,
+    color: palette.muted,
+    marginBottom: 4,
+  },
+  briefMeta: {
+    fontSize: 6.7,
+    lineHeight: 1.25,
+    color: palette.blue,
+    marginBottom: 3,
+  },
   strengthRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -954,6 +990,15 @@ type ContentDnaPattern = {
   strength: number;
 };
 
+type ContentDnaBrief = {
+  title: string;
+  angle: string;
+  format: string;
+  timing: string;
+  captionGuidance: string;
+  automation: string;
+};
+
 export type PdfDocumentProps = {
   tenantName: string;
   rangeLabel: string;
@@ -975,6 +1020,7 @@ export type PdfDocumentProps = {
   executiveSummary?: string;
   insights?: Array<{ title: string; description: string }>;
   contentDna?: ContentDnaPattern[];
+  contentBriefs?: ContentDnaBrief[];
   actionPlan?: DashboardActionItem[];
   opportunities?: DashboardOpportunity[];
   clientNextActions?: ClientNextAction[];
@@ -1503,6 +1549,40 @@ function DnaCard({ pattern }: { pattern: ContentDnaPattern }) {
   );
 }
 
+function ContentBriefsPanel({ briefs }: { briefs?: ContentDnaBrief[] }) {
+  const visibleBriefs = (briefs ?? []).slice(0, 3);
+  if (!visibleBriefs.length) return null;
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionEyebrow}>Production automatisée</Text>
+      <Text style={styles.sectionTitle}>Briefs éditoriaux générés</Text>
+      <Text style={styles.sectionLead}>
+        Suite concrète proposée à partir de l'ADN créatif détecté sur la période.
+      </Text>
+      <View style={styles.briefGrid}>
+        {visibleBriefs.map((brief, index) => (
+          <View key={`${brief.title}-${index}`} style={styles.briefCell} wrap={false}>
+            <View style={styles.briefCard}>
+              <Text style={styles.briefTitle}>{truncateText(sanitizeText(brief.title), 52)}</Text>
+              <Text style={styles.briefText}>{truncateText(sanitizeText(brief.angle), 92)}</Text>
+              <Text style={styles.briefMeta}>
+                Format: {truncateText(sanitizeText(brief.format), 24)}
+              </Text>
+              <Text style={styles.briefMeta}>
+                Créneau: {truncateText(sanitizeText(brief.timing), 22)}
+              </Text>
+              <Text style={styles.briefText}>
+                {truncateText(sanitizeText(brief.automation), 92)}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function CollaborationPanel(props: {
   shootDays: number;
   shoots: ShootSummary[];
@@ -1729,6 +1809,8 @@ export function PdfDocument(props: PdfDocumentProps) {
             </View>
           </View>
         ) : null}
+
+        <ContentBriefsPanel briefs={props.contentBriefs} />
 
         <View style={styles.section}>
           <Text style={styles.sectionEyebrow}>Pilotage</Text>

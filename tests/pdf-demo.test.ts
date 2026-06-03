@@ -63,6 +63,24 @@ test("PdfDocument renders with demo watermark", async () => {
           priority: "high",
         },
       ],
+      contentDna: [
+        {
+          label: "Reels",
+          insight: "Les reels sont votre format gagnant",
+          detail: "2x plus d'engagement que les images",
+          strength: 78,
+        },
+      ],
+      contentBriefs: [
+        {
+          title: "Transformer le meilleur pattern en preuve client",
+          angle: "Reprendre le format gagnant pour montrer un résultat concret.",
+          format: "Reels",
+          timing: "18h-22h",
+          captionGuidance: "Captions moyennes",
+          automation: "Préparer automatiquement un brief avec hook, preuve et CTA.",
+        },
+      ],
       dataQuality: {
         overallCoverage: 86,
         expectedDays: 31,

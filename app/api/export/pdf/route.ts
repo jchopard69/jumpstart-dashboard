@@ -300,6 +300,17 @@ export async function GET(request: Request) {
             strength: pattern.strength,
           }))
         : undefined,
+    contentBriefs:
+      contentDna.briefs.length > 0
+        ? contentDna.briefs.map((brief) => ({
+            title: brief.title,
+            angle: brief.angle,
+            format: brief.format,
+            timing: brief.timing,
+            captionGuidance: brief.captionGuidance,
+            automation: brief.automation,
+          }))
+        : undefined,
     watermark,
   };
 
