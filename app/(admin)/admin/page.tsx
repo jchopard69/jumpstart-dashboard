@@ -3,6 +3,8 @@ import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AdminOpsCockpitCard } from "@/components/admin/admin-ops-cockpit-card";
+import { buildAdminOpsCockpit } from "@/lib/admin-ops-cockpit";
 
 export const metadata: Metadata = {
   title: "Admin - Vue d'ensemble"
@@ -12,10 +14,20 @@ export default async function AdminOverviewPage() {
   const profile = await getSessionProfile();
   requireAdmin(profile);
   const supabase = createSupabaseServiceClient();
-  const [{ count: tenantCount }, { count: userCount }, { count: accountCount }] = await Promise.all([
+  const [
+    { count: tenantCount },
+    { count: userCount },
+    { count: accountCount },
+    { count: failedSyncCount },
+    { count: disconnectedAccountCount },
+    { count: unreadNotificationCount },
+  ] = await Promise.all([
     supabase.from("tenants").select("id", { count: "exact", head: true }),
     supabase.from("profiles").select("id", { count: "exact", head: true }),
-    supabase.from("social_accounts").select("id", { count: "exact", head: true })
+    supabase.from("social_accounts").select("id", { count: "exact", head: true }),
+    supabase.from("sync_logs").select("id", { count: "exact", head: true }).eq("status", "failed"),
+    supabase.from("social_accounts").select("id", { count: "exact", head: true }).in("auth_status", ["expired", "revoked"]),
+    supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false),
   ]);
 
   const { data: logs } = await supabase
@@ -23,6 +35,16 @@ export default async function AdminOverviewPage() {
     .select("status,started_at")
     .order("started_at", { ascending: false })
     .limit(6);
+  const latestLog = (logs ?? [])[0] ?? null;
+  const opsCockpit = buildAdminOpsCockpit({
+    tenantsCount: tenantCount ?? 0,
+    accountsCount: accountCount ?? 0,
+    failedSyncCount: failedSyncCount ?? 0,
+    disconnectedAccountCount: disconnectedAccountCount ?? 0,
+    unreadNotificationCount: unreadNotificationCount ?? 0,
+    latestSyncStatus: latestLog?.status ?? null,
+    latestSyncAt: latestLog?.started_at ?? null,
+  });
 
   return (
     <div className="space-y-8 fade-in">
@@ -50,6 +72,8 @@ export default async function AdminOverviewPage() {
           </Card>
         </div>
       </section>
+
+      <AdminOpsCockpitCard cockpit={opsCockpit} />
 
       <section>
         <Card className="card-surface p-6 fade-in-up">
