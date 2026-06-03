@@ -37,8 +37,13 @@ function DeltaBadge({ value }: { value: number }) {
   );
 }
 
-function UnavailableMetric() {
-  return <span className="text-muted-foreground/50">N/A</span>;
+function UnavailableMetric({ label }: { label: string }) {
+  return (
+    <span className="text-muted-foreground/50" title={`${label} non disponible pour cette plateforme`}>
+      <span aria-hidden="true">-</span>
+      <span className="sr-only">{label} non disponible pour cette plateforme</span>
+    </span>
+  );
 }
 
 export function PlatformTable({ perPlatform, showViews, showReach, showEngagements }: PlatformTableProps) {
@@ -54,7 +59,7 @@ export function PlatformTable({ perPlatform, showViews, showReach, showEngagemen
           <div className="mt-4 flex items-center justify-center py-8">
             <div className="text-center">
               <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
-                <svg className="h-5 w-5 text-muted-foreground/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="h-5 w-5 text-muted-foreground/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
                 </svg>
               </div>
@@ -80,6 +85,9 @@ export function PlatformTable({ perPlatform, showViews, showReach, showEngagemen
         </div>
         <div className="overflow-x-auto -mx-6 px-6">
           <Table className="table-premium">
+            <caption className="sr-only">
+              Performance par plateforme avec abonnés, publications, engagement, portée et vues disponibles.
+            </caption>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-[11px] uppercase tracking-wider">Plateforme</TableHead>
@@ -125,7 +133,7 @@ export function PlatformTable({ perPlatform, showViews, showReach, showEngagemen
                     <TableCell className={cn("text-right tabular-nums font-medium", isLowEngagement && "text-amber-600")}>
                       {rate !== null
                         ? `${rate.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
-                        : <span className="text-muted-foreground/50">N/A</span>
+                        : <UnavailableMetric label="Taux d'engagement" />
                       }
                     </TableCell>
                     {showReach && (
@@ -136,7 +144,7 @@ export function PlatformTable({ perPlatform, showViews, showReach, showEngagemen
                             <DeltaBadge value={item.delta?.reach ?? 0} />
                           </>
                         ) : (
-                          <UnavailableMetric />
+                          <UnavailableMetric label="Portée" />
                         )}
                       </TableCell>
                     )}
@@ -148,7 +156,7 @@ export function PlatformTable({ perPlatform, showViews, showReach, showEngagemen
                             <DeltaBadge value={item.delta?.views ?? 0} />
                           </>
                         ) : (
-                          <UnavailableMetric />
+                          <UnavailableMetric label="Vues" />
                         )}
                       </TableCell>
                     )}

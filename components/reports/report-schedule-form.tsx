@@ -130,7 +130,7 @@ export function ReportScheduleForm({
 
       onSaved();
     } catch {
-      setError("Erreur reseau.");
+      setError("Erreur réseau.");
     } finally {
       setSaving(false);
     }
@@ -143,41 +143,48 @@ export function ReportScheduleForm({
           <DialogTitle>
             {isEditing ? "Modifier le rapport" : "Nouveau rapport automatique"}
           </DialogTitle>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Les rapports envoyés incluent score, recommandations, qualité des données, contenus phares et PDF prêt à partager.
+          </p>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Frequency */}
           <div>
-            <label className="section-label mb-1.5 block">Frequence</label>
-            <div className="flex gap-2">
+            <label className="section-label mb-1.5 block">Fréquence</label>
+            <div className="flex gap-2" role="radiogroup" aria-label="Fréquence d'envoi">
               <button
                 type="button"
+                role="radio"
+                aria-checked={frequency === "weekly"}
                 onClick={() => setFrequency("weekly")}
                 disabled={!canManage || isDemoTenant}
                 className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
                   frequency === "weekly"
-                    ? "border-purple-500 bg-purple-50 text-purple-700"
+                    ? "border-primary/50 bg-primary/10 text-primary"
                     : "border-border/60 text-muted-foreground hover:bg-muted/30"
                 }`}
               >
                 Hebdomadaire
                 <p className="text-[10px] font-normal mt-0.5">
-                  Chaque lundi a 8h
+                  Chaque lundi à 8h
                 </p>
               </button>
               <button
                 type="button"
+                role="radio"
+                aria-checked={frequency === "monthly"}
                 onClick={() => setFrequency("monthly")}
                 disabled={!canManage || isDemoTenant}
                 className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
                   frequency === "monthly"
-                    ? "border-purple-500 bg-purple-50 text-purple-700"
+                    ? "border-primary/50 bg-primary/10 text-primary"
                     : "border-border/60 text-muted-foreground hover:bg-muted/30"
                 }`}
               >
                 Mensuel
                 <p className="text-[10px] font-normal mt-0.5">
-                  Le 1er du mois a 8h
+                  Le 1er du mois à 8h
                 </p>
               </button>
             </div>
@@ -189,6 +196,7 @@ export function ReportScheduleForm({
             <div className="flex gap-2">
               <Input
                 type="email"
+                aria-label="Adresse email du destinataire"
                 value={emailInput}
                 disabled={!canManage || isDemoTenant}
                 onChange={(e) => {
@@ -205,6 +213,7 @@ export function ReportScheduleForm({
                 size="sm"
                 onClick={addRecipient}
                 disabled={!canManage || isDemoTenant}
+                aria-label="Ajouter le destinataire"
               >
                 <Plus className="h-3.5 w-3.5" />
               </Button>
@@ -224,6 +233,7 @@ export function ReportScheduleForm({
                       onClick={() => removeRecipient(email)}
                       disabled={!canManage || isDemoTenant}
                       className="rounded-full p-0.5 hover:bg-muted"
+                      aria-label={`Retirer ${email}`}
                     >
                       <X className="h-2.5 w-2.5" />
                     </button>
@@ -234,7 +244,7 @@ export function ReportScheduleForm({
           </div>
 
           {/* Error */}
-          {error && <p className="text-sm text-rose-600">{error}</p>}
+          {error && <p className="text-sm text-rose-600" role="alert">{error}</p>}
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 pt-2">
@@ -250,8 +260,8 @@ export function ReportScheduleForm({
               {saving
                 ? "Enregistrement..."
                 : isEditing
-                ? "Mettre a jour"
-                : "Creer le rapport"}
+                ? "Mettre à jour"
+                : "Créer le rapport"}
             </Button>
           </div>
         </form>

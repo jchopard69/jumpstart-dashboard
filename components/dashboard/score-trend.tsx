@@ -67,8 +67,8 @@ export function ScoreTrend({ history }: ScoreTrendProps) {
     return (
       <Card className="card-surface p-6 fade-in-up">
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
-            <svg className="h-4 w-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/15 bg-primary/5">
+            <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
             </svg>
           </div>
@@ -101,8 +101,8 @@ export function ScoreTrend({ history }: ScoreTrendProps) {
     <Card className="card-surface p-6 fade-in-up">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
-            <svg className="h-4 w-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/15 bg-primary/5">
+            <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
             </svg>
           </div>
@@ -127,8 +127,8 @@ export function ScoreTrend({ history }: ScoreTrendProps) {
           <AreaChart data={history} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
             <defs>
               <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                <stop offset="5%" stopColor="#6d4dff" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#6d4dff" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />

@@ -24,9 +24,10 @@ export function NavLink({ href, children, className }: NavLinkProps) {
   return (
     <Link
       href={resolvedHref}
+      aria-current={isActive ? "page" : undefined}
       className={cn(
         "nav-pill transition-colors",
-        isActive && "bg-purple-500/10 text-purple-700 font-medium",
+        isActive && "nav-pill-active font-medium",
         className
       )}
     >

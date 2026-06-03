@@ -17,13 +17,19 @@ import {
   resetLinkedInData,
   addTenantAccess,
   removeTenantAccess,
-  updateTenantGoals
+  updateTenantGoals,
+  updateClientStrategyProfile,
+  upsertMonthlyStrategyBrief,
+  addStrategyActionItem,
+  updateStrategyActionStatus
 } from "@/app/(admin)/admin/actions";
 import { DocumentManager } from "@/components/admin/document-manager";
 import { SocialAccountsSection } from "@/components/admin/social-accounts-section";
 import { MultiTenantAccess } from "@/components/admin/multi-tenant-access";
 import { InviteUserForm } from "@/components/admin/invite-user-form";
 import type { Platform } from "@/lib/types";
+import { fetchClientStrategySnapshot } from "@/lib/client-strategy";
+import { AdminStrategyForms } from "@/components/strategy/admin-strategy-forms";
 
 export async function generateMetadata({ params }: { params: { tenantId: string } }): Promise<Metadata> {
   const supabase = createSupabaseServiceClient();
@@ -85,6 +91,11 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
     .select("followers_target,engagement_rate_target,posts_per_week_target,reach_target,views_target")
     .eq("tenant_id", params.tenantId)
     .maybeSingle();
+  const strategySnapshot = await fetchClientStrategySnapshot({
+    tenantId: params.tenantId,
+    admin: true,
+    includeDraftBriefs: true,
+  });
 
   const { data: allUsers } = await supabase
     .from("profiles")
@@ -130,6 +141,12 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
               href={`/client/collaboration?tenantId=${params.tenantId}`}
             >
               Ma collaboration
+            </a>
+            <a
+              className="text-sm font-medium text-primary underline"
+              href={`/client/strategy?tenantId=${params.tenantId}`}
+            >
+              Stratégie
             </a>
           </div>
         </div>
@@ -225,6 +242,16 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
           <Button type="submit" disabled={isDemoTenant}>Sauvegarder les objectifs</Button>
         </form>
       </Card>
+
+      <AdminStrategyForms
+        tenantId={params.tenantId}
+        snapshot={strategySnapshot}
+        isDemoTenant={isDemoTenant}
+        updateProfileAction={updateClientStrategyProfile}
+        upsertBriefAction={upsertMonthlyStrategyBrief}
+        addActionItemAction={addStrategyActionItem}
+        updateActionStatusAction={updateStrategyActionStatus}
+      />
 
       <Card className="card-surface p-6 fade-in-up">
         <h2 className="section-title">Collaboration</h2>

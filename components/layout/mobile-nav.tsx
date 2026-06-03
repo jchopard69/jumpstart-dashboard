@@ -30,6 +30,15 @@ const navItems: NavItem[] = [
     )
   },
   {
+    href: "/client/strategy",
+    label: "Stratégie JumpStart",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.091-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.091L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.091zM18.25 8.25L18 9.25l-.25-1a2.25 2.25 0 00-1.5-1.5l-1-.25 1-.25a2.25 2.25 0 001.5-1.5l.25-1 .25 1a2.25 2.25 0 001.5 1.5l1 .25-1 .25a2.25 2.25 0 00-1.5 1.5z" />
+      </svg>
+    )
+  },
+  {
     href: "/client/demographics",
     label: "Audience",
     icon: (
@@ -76,8 +85,8 @@ export function MobileNav({ isAdmin, signOutAction }: MobileNavProps) {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="sm" className="xl:hidden">
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <Button variant="ghost" size="sm" className="xl:hidden" aria-label="Ouvrir la navigation">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
           </svg>
           <span className="sr-only">Menu</span>
@@ -87,28 +96,29 @@ export function MobileNav({ isAdmin, signOutAction }: MobileNavProps) {
         <SheetHeader className="text-left">
           <div className="flex items-center gap-3">
             <Image src="/jumpstart-logo.png" alt="JumpStart Studio" width={120} height={28} priority />
-            <span className="rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
+            <span className="rounded-full border border-primary/15 bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
               Client
             </span>
           </div>
           <SheetTitle className="sr-only">Navigation</SheetTitle>
         </SheetHeader>
 
-        <nav className="mt-8 flex flex-col gap-2">
+        <nav className="mt-8 flex flex-col gap-2" aria-label="Navigation client mobile">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
                 key={item.href}
                 href={resolveHref(item.href)}
+                aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-purple-500/10 text-purple-700"
+                    ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <span className={cn(isActive ? "text-purple-600" : "text-muted-foreground")}>
+                <span className={cn(isActive ? "text-primary" : "text-muted-foreground")}>
                   {item.icon}
                 </span>
                 {item.label}
@@ -119,10 +129,11 @@ export function MobileNav({ isAdmin, signOutAction }: MobileNavProps) {
           {isAdmin && (
             <Link
               href="/admin"
+              aria-current={pathname.startsWith("/admin") ? "page" : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors",
                 pathname.startsWith("/admin")
-                  ? "bg-purple-500/10 text-purple-700"
+                  ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >

@@ -7,6 +7,7 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavLink } from "@/components/layout/nav-link";
 import { TenantSwitcher } from "@/components/layout/tenant-switcher";
 import { ClientSwitcher, type ClientInfo } from "@/components/admin/client-switcher";
+import { AdminClientContext } from "@/components/layout/admin-client-context";
 import type { Platform, SyncStatus } from "@/lib/types";
 import { cookies } from "next/headers";
 
@@ -72,21 +73,25 @@ export default async function ClientLayout({ children }: { children: React.React
   return (
     <Toaster>
       <div className="min-h-screen bg-aurora">
+        <a
+          href="#client-main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-foreground focus:shadow-lg"
+        >
+          Aller au contenu principal
+        </a>
         <div className="relative">
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -top-24 left-12 h-72 w-72 rounded-full bg-purple-500/15 blur-3xl" />
-            <div className="absolute right-12 top-16 h-72 w-72 rounded-full bg-violet-500/20 blur-3xl" />
-            <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl" />
-          </div>
-
           <div className="relative flex min-h-screen">
             {/* Desktop Sidebar */}
             <aside className="sticky top-0 hidden h-screen w-72 flex-col gap-6 px-6 py-8 xl:flex">
-              <div className="surface-panel flex h-full flex-col justify-between p-6">
+              <div className="jumpstart-sidebar flex h-full flex-col justify-between p-6">
                 <div>
                   <div className="flex items-center gap-3">
-                    <Image src="/jumpstart-logo.png" alt="JumpStart Studio" width={140} height={32} priority />
-                    <span className="rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
+                    <div className="jumpstart-brand-mark" aria-hidden="true">J</div>
+                    <div>
+                      <p className="jumpstart-brand-text">JumpStart</p>
+                      <p className="jumpstart-brand-subtitle">Studio</p>
+                    </div>
+                    <span className="jumpstart-role-badge rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em]">
                       Client
                     </span>
                     {isDemoTenant && (
@@ -101,8 +106,9 @@ export default async function ClientLayout({ children }: { children: React.React
                       <TenantSwitcher tenants={tenants} currentTenantId={currentTenantId} />
                     </div>
                   )}
-                  <nav className="mt-6 flex flex-col gap-2 text-sm">
+                  <nav className="mt-6 flex flex-col gap-2 text-sm" aria-label="Navigation client">
                     <NavLink href="/client/dashboard">Tableau de bord</NavLink>
+                    <NavLink href="/client/strategy">Stratégie JumpStart</NavLink>
                     <NavLink href="/client/demographics">Audience</NavLink>
                     <NavLink href="/client/collaboration">Ma collaboration</NavLink>
                     <NavLink href="/client/reports">Rapports</NavLink>
@@ -138,7 +144,7 @@ export default async function ClientLayout({ children }: { children: React.React
                     {isAdmin && clientsData.length > 0 && (
                       <ClientSwitcher clients={clientsData} />
                     )}
-                    <span className="rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
+                    <span className="rounded-full border border-primary/15 bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
                       Client
                     </span>
                     {isDemoTenant && (
@@ -150,7 +156,10 @@ export default async function ClientLayout({ children }: { children: React.React
                 </div>
               </header>
 
-              <main className="mx-auto max-w-[1200px] px-6 py-10">{children}</main>
+              <main id="client-main-content" className="mx-auto max-w-[1200px] px-6 py-10" tabIndex={-1}>
+                {isAdmin && clientsData.length > 0 && <AdminClientContext clients={clientsData} />}
+                {children}
+              </main>
             </div>
           </div>
         </div>

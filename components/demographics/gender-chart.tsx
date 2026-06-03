@@ -102,7 +102,7 @@ export function GenderChart({ data }: GenderChartProps) {
           <h3 className="section-title">Genre</h3>
         </div>
         <div className="flex h-48 items-center justify-center">
-          <p className="text-sm text-muted-foreground">Aucune donnee</p>
+          <p className="text-sm text-muted-foreground">Aucune donnée</p>
         </div>
       </Card>
     );
@@ -137,11 +137,14 @@ export function GenderChart({ data }: GenderChartProps) {
         <div>
           <h3 className="section-title">Genre</h3>
           <p className="text-xs text-muted-foreground">
-            Repartition par genre
+            Répartition par genre
           </p>
         </div>
       </div>
-      <div className="relative h-56">
+      <p className="sr-only">
+        Genre principal : {dominant?.name ?? "non disponible"} à {dominant ? `${dominant.value}%` : "0%"}.
+      </p>
+      <div className="relative h-56" role="img" aria-label="Répartition de l'audience par genre">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie

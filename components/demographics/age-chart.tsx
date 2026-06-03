@@ -23,14 +23,15 @@ type AgeChartProps = {
 
 export function AgeChart({ data }: AgeChartProps) {
   const gradientId = useId();
+  const dominant = data[0];
 
   if (data.length === 0) {
     return (
       <Card className="card-surface p-5 fade-in-up">
         <div className="mb-3 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/15 bg-primary/5">
             <svg
-              className="h-4 w-4 text-purple-600"
+              className="h-4 w-4 text-primary"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -43,10 +44,10 @@ export function AgeChart({ data }: AgeChartProps) {
               />
             </svg>
           </div>
-          <h3 className="section-title">Tranches d&apos;age</h3>
+          <h3 className="section-title">Tranches d&apos;âge</h3>
         </div>
         <div className="flex h-48 items-center justify-center">
-          <p className="text-sm text-muted-foreground">Aucune donnee</p>
+          <p className="text-sm text-muted-foreground">Aucune donnée</p>
         </div>
       </Card>
     );
@@ -55,9 +56,9 @@ export function AgeChart({ data }: AgeChartProps) {
   return (
     <Card className="card-surface p-5 fade-in-up">
       <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
-          <svg
-            className="h-4 w-4 text-purple-600"
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/15 bg-primary/5">
+            <svg
+            className="h-4 w-4 text-primary"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -71,13 +72,16 @@ export function AgeChart({ data }: AgeChartProps) {
           </svg>
         </div>
         <div>
-          <h3 className="section-title">Tranches d&apos;age</h3>
+          <h3 className="section-title">Tranches d&apos;âge</h3>
           <p className="text-xs text-muted-foreground">
-            Repartition par groupe d&apos;age
+            Répartition par groupe d&apos;âge
           </p>
         </div>
       </div>
-      <div className="h-56">
+      <p className="sr-only">
+        Segment d'âge principal : {dominant?.value ?? "non disponible"} à {dominant ? `${dominant.percentage}%` : "0%"}.
+      </p>
+      <div className="h-56" role="img" aria-label="Répartition de l'audience par tranche d'âge">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
@@ -86,8 +90,8 @@ export function AgeChart({ data }: AgeChartProps) {
           >
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#7c3aed" stopOpacity={0.85} />
-                <stop offset="100%" stopColor="#a855f7" stopOpacity={0.95} />
+                <stop offset="0%" stopColor="#6d4dff" stopOpacity={0.85} />
+                <stop offset="100%" stopColor="#20d6a2" stopOpacity={0.9} />
               </linearGradient>
             </defs>
             <XAxis

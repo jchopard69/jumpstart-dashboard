@@ -18,10 +18,13 @@ export type DashboardDelta = {
 
 export type DashboardMetric = {
   date: string;
+  platform?: Platform | null;
+  social_account_id?: string | null;
   followers: number | null;
   views: number | null;
   reach: number | null;
   engagements: number | null;
+  posts_count?: number | null;
 };
 
 export type PlatformData = {

@@ -32,10 +32,45 @@ test("PdfDocument renders with demo watermark", async () => {
       shootDays: 4,
       shoots: [{ date: "15/02/2026", location: "Paris Studio" }],
       documents: [{ name: "Brief strategic", tag: "brief" }],
+      actionPlan: [
+        {
+          id: "data-tiktok",
+          priority: "high",
+          horizon: "Aujourd'hui",
+          title: "Réparer les données TikTok",
+          rationale: "La portée absente fragilise le score et les recommandations client.",
+          metric: "0% de couverture",
+        },
+      ],
+      dataQuality: {
+        overallCoverage: 86,
+        expectedDays: 31,
+        staleSync: false,
+        actions: [],
+        platformQuality: [
+          {
+            platform: "instagram",
+            accounts: 1,
+            coveredDays: 30,
+            expectedDays: 31,
+            coverage: 97,
+            status: "good",
+            missingMetrics: [],
+          },
+          {
+            platform: "tiktok",
+            accounts: 1,
+            coveredDays: 18,
+            expectedDays: 31,
+            coverage: 58,
+            status: "partial",
+            missingMetrics: ["reach"],
+          },
+        ],
+      },
       watermark: "DEMO",
     })
   );
 
   assert.ok(buffer.byteLength > 1000);
 });
-

@@ -18,7 +18,7 @@ export type MetricDropDetail = {
 
 const METRIC_ALERT_CONFIG: Record<MetricKey, MetricAlertConfig> = {
   followers: {
-    label: "Abonnes",
+    label: "Abonnés",
     minPreviousValue: 100,
     minDropPercent: 5,
   },
@@ -28,7 +28,7 @@ const METRIC_ALERT_CONFIG: Record<MetricKey, MetricAlertConfig> = {
     minDropPercent: 20,
   },
   reach: {
-    label: "Portee",
+    label: "Portée",
     minPreviousValue: 100,
     minDropPercent: 20,
   },
@@ -94,13 +94,15 @@ export function buildMetricDropAlert(params: {
     .map((detail) => `${detail.label.toLowerCase()} ${Math.round(detail.dropPercent)}%`)
     .join(", ");
 
-  const plural = drops.length > 1 ? "Les metriques suivantes reculent" : "Une baisse notable est detectee";
-  const message = `${plural} par rapport a la periode precedente : ${summary}.`;
+  const severeDrops = drops.filter((detail) => detail.dropPercent <= -35);
+  const plural = drops.length > 1 ? "Les métriques suivantes reculent" : "Une baisse notable est détectée";
+  const message = `${plural} par rapport à la période précédente : ${summary}.`;
 
   return {
-    title: "Baisse de performance detectee",
+    title: severeDrops.length > 0 ? "Baisse de performance prioritaire" : "Baisse de performance détectée",
     message,
     metadata: {
+      severity: severeDrops.length > 0 ? "high" : "medium",
       metrics: drops.map((detail) => ({
         key: detail.key,
         label: detail.label,
@@ -147,8 +149,9 @@ export function buildScoreDropAlert(params: {
 
   return {
     title: "Score JumpStart en baisse",
-    message: `Le score passe de ${previousScore}/100 a ${currentScore}/100 (${dropPoints} points)${gradeSuffix}.`,
+    message: `Le score passe de ${previousScore}/100 à ${currentScore}/100 (${dropPoints} points)${gradeSuffix}.`,
     metadata: {
+      severity: dropPoints <= -15 ? "high" : "medium",
       previous_score: previousScore,
       current_score: currentScore,
       drop_points: dropPoints,

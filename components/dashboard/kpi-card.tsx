@@ -149,7 +149,7 @@ function MiniSparkline({ data, trend }: { data: number[]; trend: "up" | "down" }
   const color = trend === "up" ? "#10b981" : "#f43f5e";
 
   return (
-    <svg width={w} height={h} className="opacity-60 group-hover:opacity-100 transition-opacity">
+    <svg width={w} height={h} className="opacity-65 transition-opacity group-hover:opacity-100" aria-hidden="true">
       <polyline
         points={points.join(" ")}
         fill="none"
@@ -175,15 +175,15 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
       style={{ animationDelay: `${index * 80}ms` }}
     >
       {/* Gradient accent bar */}
-      <div className="absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400 opacity-70 transition-opacity group-hover:opacity-100" />
+      <div className="absolute inset-x-0 top-0 h-[2px] bg-primary/70 opacity-70 transition-opacity group-hover:opacity-100" />
 
-      <div className="flex items-center justify-between gap-2 min-w-0">
+      <div className="flex min-w-0 items-start justify-between gap-2">
         <p className="section-label leading-tight truncate flex items-center gap-1">
           {label}
           {tooltipText && (
             <span
               title={tooltipText}
-              className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-muted/60 text-[8px] font-medium text-muted-foreground cursor-help shrink-0"
+              className="inline-flex h-3.5 w-3.5 shrink-0 cursor-help items-center justify-center rounded-full border border-border/60 bg-white text-[8px] font-medium text-muted-foreground"
             >
               ?
             </span>
@@ -198,7 +198,7 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
                 : "bg-rose-500/10 text-rose-600"
             )}
           >
-            <svg className="h-2.5 w-2.5 shrink-0" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-2.5 w-2.5 shrink-0" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               {trend === "up" ? (
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2 8l4-4 4 4" />
               ) : (
@@ -210,7 +210,7 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
         )}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-5">
         {value === null ? (
           <p className="text-3xl font-semibold font-display text-muted-foreground/50">N/A</p>
         ) : (
@@ -219,7 +219,7 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
       </div>
 
       {sparkline && sparkline.length >= 2 && (
-        <div className="mt-2">
+        <div className="mt-3">
           <MiniSparkline data={sparkline} trend={trend} />
         </div>
       )}

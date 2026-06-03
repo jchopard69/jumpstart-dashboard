@@ -21,6 +21,27 @@ function getTypeLabel(type: NotificationData["type"]) {
   }
 }
 
+function getSeverity(metadata: NotificationData["metadata"]) {
+  const severity = metadata && typeof metadata === "object" ? metadata.severity : null;
+  return severity === "high" ? "high" : severity === "medium" ? "medium" : "normal";
+}
+
+function getMetadataSummary(notification: NotificationData) {
+  const metrics = notification.metadata?.metrics;
+  if (!Array.isArray(metrics)) return null;
+  const labels = metrics
+    .slice(0, 3)
+    .map((metric) => {
+      if (!metric || typeof metric !== "object") return null;
+      const label = "label" in metric ? String(metric.label) : null;
+      const drop = "drop_percent" in metric ? Number(metric.drop_percent) : null;
+      if (!label || !Number.isFinite(drop)) return null;
+      return `${label} ${Math.round(drop as number)}%`;
+    })
+    .filter(Boolean);
+  return labels.length ? labels.join(" · ") : null;
+}
+
 function formatRelative(dateIso: string) {
   const then = new Date(dateIso);
   if (Number.isNaN(then.getTime())) return "";
@@ -98,7 +119,7 @@ export function NotificationsCard({
           </div>
           <div className="flex items-center gap-2">
             {unread > 0 && (
-              <span className="rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
+              <span className="rounded-full border border-primary/15 bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
                 {unread} non lue{unread > 1 ? "s" : ""}
               </span>
             )}
@@ -125,19 +146,32 @@ export function NotificationsCard({
         <div className="mt-4 space-y-3">
           {items.map((n) => {
             const t = getTypeLabel(n.type);
+            const severity = getSeverity(n.metadata);
+            const metadataSummary = getMetadataSummary(n);
             return (
               <button
                 key={n.id}
                 type="button"
                 onClick={() => !n.is_read && markOneRead(n.id)}
-                className="w-full text-left rounded-2xl border border-border/60 bg-white/70 p-4 transition-colors hover:bg-white/85"
+                aria-label={`${n.title}${n.is_read ? "" : ", non lu"}`}
+                className={[
+                  "w-full rounded-2xl border bg-white/70 p-4 text-left transition-colors hover:bg-white/85",
+                  severity === "high"
+                    ? "border-rose-200 bg-rose-50/70"
+                    : severity === "medium"
+                      ? "border-amber-200 bg-amber-50/60"
+                      : "border-border/60",
+                ].join(" ")}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <Badge variant={t.badge}>{t.label}</Badge>
+                      {severity === "high" && (
+                        <Badge variant="danger">Prioritaire</Badge>
+                      )}
                       {!n.is_read && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-purple-500" title="Non lu" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary" title="Non lu" aria-hidden="true" />
                       )}
                       <p className="text-xs text-muted-foreground tabular-nums">
                         {formatRelative(n.created_at)}
@@ -149,6 +183,9 @@ export function NotificationsCard({
                     <p className="mt-2 text-sm font-medium leading-snug truncate">{n.title}</p>
                     {n.message && (
                       <p className="mt-1 text-xs text-muted-foreground leading-relaxed line-clamp-2">{n.message}</p>
+                    )}
+                    {metadataSummary && (
+                      <p className="mt-2 text-xs font-medium text-foreground/75">{metadataSummary}</p>
                     )}
                   </div>
                 </div>

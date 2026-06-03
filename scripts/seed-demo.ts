@@ -72,7 +72,7 @@ async function run() {
       .select("id")
       .single();
     if (tenantInsertError || !insertedTenant?.id) {
-      throw tenantInsertError || new Error("Impossible de creer le tenant demo.");
+      throw tenantInsertError || new Error("Impossible de créer le tenant démo.");
     }
     tenantId = insertedTenant.id;
     console.log(`[seed:demo] Tenant created: ${tenantId}`);
@@ -101,7 +101,7 @@ async function run() {
       user_metadata: { full_name: demoName },
     });
     if (createUserError || !created?.user) {
-      throw createUserError || new Error("Impossible de creer l'utilisateur demo.");
+      throw createUserError || new Error("Impossible de créer l'utilisateur démo.");
     }
     user = created.user;
     console.log(`[seed:demo] Demo user created: ${user.id}`);
@@ -112,7 +112,7 @@ async function run() {
       user_metadata: { full_name: demoName },
     });
     if (updateUserError || !updated?.user) {
-      throw updateUserError || new Error("Impossible de mettre a jour l'utilisateur demo.");
+      throw updateUserError || new Error("Impossible de mettre à jour l'utilisateur démo.");
     }
     user = updated.user;
     console.log(`[seed:demo] Demo user updated: ${user.id}`);
@@ -146,6 +146,10 @@ async function run() {
 
   // 4) Clean existing demo analytics payload (idempotent reset)
   const cleanupTables = [
+    "strategy_action_items",
+    "monthly_strategy_briefs",
+    "client_strategy_profiles",
+    "audience_demographics",
     "tenant_goals",
     "score_snapshots",
     "documents",
@@ -203,7 +207,7 @@ async function run() {
     linkedin: insertedAccounts?.find((item) => item.platform === "linkedin")?.id || "",
   };
   if (!accountMap.instagram || !accountMap.facebook || !accountMap.linkedin) {
-    throw new Error("Impossible de recuperer les comptes sociaux demo.");
+    throw new Error("Impossible de récupérer les comptes sociaux démo.");
   }
 
   // 6) Insert coherent synthetic analytics payload
@@ -240,15 +244,36 @@ async function run() {
     .upsert(payload.goals, { onConflict: "tenant_id" });
   if (goalsError) throw goalsError;
 
+  const { error: demographicsError } = await supabase.from("audience_demographics").upsert(payload.demographics, {
+    onConflict: "tenant_id,social_account_id,platform,dimension,value",
+  });
+  if (demographicsError) throw demographicsError;
+
+  const { error: strategyProfileError } = await supabase
+    .from("client_strategy_profiles")
+    .upsert(payload.strategyProfile, { onConflict: "tenant_id" });
+  if (strategyProfileError) throw strategyProfileError;
+
+  const { error: strategyBriefError } = await supabase
+    .from("monthly_strategy_briefs")
+    .upsert(payload.monthlyStrategyBrief, { onConflict: "tenant_id,period_month" });
+  if (strategyBriefError) throw strategyBriefError;
+
+  const { error: strategyActionsError } = await supabase
+    .from("strategy_action_items")
+    .insert(payload.strategyActionItems);
+  if (strategyActionsError) throw strategyActionsError;
+
   console.log("[seed:demo] Done.");
   console.log(`[seed:demo] Tenant: ${tenantName} (${tenantSlug})`);
   console.log(`[seed:demo] User: ${demoEmail}`);
   console.log(`[seed:demo] Metrics rows: ${payload.metrics.length}`);
   console.log(`[seed:demo] Posts rows: ${payload.posts.length}`);
+  console.log(`[seed:demo] Demographics rows: ${payload.demographics.length}`);
+  console.log(`[seed:demo] Strategy actions: ${payload.strategyActionItems.length}`);
 }
 
 run().catch((error) => {
   console.error("[seed:demo] failed", error);
   process.exit(1);
 });
-

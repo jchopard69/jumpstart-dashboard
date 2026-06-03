@@ -1,9 +1,16 @@
-import { getPostEngagements, getPostVisibility } from "@/lib/metrics";
-import { computeContentScore } from "@/lib/scoring";
+import { getPostEngagements, getPostVisibility } from "./metrics";
+import { computeContentScore } from "./scoring";
 
 export type TopPostsSortMode = "performance" | "visibility" | "engagement";
 
-export function selectDisplayTopPosts<T extends { metrics?: unknown; media_type?: string | null }>(
+function getPostTime(post: { posted_at?: string | null; created_at?: string | null }): number {
+  const timestamp = post.posted_at ?? post.created_at;
+  if (!timestamp) return 0;
+  const time = new Date(timestamp).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+export function selectDisplayTopPosts<T extends { metrics?: unknown; media_type?: string | null; posted_at?: string | null; created_at?: string | null }>(
   posts: T[],
   limit: number,
   sortMode: TopPostsSortMode = "performance"
@@ -14,7 +21,19 @@ export function selectDisplayTopPosts<T extends { metrics?: unknown; media_type?
       getPostEngagements(post.metrics as any) > 0
     );
   });
-  const displayPosts = postsWithMetrics.length > 0 ? postsWithMetrics : posts;
+  const modeEligiblePosts = postsWithMetrics.filter((post) => {
+    const visibility = getPostVisibility(post.metrics as any, post.media_type).value;
+    const engagements = getPostEngagements(post.metrics as any);
+
+    if (sortMode === "visibility") return visibility > 0;
+    if (sortMode === "engagement") return engagements > 0;
+    return visibility > 0 || engagements > 0;
+  });
+  const displayPosts = modeEligiblePosts.length > 0
+    ? modeEligiblePosts
+    : postsWithMetrics.length > 0
+      ? postsWithMetrics
+      : posts;
 
   // Build cohort stats for content scoring
   const cohortImpressions = displayPosts.map((p) => getPostVisibility(p.metrics as any, p.media_type).value);
@@ -40,7 +59,7 @@ export function selectDisplayTopPosts<T extends { metrics?: unknown; media_type?
     if (sortMode === "engagement") {
       const aRate = aVis > 0 ? aEng / aVis : 0;
       const bRate = bVis > 0 ? bEng / bVis : 0;
-      return bRate - aRate;
+      return bRate - aRate || bEng - aEng || bVis - aVis || getPostTime(b) - getPostTime(a);
     }
 
     // "performance" — sort by Content Score (engagement-weighted composite)
@@ -52,7 +71,9 @@ export function selectDisplayTopPosts<T extends { metrics?: unknown; media_type?
       { impressions: bVis, engagements: bEng, views: bVis },
       cohort
     ).score;
-    return bScore - aScore;
+    const aRate = aVis > 0 ? aEng / aVis : 0;
+    const bRate = bVis > 0 ? bEng / bVis : 0;
+    return bScore - aScore || bEng - aEng || bVis - aVis || bRate - aRate || getPostTime(b) - getPostTime(a);
   });
 
   return sorted.slice(0, limit);

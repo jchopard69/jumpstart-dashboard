@@ -51,6 +51,7 @@ export function NotesEditor({ notes, updatedAt, canEdit, updateNotesAction }: No
           name="notes"
           rows={8}
           placeholder="Décisions, retours client, points bloquants..."
+          aria-label="Carnet de bord de la collaboration"
           defaultValue={notes ?? ""}
           className="resize-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-300"
         />

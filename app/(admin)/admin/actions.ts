@@ -6,6 +6,11 @@ import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { encryptToken } from "@/lib/crypto";
 import { assertTenantNotDemoWritable } from "@/lib/demo";
 import type { UserRole } from "@/lib/types";
+import {
+  parseStrategyActionOwner,
+  parseStrategyActionPriority,
+  parseStrategyActionStatus,
+} from "@/lib/strategy-actions";
 
 export async function createTenant(formData: FormData) {
   const profile = await getSessionProfile();
@@ -214,6 +219,104 @@ export async function updateCollaboration(formData: FormData) {
     updated_at: new Date().toISOString()
   });
   revalidatePath(`/admin/clients/${tenantId}`);
+}
+
+export async function updateClientStrategyProfile(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "update_client_strategy_profile", supabase);
+  await supabase.from("client_strategy_profiles").upsert({
+    tenant_id: tenantId,
+    positioning: String(formData.get("positioning") ?? "").trim() || null,
+    target_audience: String(formData.get("target_audience") ?? "").trim() || null,
+    offer_focus: String(formData.get("offer_focus") ?? "").trim() || null,
+    brand_voice: String(formData.get("brand_voice") ?? "").trim() || null,
+    editorial_pillars: String(formData.get("editorial_pillars") ?? "").trim() || null,
+    current_quarter_objectives: String(formData.get("current_quarter_objectives") ?? "").trim() || null,
+    monthly_focus: String(formData.get("monthly_focus") ?? "").trim() || null,
+    jumpstart_note: String(formData.get("jumpstart_note") ?? "").trim() || null,
+    updated_at: new Date().toISOString(),
+  });
+  revalidatePath(`/admin/clients/${tenantId}`);
+  revalidatePath(`/client/strategy`);
+}
+
+export async function upsertMonthlyStrategyBrief(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const month = String(formData.get("period_month") ?? "").trim();
+  const periodMonth = month ? `${month}-01` : new Date().toISOString().slice(0, 10);
+  const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "upsert_monthly_strategy_brief", supabase);
+  await supabase.from("monthly_strategy_briefs").upsert({
+    tenant_id: tenantId,
+    period_month: periodMonth,
+    title: String(formData.get("title") ?? "Brief mensuel JumpStart").trim() || "Brief mensuel JumpStart",
+    executive_summary: String(formData.get("executive_summary") ?? "").trim() || null,
+    wins: String(formData.get("wins") ?? "").trim() || null,
+    learnings: String(formData.get("learnings") ?? "").trim() || null,
+    next_focus: String(formData.get("next_focus") ?? "").trim() || null,
+    client_requests: String(formData.get("client_requests") ?? "").trim() || null,
+    jumpstart_actions: String(formData.get("jumpstart_actions") ?? "").trim() || null,
+    is_published: true,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "tenant_id,period_month" });
+  revalidatePath(`/admin/clients/${tenantId}`);
+  revalidatePath(`/client/strategy`);
+}
+
+export async function addStrategyActionItem(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  if (!title) return;
+  const priority = parseStrategyActionPriority(formData.get("priority") ?? "medium");
+  const owner = parseStrategyActionOwner(formData.get("owner") ?? "jumpstart");
+  const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "add_strategy_action_item", supabase);
+  await supabase.from("strategy_action_items").insert({
+    tenant_id: tenantId,
+    title,
+    rationale: String(formData.get("rationale") ?? "").trim() || null,
+    expected_impact: String(formData.get("expected_impact") ?? "").trim() || null,
+    owner,
+    priority,
+    status: "recommended",
+    due_date: String(formData.get("due_date") ?? "").trim() || null,
+  });
+  revalidatePath(`/admin/clients/${tenantId}`);
+  revalidatePath(`/client/strategy`);
+}
+
+export async function updateStrategyActionStatus(formData: FormData) {
+  const profile = await getSessionProfile();
+  requireAdmin(profile);
+  const tenantId = String(formData.get("tenant_id") ?? "");
+  const actionId = String(formData.get("action_id") ?? "");
+  const status = parseStrategyActionStatus(formData.get("status"));
+
+  if (!tenantId || !actionId) {
+    throw new Error("Action stratégique introuvable.");
+  }
+
+  const supabase = createSupabaseServiceClient();
+  await assertTenantNotDemoWritable(tenantId, "update_strategy_action_status", supabase);
+
+  await supabase
+    .from("strategy_action_items")
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("tenant_id", tenantId)
+    .eq("id", actionId);
+
+  revalidatePath(`/admin/clients/${tenantId}`);
+  revalidatePath(`/client/strategy`);
 }
 
 export async function addUpcomingShoot(formData: FormData) {

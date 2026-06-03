@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Search, ChevronDown, ExternalLink, Settings, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PLATFORM_ICONS } from "@/lib/types";
@@ -27,6 +27,7 @@ export function ClientSwitcher({ clients, compact }: ClientSwitcherProps) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const router = useRouter();
+  const pathname = usePathname();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,7 +67,8 @@ export function ClientSwitcher({ clients, compact }: ClientSwitcherProps) {
   const navigateTo = (clientId: string, target: "dashboard" | "manage") => {
     setOpen(false);
     if (target === "dashboard") {
-      router.push(`/client/dashboard?tenantId=${clientId}`);
+      const clientPath = pathname.startsWith("/client/") ? pathname : "/client/dashboard";
+      router.push(`${clientPath}?tenantId=${encodeURIComponent(clientId)}`);
     } else {
       router.push(`/admin/clients/${clientId}`);
     }
@@ -105,25 +107,29 @@ export function ClientSwitcher({ clients, compact }: ClientSwitcherProps) {
     <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2 rounded-xl border border-border/70 bg-white/80 px-3 py-2 text-sm font-medium text-foreground transition-all hover:border-purple-300 hover:bg-white/95 ${
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Changer de client"
+        className={`flex items-center gap-2 rounded-xl border border-border/70 bg-white/80 px-3 py-2 text-sm font-medium text-foreground transition-all hover:border-primary/30 hover:bg-white/95 ${
           compact ? "w-full" : ""
         }`}
       >
-        <Users className="h-4 w-4 text-muted-foreground" />
+        <Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span className="truncate">{compact ? "Clients" : "Accès rapide client"}</span>
-        <ChevronDown className={`ml-auto h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`ml-auto h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-2 w-[360px] rounded-2xl border border-border/70 bg-white shadow-soft animate-in fade-in-0 zoom-in-95 duration-150">
           {/* Search */}
           <div className="flex items-center gap-2 border-b border-border/50 px-4 py-3">
-            <Search className="h-4 w-4 text-muted-foreground" />
+            <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <input
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
+              aria-label="Rechercher un client"
               placeholder="Rechercher un client..."
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
@@ -133,7 +139,7 @@ export function ClientSwitcher({ clients, compact }: ClientSwitcherProps) {
           </div>
 
           {/* Client list */}
-          <div ref={listRef} className="max-h-[320px] overflow-y-auto py-1">
+          <div ref={listRef} className="max-h-[320px] overflow-y-auto py-1" role="listbox" aria-label="Clients">
             {filtered.length === 0 ? (
               <p className="px-4 py-6 text-center text-sm text-muted-foreground">
                 Aucun client trouvé
@@ -144,12 +150,13 @@ export function ClientSwitcher({ clients, compact }: ClientSwitcherProps) {
                   key={client.id}
                   data-index={index}
                   className={`group flex items-center justify-between px-4 py-2.5 transition-colors ${
-                    index === activeIndex ? "bg-purple-50" : "hover:bg-muted/40"
+                    index === activeIndex ? "bg-primary/5" : "hover:bg-muted/40"
                   } ${!client.is_active ? "opacity-50" : ""}`}
                 >
                   <button
                     className="flex flex-1 items-start gap-3 text-left"
                     onClick={() => navigateTo(client.id, "dashboard")}
+                    aria-label={`Ouvrir ${client.name}`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -178,17 +185,19 @@ export function ClientSwitcher({ clients, compact }: ClientSwitcherProps) {
                   <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
                       onClick={() => navigateTo(client.id, "dashboard")}
-                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-purple-100 hover:text-purple-700"
+                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-primary/5 hover:text-primary"
                       title="Dashboard"
+                      aria-label={`Ouvrir le dashboard de ${client.name}`}
                     >
-                      <ExternalLink className="h-3.5 w-3.5" />
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                     <button
                       onClick={() => navigateTo(client.id, "manage")}
-                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-purple-100 hover:text-purple-700"
+                      className="rounded-lg p-1.5 text-muted-foreground hover:bg-primary/5 hover:text-primary"
                       title="Gérer"
+                      aria-label={`Gérer ${client.name}`}
                     >
-                      <Settings className="h-3.5 w-3.5" />
+                      <Settings className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   </div>
                 </div>

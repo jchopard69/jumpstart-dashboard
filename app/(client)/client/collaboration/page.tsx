@@ -75,6 +75,29 @@ export default async function CollaborationPage({
   );
 
   const shootDays = collaboration?.shoot_days_remaining ?? 0;
+  const upcomingShoots = (shoots ?? []).filter((shoot) => {
+    const shootDate = new Date(shoot.shoot_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return shootDate >= today;
+  });
+  const nextShoot = upcomingShoots[0] ?? null;
+  const pinnedDocuments = (documents ?? []).filter((doc) => doc.pinned);
+  const lastDocument = (documents ?? [])[0] ?? null;
+  const notesUpdatedLabel = collaboration?.updated_at
+    ? new Date(collaboration.updated_at).toLocaleDateString("fr-FR", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "Jamais";
+  const nextShootLabel = nextShoot
+    ? new Date(nextShoot.shoot_date).toLocaleDateString("fr-FR", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      })
+    : "À planifier";
 
   async function updateNotes(formData: FormData) {
     "use server";
@@ -117,7 +140,7 @@ export default async function CollaborationPage({
             <p className="section-label">JumpStart Studio</p>
             <h1 className="page-heading">Ma collaboration</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Tournages, documents et suivi de votre collaboration.
+              Tournages, documents, décisions et suivi opérationnel de votre collaboration.
             </p>
           </div>
           {isDemoTenant && (
@@ -132,6 +155,40 @@ export default async function CollaborationPage({
               <span className="text-sm text-muted-foreground">restants</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="surface-panel p-5">
+          <p className="section-label">Prochaine échéance</p>
+          <h2 className="mt-2 text-lg font-semibold">{nextShootLabel}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {nextShoot
+              ? `${nextShoot.location ?? "Lieu à définir"}${nextShoot.notes ? ` · ${nextShoot.notes}` : ""}`
+              : "Aucun tournage futur n'est encore planifié dans le workspace."}
+          </p>
+        </div>
+        <div className="surface-panel p-5">
+          <p className="section-label">Livrables</p>
+          <h2 className="mt-2 text-lg font-semibold">
+            {(documents ?? []).length} document{(documents ?? []).length > 1 ? "s" : ""}
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {pinnedDocuments.length > 0
+              ? `${pinnedDocuments.length} document${pinnedDocuments.length > 1 ? "s" : ""} épinglé${pinnedDocuments.length > 1 ? "s" : ""} à consulter en priorité.`
+              : lastDocument
+                ? `Dernier ajout : ${lastDocument.file_name}.`
+                : "Aucun livrable partagé pour le moment."}
+          </p>
+        </div>
+        <div className="surface-panel p-5">
+          <p className="section-label">Pilotage</p>
+          <h2 className="mt-2 text-lg font-semibold">
+            Notes mises à jour
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Dernière mise à jour : {notesUpdatedLabel}. Les décisions et points bloquants restent centralisés ici.
+          </p>
         </div>
       </section>
 
@@ -151,14 +208,14 @@ export default async function CollaborationPage({
         <Card className="card-surface p-6 fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
-                <svg className="h-4 w-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/15 bg-primary/5">
+                <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
               </div>
               <div>
                 <h2 className="section-title">Documents & livrables</h2>
-                <p className="text-xs text-muted-foreground">Ressources partagees par votre equipe.</p>
+                <p className="text-xs text-muted-foreground">Ressources partagées par votre équipe.</p>
               </div>
             </div>
             {(documents ?? []).length > 0 && (
@@ -195,17 +252,18 @@ export default async function CollaborationPage({
                     <div className="flex items-center gap-2 shrink-0">
                       {doc.pinned && (
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                          Epingle
+                          Épinglé
                         </Badge>
                       )}
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0">{doc.tag}</Badge>
                       {url && (
                         <a
                           href={url}
-                          className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:text-purple-600 hover:bg-purple-50"
+                          className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-primary/5 hover:text-primary"
                           download
+                          aria-label={`Télécharger ${doc.file_name}`}
                         >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                           </svg>
                         </a>

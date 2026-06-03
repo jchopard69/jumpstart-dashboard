@@ -9,6 +9,7 @@ import type { DailyMetric, PostMetric } from '../core/types';
 
 const API_URL = TIKTOK_CONFIG.apiUrl;
 const MAX_PAGES = 10; // Limit pagination to avoid timeouts (10 pages * 20 videos = 200 videos max)
+const TIKTOK_REACH_SOURCE = "estimated_from_views";
 
 interface TikTokVideo {
   id: string;
@@ -172,7 +173,11 @@ export const tiktokConnector: Connector = {
       metricsByDate.set(dateKey, existing);
 
       const metrics: Record<string, number> = { likes, comments, shares };
-      if (views !== null) metrics.views = views;
+      if (views !== null) {
+        metrics.views = views;
+        metrics.reach = views;
+        metrics.impressions = views;
+      }
 
       posts.push({
         external_post_id: video.id,
@@ -200,11 +205,14 @@ export const tiktokConnector: Connector = {
       views: todayStats?.views ?? 0,
       posts_count: todayStats?.posts_count ?? 0,
       impressions: todayStats?.views ?? 0,
-      // TikTok does not provide reach — do not copy views into reach
+      reach: todayStats?.views ?? 0,
       engagements: todayStats?.engagements ?? 0,
       comments: todayStats?.comments ?? 0,
       shares: todayStats?.shares ?? 0,
-      raw_json: user as unknown as Record<string, unknown>,
+      raw_json: {
+        ...(user as unknown as Record<string, unknown>),
+        reach_source: TIKTOK_REACH_SOURCE,
+      },
     });
 
     // Add historical entries for dates with video posts
@@ -218,11 +226,11 @@ export const tiktokConnector: Connector = {
         views: stats.views,
         posts_count: stats.posts_count,
         impressions: stats.views,
-        // TikTok does not provide reach — do not copy views into reach
+        reach: stats.views,
         engagements: stats.engagements,
         comments: stats.comments,
         shares: stats.shares,
-        raw_json: undefined,
+        raw_json: { reach_source: TIKTOK_REACH_SOURCE },
       });
     }
 

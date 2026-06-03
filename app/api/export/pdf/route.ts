@@ -13,6 +13,9 @@ import {
 import { analyzeContentDna } from "@/lib/content-dna";
 import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
 import { buildPdfPostSummaries } from "@/lib/pdf-posts";
+import { buildDashboardActionPlan } from "@/lib/dashboard-action-plan";
+import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
+import { fetchTenantGoals } from "@/lib/goals";
 import {
   getDemoPdfWatermarkText,
   shouldUseDemoPdfWatermark,
@@ -194,6 +197,28 @@ export async function GET(request: Request) {
   const pdfInsights = generateStrategicInsights(insightsInput);
   const pdfTakeaways = generateKeyTakeaways(insightsInput);
   const pdfSummary = generateExecutiveSummary(insightsInput);
+  const tenantGoals = await fetchTenantGoals(tenantId);
+  const dataQuality = computeDashboardDataQuality({
+    range: data.range,
+    accounts,
+    metrics: data.metrics,
+    perPlatform: data.perPlatform,
+    lastSync: data.lastSync,
+  });
+  const actionPlan = buildDashboardActionPlan({
+    totals,
+    prevTotals: {
+      followers: prevTotals.followers,
+      views: prevTotals.views,
+      reach: prevTotals.reach,
+      engagements: prevTotals.engagements,
+      posts_count: prevTotals.postsCount,
+    },
+    platforms: data.perPlatform,
+    periodDays,
+    goals: tenantGoals,
+    dataQuality,
+  });
 
   const contentDna = analyzeContentDna({
     posts: data.posts.map((post) => ({
@@ -238,6 +263,8 @@ export async function GET(request: Request) {
       title: insight.title,
       description: insight.description,
     })),
+    actionPlan,
+    dataQuality,
     contentDna:
       contentDna.patterns.length > 0
         ? contentDna.patterns.map((pattern) => ({

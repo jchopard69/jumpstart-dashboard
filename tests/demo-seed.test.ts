@@ -24,6 +24,13 @@ test("demo seed payload is deterministic and key-unique", () => {
 
   assert.equal(first.metrics.length, 90 * 3);
   assert.equal(first.posts.length, 16 + 12 + 10);
+  assert.ok(first.demographics.length >= 20);
+  assert.ok(first.demographics.some((row) => row.dimension === "age"));
+  assert.ok(first.demographics.some((row) => row.dimension === "function"));
+  assert.equal(first.strategyProfile.tenant_id, tenantId);
+  assert.equal(first.monthlyStrategyBrief.is_published, true);
+  assert.equal(first.strategyActionItems.length, 4);
+  assert.ok(first.strategyActionItems.some((item) => item.priority === "high"));
 
   const firstMetricKeys = first.metrics.map(metricKey);
   const secondMetricKeys = second.metrics.map(metricKey);
@@ -34,5 +41,8 @@ test("demo seed payload is deterministic and key-unique", () => {
   const secondPostKeys = second.posts.map(postKey);
   assert.equal(new Set(firstPostKeys).size, first.posts.length);
   assert.deepEqual(firstPostKeys, secondPostKeys);
+  assert.deepEqual(first.demographics, second.demographics);
+  assert.deepEqual(first.strategyProfile, second.strategyProfile);
+  assert.deepEqual(first.monthlyStrategyBrief, second.monthlyStrategyBrief);
+  assert.deepEqual(first.strategyActionItems, second.strategyActionItems);
 });
-

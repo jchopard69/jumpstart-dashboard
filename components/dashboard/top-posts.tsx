@@ -31,7 +31,7 @@ function PostThumbnail({ url, platform }: { url?: string; platform?: string }) {
     <div className="relative h-20 w-20 overflow-hidden rounded-xl ring-1 ring-border/40">
       <Image
         src={url}
-        alt="thumbnail"
+        alt=""
         fill
         sizes="80px"
         className="object-cover"
@@ -58,7 +58,7 @@ function ScoreRing({ score, tier }: { score: number; tier: string }) {
 
   return (
     <div className="relative flex items-center justify-center" style={{ width: 30, height: 30 }}>
-      <svg width={30} height={30} className="absolute inset-0 -rotate-90">
+      <svg width={30} height={30} className="absolute inset-0 -rotate-90" aria-hidden="true">
         <circle cx={15} cy={15} r={radius} fill="white" stroke="#e2e8f0" strokeWidth={2.5} />
         <circle
           cx={15}
@@ -101,6 +101,15 @@ const SORT_MODE_LABELS: Record<TopPostsSortMode, { title: string; subtitle: stri
 
 const INITIAL_COUNT = 5;
 
+function hasModeSignal(post: PostData, mode: TopPostsSortMode): boolean {
+  const visibility = getPostVisibility(post.metrics, post.media_type).value;
+  const engagements = getPostEngagements(post.metrics);
+
+  if (mode === "visibility") return visibility > 0;
+  if (mode === "engagement") return engagements > 0;
+  return visibility > 0 || engagements > 0;
+}
+
 export function TopPosts({ posts }: TopPostsProps) {
   const [expanded, setExpanded] = useState(false);
   const [sortMode, setSortMode] = useState<TopPostsSortMode>("performance");
@@ -108,6 +117,7 @@ export function TopPosts({ posts }: TopPostsProps) {
   const displayPosts = selectDisplayTopPosts(posts, posts.length, sortMode);
   const visiblePosts = expanded ? displayPosts : displayPosts.slice(0, INITIAL_COUNT);
   const hasMore = displayPosts.length > INITIAL_COUNT;
+  const hasSignalForMode = posts.some((post) => hasModeSignal(post, sortMode));
 
   // Compute cohort stats for Content Impact Score
   const cohortImpressions = displayPosts.map((p) => getPostVisibility(p.metrics, p.media_type).value);
@@ -137,15 +147,18 @@ export function TopPosts({ posts }: TopPostsProps) {
       </div>
 
       {/* Sort mode tabs */}
-      <div className="flex gap-1 mb-4">
+      <div className="flex gap-1 mb-4" role="tablist" aria-label="Classement des contenus phares">
         {(["performance", "visibility", "engagement"] as const).map((mode) => (
           <button
             key={mode}
+            type="button"
+            role="tab"
+            aria-selected={sortMode === mode}
             onClick={() => { setSortMode(mode); setExpanded(false); }}
             className={cn(
               "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
               sortMode === mode
-                ? "bg-purple-100 text-purple-700"
+                ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
             )}
           >
@@ -156,6 +169,17 @@ export function TopPosts({ posts }: TopPostsProps) {
 
       {posts.length === 0 ? (
         <EmptyPosts />
+      ) : !hasSignalForMode ? (
+        <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-center">
+          <p className="text-sm font-medium text-foreground">Données insuffisantes pour ce classement</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {sortMode === "visibility"
+              ? "Aucune donnée de visibilité exploitable n'est disponible sur les publications de cette période."
+              : sortMode === "engagement"
+                ? "Aucune donnée d'engagement exploitable n'est disponible sur les publications de cette période."
+                : "Les publications de cette période n'ont pas encore de métriques exploitables."}
+          </p>
+        </div>
       ) : (
         <div className="space-y-1">
           {visiblePosts.map((post, idx) => {
@@ -185,6 +209,7 @@ export function TopPosts({ posts }: TopPostsProps) {
                 href={post.url ?? undefined}
                 target={post.url ? "_blank" : undefined}
                 rel={post.url ? "noreferrer" : undefined}
+                aria-label={`${post.caption ?? "Publication sans titre"} - ${PLATFORM_LABELS[post.platform as Platform] ?? post.platform ?? "plateforme inconnue"}`}
                 className={cn(
                   "group relative flex items-center gap-4 rounded-xl px-3 py-3 transition-colors hover:bg-muted/30",
                   post.url && "cursor-pointer"
@@ -264,7 +289,7 @@ export function TopPosts({ posts }: TopPostsProps) {
                 {/* External link indicator */}
                 {post.url && (
                   <span className="shrink-0 rounded-lg p-1.5 text-muted-foreground/40 opacity-0 transition-all group-hover:opacity-100">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                     </svg>
                   </span>
@@ -277,7 +302,9 @@ export function TopPosts({ posts }: TopPostsProps) {
 
       {hasMore && (
         <button
+          type="button"
           onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
           className="mt-3 w-full rounded-xl border border-border/60 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
         >
           {expanded ? "Voir moins" : `Voir les ${displayPosts.length - INITIAL_COUNT} autres publications`}

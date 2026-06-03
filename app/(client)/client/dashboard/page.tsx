@@ -25,11 +25,17 @@ import { analyzeBestTime } from "@/lib/best-time";
 import { fetchTenantGoals } from "@/lib/goals";
 import { ScoreTrend } from "@/components/dashboard/score-trend";
 import { BestTimeHeatmap } from "@/components/dashboard/best-time-heatmap";
+import { StrategyDashboardCard } from "@/components/strategy/strategy-dashboard-card";
+import { DataQualityCard } from "@/components/dashboard/data-quality-card";
+import { ActionPlanCard } from "@/components/dashboard/action-plan-card";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
 import { getSupportContactHref } from "@/lib/support";
 import { toIsoDate } from "@/lib/date";
 import { cookies } from "next/headers";
+import { fetchClientStrategySnapshot } from "@/lib/client-strategy";
+import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
+import { buildDashboardActionPlan } from "@/lib/dashboard-action-plan";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -352,12 +358,40 @@ export default async function ClientDashboardPage({
   const resolvedTenantId = effectiveTenantId || profile.tenant_id || "";
 
   // Fetch score history, best time analysis, and goals in parallel
-  const [scoreHistory, goals] = await Promise.all([
+  const [scoreHistory, goals, strategySnapshot] = await Promise.all([
     resolvedTenantId ? fetchScoreHistory(resolvedTenantId) : Promise.resolve([]),
     resolvedTenantId ? fetchTenantGoals(resolvedTenantId) : Promise.resolve(null),
+    resolvedTenantId
+      ? fetchClientStrategySnapshot({
+          tenantId: resolvedTenantId,
+          admin: profile.role === "agency_admin",
+          includeDraftBriefs: profile.role === "agency_admin",
+        })
+      : Promise.resolve({ profile: null, latestBrief: null, actionItems: [] }),
   ]);
 
   const bestTimeData = analyzeBestTime(data.posts, searchParams.platform);
+  const dataQuality = computeDashboardDataQuality({
+    range: data.range,
+    accounts,
+    metrics: data.metrics,
+    perPlatform: data.perPlatform,
+    lastSync: data.lastSync,
+  });
+  const actionPlan = buildDashboardActionPlan({
+    totals: data.totals ?? { followers: 0, views: 0, reach: 0, engagements: 0, posts_count: 0 },
+    prevTotals: {
+      followers: prevTotals.followers,
+      views: prevTotals.views,
+      reach: prevTotals.reach,
+      engagements: prevTotals.engagements,
+      posts_count: prevTotals.postsCount,
+    },
+    platforms: data.perPlatform,
+    periodDays,
+    goals,
+    dataQuality,
+  });
 
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
@@ -367,10 +401,9 @@ export default async function ClientDashboardPage({
   if (showEmptyState) {
     return (
       <div className="space-y-8 fade-in">
-        <section className="surface-panel p-8">
+        <section className="surface-panel jumpstart-header p-8">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
-              <p className="section-label">Social Intelligence</p>
               <h1 className="page-heading mt-1">Vue d&apos;ensemble</h1>
               <p className="mt-2 text-sm text-muted-foreground">Analyse consolidée de votre présence digitale.</p>
             </div>
@@ -394,8 +427,8 @@ export default async function ClientDashboardPage({
         <section className="surface-panel p-12">
           {!hasAccounts ? (
             <div className="max-w-lg mx-auto text-center space-y-6">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-purple-500/10">
-                <svg className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10">
+                <svg className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
                 </svg>
               </div>
@@ -407,17 +440,17 @@ export default async function ClientDashboardPage({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
                 <div className="rounded-xl border border-border/60 p-4">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-xs font-bold text-purple-700">1</div>
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">1</div>
                   <p className="mt-2 text-sm font-medium">Connecter</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">Liez vos comptes Instagram, LinkedIn, TikTok...</p>
                 </div>
                 <div className="rounded-xl border border-border/60 p-4">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-xs font-bold text-purple-700">2</div>
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">2</div>
                   <p className="mt-2 text-sm font-medium">Synchroniser</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">Vos données sont récupérées automatiquement.</p>
                 </div>
                 <div className="rounded-xl border border-border/60 p-4">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-xs font-bold text-purple-700">3</div>
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">3</div>
                   <p className="mt-2 text-sm font-medium">Analyser</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">Score, insights et recommandations personnalisées.</p>
                 </div>
@@ -425,7 +458,7 @@ export default async function ClientDashboardPage({
               {emptyStateAction.href && (
                 <a
                   href={emptyStateAction.href}
-                  className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-purple-700 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                 >
                   {emptyStateAction.label}
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -481,24 +514,27 @@ export default async function ClientDashboardPage({
   return (
     <div className="space-y-10 fade-in">
       {/* ─── Header + Filters ─── */}
-      <section className="surface-panel p-6 sm:p-8">
-        <div className="flex flex-wrap items-center justify-between gap-4 sm:gap-6">
+      <section className="surface-panel jumpstart-header p-6 sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4 sm:gap-6">
           <div>
-            <p className="section-label">Social Intelligence</p>
-            <h1 className="page-heading mt-1">Vue d&apos;ensemble</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Analyse consolidée — <span className="font-medium text-foreground/70">{periodLabel}</span>
+            <h1 className="page-heading">Vue d&apos;ensemble</h1>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="rounded-lg border border-primary/15 bg-primary/5 px-2.5 py-1">
+                Période : <span className="font-medium text-foreground/75">{periodLabel}</span>
+              </span>
               {platformList.length > 0 && (
-                <span> · {platformList.length} plateforme{platformList.length > 1 ? "s" : ""}</span>
+                <span className="rounded-lg border border-primary/15 bg-primary/5 px-2.5 py-1">
+                  {platformList.length} plateforme{platformList.length > 1 ? "s" : ""}
+                </span>
               )}
-            </p>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <RefreshButton tenantId={effectiveTenantId} />
             <ExportButtons query={queryString} />
           </div>
         </div>
-        <div className="mt-6" id="dashboard-filters">
+        <div className="mt-6 rounded-xl border border-border/60 bg-muted/25 p-3" id="dashboard-filters">
           <DashboardFilters
             preset={preset}
             from={searchParams.from}
@@ -554,12 +590,16 @@ export default async function ClientDashboardPage({
         takeaways={keyTakeaways}
         executiveSummary={executiveSummary}
         dataCoverage={(() => {
-          if (!data.range) return null;
-          const totalDays = Math.max(1, Math.ceil((data.range.end.getTime() - data.range.start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-          const uniqueDays = new Set(data.metrics.map(r => r.date)).size;
-          return Math.round((uniqueDays / totalDays) * 100);
+          return dataQuality.platformQuality.length > 0 ? dataQuality.overallCoverage : null;
         })()}
         postsAnalyzed={data.posts.length}
+      />
+
+      <ActionPlanCard actions={actionPlan} />
+
+      <StrategyDashboardCard
+        snapshot={strategySnapshot}
+        tenantId={profile.role === "agency_admin" ? effectiveTenantId : undefined}
       />
 
       <KpiSection
@@ -606,7 +646,7 @@ export default async function ClientDashboardPage({
       <div className="section-divider" />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <TopPosts posts={data.posts.slice(0, 10)} />
+        <TopPosts posts={data.posts} />
         {bestTimeData && <BestTimeHeatmap data={bestTimeData} />}
       </div>
 
@@ -622,6 +662,7 @@ export default async function ClientDashboardPage({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-6">
+          <DataQualityCard quality={dataQuality} />
           <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
           {data.notifications && data.notifications.length > 0 && (
             <NotificationsCard
@@ -635,6 +676,7 @@ export default async function ClientDashboardPage({
           collaboration={data.collaboration}
           shoots={data.shoots}
           documents={data.documents}
+          tenantId={profile.role === "agency_admin" ? effectiveTenantId : undefined}
         />
       </div>
 

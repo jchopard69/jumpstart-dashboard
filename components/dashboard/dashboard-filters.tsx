@@ -83,12 +83,13 @@ export function DashboardFilters({
     >
       <div className="flex flex-wrap items-center gap-3 overflow-x-auto">
         {/* Period segmented control */}
-        <div className="segmented-control overflow-x-auto shrink-0">
+        <div className="segmented-control overflow-x-auto shrink-0" role="group" aria-label="Période d'analyse">
           {presets.map((item) => (
             <button
               key={item.value}
               type="button"
               data-active={preset === item.value}
+              aria-pressed={preset === item.value}
               onClick={() => updateParams({ preset: item.value, from: undefined, to: undefined })}
             >
               {item.label}
@@ -100,6 +101,7 @@ export function DashboardFilters({
         <div className="flex items-center gap-1.5">
           <Input
             type="date"
+            aria-label="Date de début"
             className="h-8 w-[130px] text-xs"
             value={from ?? ""}
             onChange={(event) => updateParams({ preset: "custom", from: event.target.value })}
@@ -107,6 +109,7 @@ export function DashboardFilters({
           <span className="text-xs text-muted-foreground">-</span>
           <Input
             type="date"
+            aria-label="Date de fin"
             className="h-8 w-[130px] text-xs"
             value={to ?? ""}
             onChange={(event) => updateParams({ preset: "custom", to: event.target.value })}
@@ -120,7 +123,7 @@ export function DashboardFilters({
           value={platform ?? "all"}
           onValueChange={(value) => updateParams({ platform: value === "all" ? undefined : value })}
         >
-          <SelectTrigger className="h-8 w-[160px] text-xs">
+          <SelectTrigger className="h-8 w-[160px] text-xs" aria-label="Filtrer par plateforme">
             <SelectValue placeholder="Toutes les plateformes" />
           </SelectTrigger>
           <SelectContent>
@@ -145,7 +148,7 @@ export function DashboardFilters({
             value={accountId ?? "all"}
             onValueChange={(value) => updateParams({ accountId: value === "all" ? undefined : value })}
           >
-            <SelectTrigger className="h-8 w-[200px] text-xs">
+            <SelectTrigger className="h-8 w-[200px] text-xs" aria-label="Filtrer par compte">
               <SelectValue placeholder="Tous les comptes" />
             </SelectTrigger>
             <SelectContent>
@@ -169,8 +172,9 @@ export function DashboardFilters({
             size="sm"
             className="h-8 text-xs text-muted-foreground hover:text-foreground gap-1"
             onClick={resetFilters}
+            aria-label="Réinitialiser les filtres du dashboard"
           >
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
             Réinitialiser

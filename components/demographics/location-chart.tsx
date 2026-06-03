@@ -104,10 +104,8 @@ export function LocationChart({
   const gradientId = useId();
   const items = data.slice(0, maxItems);
 
-  const iconBg =
-    variant === "country" ? "bg-purple-500/10" : "bg-violet-500/10";
-  const iconColor =
-    variant === "country" ? "text-purple-600" : "text-violet-600";
+  const iconBg = "border border-primary/15 bg-primary/5";
+  const iconColor = variant === "country" ? "text-primary" : "text-emerald-600";
 
   if (items.length === 0) {
     return (
@@ -138,7 +136,7 @@ export function LocationChart({
           <h3 className="section-title">{title}</h3>
         </div>
         <div className="flex h-48 items-center justify-center">
-          <p className="text-sm text-muted-foreground">Aucune donnee</p>
+          <p className="text-sm text-muted-foreground">Aucune donnée</p>
         </div>
       </Card>
     );
@@ -153,6 +151,7 @@ export function LocationChart({
   }));
 
   const chartHeight = Math.max(200, items.length * 32 + 40);
+  const dominant = chartData[0];
 
   return (
     <Card className="card-surface p-5 fade-in-up">
@@ -184,7 +183,10 @@ export function LocationChart({
           <p className="text-xs text-muted-foreground">{subtitle}</p>
         </div>
       </div>
-      <div style={{ height: chartHeight }}>
+      <p className="sr-only">
+        Segment principal pour {title.toLowerCase()} : {dominant?.label ?? "non disponible"} à {dominant ? `${dominant.percentage}%` : "0%"}.
+      </p>
+      <div style={{ height: chartHeight }} role="img" aria-label={`${title} de l'audience`}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}
@@ -193,8 +195,8 @@ export function LocationChart({
           >
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#7c3aed" stopOpacity={0.75} />
-                <stop offset="100%" stopColor="#a855f7" stopOpacity={0.9} />
+                <stop offset="0%" stopColor="#6d4dff" stopOpacity={0.75} />
+                <stop offset="100%" stopColor="#20d6a2" stopOpacity={0.85} />
               </linearGradient>
             </defs>
             <XAxis

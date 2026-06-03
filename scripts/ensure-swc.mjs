@@ -13,8 +13,17 @@ if (platform !== "darwin" || arch !== "arm64") {
 const projectRoot = process.cwd();
 const swcDir = path.join(projectRoot, "node_modules", "@next", "swc-darwin-arm64");
 const swcBinary = path.join(swcDir, "next-swc.darwin-arm64.node");
+const nestedSwcBinary = path.join(
+  projectRoot,
+  "node_modules",
+  "next",
+  "node_modules",
+  "@next",
+  "swc-darwin-arm64",
+  "next-swc.darwin-arm64.node"
+);
 
-if (fs.existsSync(swcBinary)) {
+if (fs.existsSync(swcBinary) || fs.existsSync(nestedSwcBinary)) {
   process.exit(0);
 }
 
@@ -32,6 +41,7 @@ function findCachedIntegrity() {
     const files = fs.readdirSync(bucketPath);
     for (const file of files) {
       const filePath = path.join(bucketPath, file);
+      if (!fs.statSync(filePath).isFile()) continue;
       const content = fs.readFileSync(filePath, "utf8");
       if (!content.includes(targetKey)) continue;
       const lines = content.split("\n");

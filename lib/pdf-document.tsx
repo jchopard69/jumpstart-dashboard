@@ -1,5 +1,7 @@
 import React from "react";
 import { Document, Image, Link, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import type { DashboardActionItem } from "./dashboard-action-plan";
+import type { DashboardDataQuality } from "./dashboard-data-quality";
 
 const PAGE_PADDING_X = 34;
 const PAGE_PADDING_TOP = 76;
@@ -262,6 +264,102 @@ const styles = StyleSheet.create({
     fontSize: 8,
     lineHeight: 1.35,
     color: palette.ink,
+  },
+  operationalGrid: {
+    flexDirection: "row",
+    marginLeft: -5,
+    marginRight: -5,
+    marginTop: 10,
+  },
+  operationalCell: {
+    width: "50%",
+    paddingLeft: 5,
+    paddingRight: 5,
+  },
+  actionPanel: {
+    borderWidth: 1,
+    borderColor: palette.line,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#ffffff",
+    minHeight: 132,
+  },
+  qualityPanel: {
+    borderWidth: 1,
+    borderColor: "#bfdbff",
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: palette.surfaceStrong,
+    minHeight: 132,
+  },
+  actionItem: {
+    borderTopWidth: 1,
+    borderTopColor: palette.lineSoft,
+    paddingTop: 7,
+    marginTop: 7,
+  },
+  actionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 3,
+  },
+  actionTitle: {
+    fontSize: 8.7,
+    fontFamily: "Helvetica-Bold",
+    color: palette.ink,
+    width: "68%",
+  },
+  actionMeta: {
+    fontSize: 6.8,
+    color: palette.blue,
+    backgroundColor: palette.blueSoft,
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  actionRationale: {
+    fontSize: 7.4,
+    lineHeight: 1.3,
+    color: palette.muted,
+  },
+  actionMetric: {
+    marginTop: 3,
+    fontSize: 7.2,
+    color: palette.teal,
+    fontFamily: "Helvetica-Bold",
+  },
+  qualityScore: {
+    fontSize: 22,
+    color: palette.blue,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 2,
+  },
+  qualitySummary: {
+    fontSize: 7.5,
+    lineHeight: 1.3,
+    color: palette.ink,
+    marginBottom: 7,
+  },
+  qualityRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "#d6e4ff",
+    paddingTop: 5,
+    marginTop: 5,
+  },
+  qualityPlatform: {
+    fontSize: 7.6,
+    color: palette.ink,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "capitalize",
+  },
+  qualityStatus: {
+    fontSize: 7.2,
+    color: palette.muted,
   },
   section: {
     marginTop: 10,
@@ -775,6 +873,8 @@ export type PdfDocumentProps = {
   executiveSummary?: string;
   insights?: Array<{ title: string; description: string }>;
   contentDna?: ContentDnaPattern[];
+  actionPlan?: DashboardActionItem[];
+  dataQuality?: DashboardDataQuality;
   watermark?: string;
 };
 
@@ -916,9 +1016,11 @@ function MetricCard({ kpi }: { kpi: KpiData }) {
 function ScorePanel({
   score,
   executiveSummary,
+  dataQuality,
 }: {
   score?: PdfDocumentProps["score"];
   executiveSummary?: string;
+  dataQuality?: DashboardDataQuality;
 }) {
   if (!score) {
     return (
@@ -935,7 +1037,13 @@ function ScorePanel({
       </Text>
     </View>
   );
-}
+  }
+
+  const scoreCaveat = dataQuality && dataQuality.overallCoverage < 80
+    ? dataQuality.overallCoverage < 50
+      ? "Score à interpréter avec prudence: certaines données de portée, vues ou engagements sont incomplètes."
+      : "Score fiable pour la tendance, avec quelques points de données à contrôler."
+    : null;
 
   return (
     <View style={styles.scorePanel} wrap={false}>
@@ -945,6 +1053,11 @@ function ScorePanel({
       <Text style={styles.scoreSummary}>
         {truncateText(sanitizeText(executiveSummary ?? score.summary), 170)}
       </Text>
+      {scoreCaveat ? (
+        <Text style={styles.scoreSummary}>
+          {truncateText(sanitizeText(scoreCaveat), 140)}
+        </Text>
+      ) : null}
       <View style={{ marginTop: 12 }}>
         {score.subScores.map((subScore, index) => {
           const safeLabel = sanitizeText(subScore.label);
@@ -988,6 +1101,65 @@ function TakeawaysPanel({ keyTakeaways }: { keyTakeaways?: string[] }) {
           Aucun point clé supplémentaire n'a été généré pour cette période.
         </Text>
       )}
+    </View>
+  );
+}
+
+function ActionPlanPanel({ actionPlan }: { actionPlan?: DashboardActionItem[] }) {
+  const actions = (actionPlan ?? []).slice(0, 3);
+
+  return (
+    <View style={styles.actionPanel} wrap={false}>
+      <Text style={styles.panelEyebrow}>Plan d'actions</Text>
+      {actions.length > 0 ? (
+        actions.map((action) => (
+          <View key={action.id} style={styles.actionItem}>
+            <View style={styles.actionHeader}>
+              <Text style={styles.actionTitle}>{truncateText(sanitizeText(action.title), 58)}</Text>
+              <Text style={styles.actionMeta}>{sanitizeText(action.horizon)}</Text>
+            </View>
+            <Text style={styles.actionRationale}>
+              {truncateText(sanitizeText(action.rationale), 116)}
+            </Text>
+            {action.metric ? (
+              <Text style={styles.actionMetric}>{truncateText(sanitizeText(action.metric), 52)}</Text>
+            ) : null}
+          </View>
+        ))
+      ) : (
+        <Text style={styles.actionRationale}>
+          Aucun chantier prioritaire n'a été identifié automatiquement sur cette période.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function DataQualityPanel({ dataQuality }: { dataQuality?: DashboardDataQuality }) {
+  if (!dataQuality) {
+    return null;
+  }
+
+  const platformRows = dataQuality.platformQuality.slice(0, 4);
+  const staleLabel = dataQuality.staleSync
+    ? "Synchronisation à rafraîchir"
+    : "Synchronisation récente";
+
+  return (
+    <View style={styles.qualityPanel} wrap={false}>
+      <Text style={styles.panelEyebrow}>Qualité des données</Text>
+      <Text style={styles.qualityScore}>{formatNumber(dataQuality.overallCoverage)}%</Text>
+      <Text style={styles.qualitySummary}>
+        {sanitizeText(staleLabel)} - couverture moyenne sur {formatNumber(dataQuality.expectedDays)} jours.
+      </Text>
+      {platformRows.map((item) => (
+        <View key={item.platform} style={styles.qualityRow}>
+          <Text style={styles.qualityPlatform}>{sanitizeText(item.platform)}</Text>
+          <Text style={styles.qualityStatus}>
+            {formatNumber(item.coverage)}% - {sanitizeText(item.status)}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -1273,12 +1445,24 @@ export function PdfDocument(props: PdfDocumentProps) {
             <ScorePanel
               score={props.score}
               executiveSummary={props.executiveSummary}
+              dataQuality={props.dataQuality}
             />
           </View>
           <View style={styles.colRight}>
             <TakeawaysPanel keyTakeaways={props.keyTakeaways} />
           </View>
         </View>
+
+        {props.actionPlan?.length || props.dataQuality ? (
+          <View style={styles.operationalGrid}>
+            <View style={styles.operationalCell}>
+              <ActionPlanPanel actionPlan={props.actionPlan} />
+            </View>
+            <View style={styles.operationalCell}>
+              <DataQualityPanel dataQuality={props.dataQuality} />
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionEyebrow}>Performance</Text>

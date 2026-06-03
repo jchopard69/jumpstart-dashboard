@@ -43,7 +43,7 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
 
   return (
     <div className="relative h-32 w-32 shrink-0">
-      <svg className="h-32 w-32 -rotate-90" viewBox="0 0 120 120">
+      <svg className="h-32 w-32 -rotate-90" viewBox="0 0 120 120" aria-hidden="true">
         {hasGlow && (
           <defs>
             <filter id="scoreGlow">
@@ -132,11 +132,13 @@ function ScoreMethodology({ subScores }: { subScores: JumpStartScore["subScores"
       <button
         type="button"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <svg
           className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-90")}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          aria-hidden="true"
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
         </svg>
@@ -151,7 +153,7 @@ function ScoreMethodology({ subScores }: { subScores: JumpStartScore["subScores"
           <ul className="space-y-1.5 ml-1">
             {subScores.map((sub) => (
               <li key={sub.key} className="flex items-start gap-2">
-                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-purple-400" />
+                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-primary" />
                 <span>
                   <span className="font-medium text-foreground/80">{sub.label}</span>{" "}
                   ({Math.round(sub.weight * 100)}%) — {sub.description}
@@ -177,13 +179,18 @@ export function ScoreCard({ score, takeaways, executiveSummary, dataCoverage, po
   const confidenceColor = dataCoverage != null
     ? dataCoverage >= 80 ? "text-emerald-600 bg-emerald-50" : dataCoverage >= 50 ? "text-amber-600 bg-amber-50" : "text-rose-600 bg-rose-50"
     : null;
+  const scoreCaveat = dataCoverage != null && dataCoverage < 80
+    ? dataCoverage < 50
+      ? "Score à interpréter avec prudence : certaines données de portée, vues ou engagements sont incomplètes sur la période."
+      : "Score fiable pour la tendance, avec quelques points de données à contrôler avant une lecture client définitive."
+    : null;
   return (
     <Card className="card-surface p-6 fade-in-up overflow-hidden relative">
-      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-400" />
+      <div className="jumpstart-accent-line absolute inset-x-0 top-0 h-[3px]" />
 
       <div className="flex items-center gap-2 mb-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
-          <svg className="h-4.5 w-4.5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/15 bg-primary/5">
+          <svg className="h-4.5 w-4.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
           </svg>
         </div>
@@ -208,6 +215,11 @@ export function ScoreCard({ score, takeaways, executiveSummary, dataCoverage, po
               {postsAnalyzed} publication{postsAnalyzed > 1 ? "s" : ""} analysée{postsAnalyzed > 1 ? "s" : ""}
             </span>
           )}
+          {scoreCaveat && (
+            <p className="max-w-[13rem] text-center text-[11px] leading-relaxed text-muted-foreground">
+              {scoreCaveat}
+            </p>
+          )}
         </div>
 
         {/* Sub-scores */}
@@ -230,7 +242,7 @@ export function ScoreCard({ score, takeaways, executiveSummary, dataCoverage, po
             <ul className="space-y-2.5">
               {takeaways.map((t, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm leading-relaxed">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-purple-500" />
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                   <span>{t}</span>
                 </li>
               ))}

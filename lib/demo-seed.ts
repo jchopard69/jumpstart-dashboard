@@ -37,6 +37,57 @@ export type DemoPostRow = {
   raw_json: null;
 };
 
+export type DemoDemographicRow = {
+  tenant_id: string;
+  social_account_id: string;
+  platform: Platform;
+  dimension: string;
+  value: string;
+  percentage: number;
+  count: number;
+  fetched_at: string;
+};
+
+export type DemoStrategyProfile = {
+  tenant_id: string;
+  positioning: string;
+  target_audience: string;
+  offer_focus: string;
+  brand_voice: string;
+  editorial_pillars: string;
+  current_quarter_objectives: string;
+  monthly_focus: string;
+  jumpstart_note: string;
+  updated_at: string;
+};
+
+export type DemoMonthlyStrategyBrief = {
+  tenant_id: string;
+  period_month: string;
+  title: string;
+  executive_summary: string;
+  wins: string;
+  learnings: string;
+  next_focus: string;
+  client_requests: string;
+  jumpstart_actions: string;
+  is_published: boolean;
+  updated_at: string;
+};
+
+export type DemoStrategyActionItem = {
+  tenant_id: string;
+  title: string;
+  rationale: string;
+  expected_impact: string;
+  owner: "jumpstart" | "client" | "shared";
+  status: "recommended" | "planned" | "in_progress" | "done" | "paused";
+  priority: "low" | "medium" | "high" | "critical";
+  due_date: string;
+  sort_order: number;
+  updated_at: string;
+};
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const PLATFORM_CONFIG: Record<
@@ -379,9 +430,214 @@ export function buildDemoCollaboration(tenantId: string) {
     tenant_id: tenantId,
     shoot_days_remaining: 4,
     notes:
-      "Pipeline creatif demo: scripts valides, tournages planifies, post-prod hebdomadaire.",
+      "Pipeline créatif démo : scripts validés, tournages planifiés, post-prod hebdomadaire.",
     updated_at: new Date().toISOString(),
   };
+}
+
+function buildDemoDemographicRowsForPlatform(params: {
+  tenantId: string;
+  socialAccountId: string;
+  platform: Platform;
+  fetchedAt: string;
+  dimensions: Record<string, Array<{ value: string; percentage: number; count: number }>>;
+}): DemoDemographicRow[] {
+  return Object.entries(params.dimensions).flatMap(([dimension, values]) =>
+    values.map((entry) => ({
+      tenant_id: params.tenantId,
+      social_account_id: params.socialAccountId,
+      platform: params.platform,
+      dimension,
+      value: entry.value,
+      percentage: entry.percentage,
+      count: entry.count,
+      fetched_at: params.fetchedAt,
+    }))
+  );
+}
+
+export function buildDemoDemographicsRows(
+  tenantId: string,
+  accounts: AccountMap,
+  now = new Date()
+): DemoDemographicRow[] {
+  const fetchedAt = now.toISOString();
+  return [
+    ...buildDemoDemographicRowsForPlatform({
+      tenantId,
+      socialAccountId: accounts.instagram,
+      platform: "instagram",
+      fetchedAt,
+      dimensions: {
+        age: [
+          { value: "18-24", percentage: 16, count: 1800 },
+          { value: "25-34", percentage: 42, count: 4725 },
+          { value: "35-44", percentage: 24, count: 2700 },
+          { value: "45-54", percentage: 12, count: 1350 },
+          { value: "55+", percentage: 6, count: 675 },
+        ],
+        gender: [
+          { value: "female", percentage: 57, count: 6412 },
+          { value: "male", percentage: 39, count: 4387 },
+          { value: "undisclosed", percentage: 4, count: 450 },
+        ],
+        country: [
+          { value: "FR", percentage: 72, count: 8100 },
+          { value: "BE", percentage: 8, count: 900 },
+          { value: "CH", percentage: 7, count: 787 },
+          { value: "CA", percentage: 5, count: 562 },
+          { value: "US", percentage: 4, count: 450 },
+        ],
+        city: [
+          { value: "Paris", percentage: 34, count: 3825 },
+          { value: "Lyon", percentage: 12, count: 1350 },
+          { value: "Bordeaux", percentage: 9, count: 1012 },
+          { value: "Marseille", percentage: 8, count: 900 },
+          { value: "Nantes", percentage: 6, count: 675 },
+        ],
+      },
+    }),
+    ...buildDemoDemographicRowsForPlatform({
+      tenantId,
+      socialAccountId: accounts.linkedin,
+      platform: "linkedin",
+      fetchedAt,
+      dimensions: {
+        function: [
+          { value: "Marketing", percentage: 34, count: 1420 },
+          { value: "Business Development", percentage: 18, count: 752 },
+          { value: "Operations", percentage: 16, count: 668 },
+          { value: "Entrepreneurship", percentage: 14, count: 585 },
+          { value: "Sales", percentage: 10, count: 418 },
+        ],
+        seniority: [
+          { value: "Manager", percentage: 31, count: 1295 },
+          { value: "Director", percentage: 23, count: 961 },
+          { value: "Owner", percentage: 19, count: 794 },
+          { value: "Senior", percentage: 17, count: 710 },
+          { value: "Entry", percentage: 6, count: 251 },
+        ],
+        industry: [
+          { value: "Marketing & Advertising", percentage: 27, count: 1128 },
+          { value: "Retail", percentage: 18, count: 752 },
+          { value: "Hospitality", percentage: 14, count: 585 },
+          { value: "Sports", percentage: 12, count: 501 },
+          { value: "Technology", percentage: 10, count: 418 },
+        ],
+        country: [
+          { value: "FR", percentage: 68, count: 2840 },
+          { value: "BE", percentage: 9, count: 376 },
+          { value: "CH", percentage: 8, count: 334 },
+          { value: "GB", percentage: 5, count: 209 },
+        ],
+      },
+    }),
+  ];
+}
+
+export function buildDemoStrategyProfile(tenantId: string, now = new Date()): DemoStrategyProfile {
+  return {
+    tenant_id: tenantId,
+    positioning:
+      "JumpStart accompagne les marques ambitieuses qui veulent transformer leur présence sociale en actif business mesurable.",
+    target_audience:
+      "Dirigeants de PME, responsables marketing et fondateurs qui cherchent un pilotage clair entre contenu, acquisition et image de marque.",
+    offer_focus:
+      "Pack Social Performance : production de contenus, dashboard décisionnel, briefs mensuels et plan d'action priorisé.",
+    brand_voice:
+      "Direct, expert, énergique et orienté preuves. Le ton reste premium sans être froid.",
+    editorial_pillars:
+      "Preuves client\nFormats pédagogiques courts\nBackstage production\nAnalyse de performance\nOffres et activations commerciales",
+    current_quarter_objectives:
+      "Augmenter la portée qualifiée\nStabiliser une cadence de 5 posts/semaine\nIdentifier les 3 formats à scaler\nRendre les reportings clients plus actionnables",
+    monthly_focus: "Scaler les formats éducatifs courts et convertir les meilleurs contenus en séquences sponsorisées.",
+    jumpstart_note:
+      "Le compte démo montre un client en phase d'accélération : bonnes bases, données fiables, priorité sur la conversion des contenus forts.",
+    updated_at: now.toISOString(),
+  };
+}
+
+export function buildDemoMonthlyStrategyBrief(
+  tenantId: string,
+  now = new Date()
+): DemoMonthlyStrategyBrief {
+  const periodMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  return {
+    tenant_id: tenantId,
+    period_month: periodMonth,
+    title: "Brief mensuel JumpStart - Accélération des formats forts",
+    executive_summary:
+      "La période confirme une dynamique positive : portée en hausse, engagement stable et formats éducatifs courts au-dessus de la moyenne. Le prochain levier consiste à transformer ces contenus en assets sponsorisés et en séquences éditoriales récurrentes.",
+    wins:
+      "Les reels pédagogiques captent mieux l'attention.\nLes carrousels preuve sociale génèrent plus d'enregistrements.\nLinkedIn progresse sur les audiences marketing et direction.",
+    learnings:
+      "Les publications trop généralistes sous-performent.\nLes meilleurs contenus combinent preuve, bénéfice concret et CTA simple.\nLa régularité reste plus importante que le volume isolé.",
+    next_focus:
+      "Produire 2 séries courtes à partir des meilleurs posts, tester une amplification payante contrôlée et consolider les messages d'offre.",
+    client_requests:
+      "Valider les 3 angles éditoriaux prioritaires.\nPartager les prochaines dates business importantes.\nPrioriser les offres à pousser ce mois-ci.",
+    jumpstart_actions:
+      "Préparer la grille éditoriale du mois.\nIsoler les contenus sponsorisables.\nMettre à jour le dashboard avec la lecture stratégique.",
+    is_published: true,
+    updated_at: now.toISOString(),
+  };
+}
+
+export function buildDemoStrategyActionItems(
+  tenantId: string,
+  now = new Date()
+): DemoStrategyActionItem[] {
+  const dueDate = (days: number) => new Date(now.getTime() + days * DAY_MS).toISOString().slice(0, 10);
+  return [
+    {
+      tenant_id: tenantId,
+      title: "Transformer les 3 meilleurs posts en séquence sponsorisée",
+      rationale: "Les contenus phares ont déjà prouvé leur traction organique.",
+      expected_impact: "Portée qualifiée +15% et meilleur coût d'apprentissage créatif.",
+      owner: "jumpstart",
+      status: "planned",
+      priority: "high",
+      due_date: dueDate(7),
+      sort_order: 1,
+      updated_at: now.toISOString(),
+    },
+    {
+      tenant_id: tenantId,
+      title: "Valider les offres à pousser sur le prochain mois",
+      rationale: "Le contenu performe mieux quand le CTA est aligné avec les priorités commerciales.",
+      expected_impact: "Meilleure conversion des interactions en demandes entrantes.",
+      owner: "client",
+      status: "recommended",
+      priority: "medium",
+      due_date: dueDate(10),
+      sort_order: 2,
+      updated_at: now.toISOString(),
+    },
+    {
+      tenant_id: tenantId,
+      title: "Produire un batch de 6 formats éducatifs courts",
+      rationale: "Ce format est le plus robuste sur Instagram et LinkedIn dans la démo.",
+      expected_impact: "Cadence stabilisée et hausse de la visibilité récurrente.",
+      owner: "shared",
+      status: "in_progress",
+      priority: "high",
+      due_date: dueDate(14),
+      sort_order: 3,
+      updated_at: now.toISOString(),
+    },
+    {
+      tenant_id: tenantId,
+      title: "Documenter les apprentissages du mois dans le brief client",
+      rationale: "Les décisions restent plus claires quand les insights sont reliés à des actions.",
+      expected_impact: "Reporting plus utile pour le client et meilleure continuité stratégique.",
+      owner: "jumpstart",
+      status: "done",
+      priority: "low",
+      due_date: dueDate(3),
+      sort_order: 4,
+      updated_at: now.toISOString(),
+    },
+  ];
 }
 
 export function buildDemoSeedPayload(
@@ -398,5 +654,9 @@ export function buildDemoSeedPayload(
     documents: buildDemoDocuments(tenantId),
     goals: buildDemoGoals(tenantId),
     collaboration: buildDemoCollaboration(tenantId),
+    demographics: buildDemoDemographicsRows(tenantId, accounts, now),
+    strategyProfile: buildDemoStrategyProfile(tenantId, now),
+    monthlyStrategyBrief: buildDemoMonthlyStrategyBrief(tenantId, now),
+    strategyActionItems: buildDemoStrategyActionItems(tenantId, now),
   };
 }

@@ -12,7 +12,10 @@ import {
 } from "@/lib/insights";
 import { analyzeContentDna } from "@/lib/content-dna";
 import { buildPdfPostSummaries } from "@/lib/pdf-posts";
+import { buildDashboardActionPlan } from "@/lib/dashboard-action-plan";
+import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { sendReportEmail } from "@/lib/email";
+import { fetchTenantGoals } from "@/lib/goals";
 import { createTenantNotification } from "@/lib/notifications";
 import type { Platform } from "@/lib/types";
 
@@ -290,6 +293,48 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
   const pdfInsights = generateStrategicInsights(insightsInput);
   const pdfTakeaways = generateKeyTakeaways(insightsInput);
   const pdfSummary = generateExecutiveSummary(insightsInput);
+  const tenantGoals = await fetchTenantGoals(tenantId);
+
+  const { data: lastSync } = await supabase
+    .from("sync_logs")
+    .select("status,finished_at")
+    .eq("tenant_id", tenantId)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const dataQuality = computeDashboardDataQuality({
+    range: { start: rangeStart, end: rangeEnd },
+    accounts: accounts ?? [],
+    metrics,
+    perPlatform,
+    lastSync: lastSync
+      ? {
+          status:
+            lastSync.status === "success" ||
+            lastSync.status === "failed" ||
+            lastSync.status === "running" ||
+            lastSync.status === "idle"
+              ? lastSync.status
+              : "idle",
+          finished_at: lastSync.finished_at,
+        }
+      : null,
+  });
+  const actionPlan = buildDashboardActionPlan({
+    totals,
+    prevTotals: {
+      followers: prevTotals.followers,
+      views: prevTotals.views,
+      reach: prevTotals.reach,
+      engagements: prevTotals.engagements,
+      posts_count: prevTotals.postsCount,
+    },
+    platforms: perPlatform,
+    periodDays,
+    goals: tenantGoals,
+    dataQuality,
+  });
 
   const contentDna = analyzeContentDna({
     posts: postsList.map((post) => ({
@@ -350,6 +395,8 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
       title: insight.title,
       description: insight.description,
     })),
+    actionPlan,
+    dataQuality,
     contentDna:
       contentDna.patterns.length > 0
         ? contentDna.patterns.map((pattern) => ({

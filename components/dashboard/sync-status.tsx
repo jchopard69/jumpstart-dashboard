@@ -97,10 +97,7 @@ export function SyncStatus({ lastSync, range, metrics = [] }: SyncStatusProps) {
               <span className="font-medium tabular-nums text-foreground">{coverage.percent}%</span>
             </div>
             <div className="h-1.5 rounded-full bg-muted/30 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-purple-500 to-violet-400 transition-all duration-700 ease-out"
-                style={{ width: `${Math.min(100, coverage.percent)}%` }}
-              />
+              <div className="jumpstart-accent-line h-full transition-all duration-700 ease-out" style={{ width: `${Math.min(100, coverage.percent)}%` }} />
             </div>
             <p className="text-[11px] text-muted-foreground tabular-nums">
               {coverage.uniqueDays} jours couverts sur {coverage.totalDays}

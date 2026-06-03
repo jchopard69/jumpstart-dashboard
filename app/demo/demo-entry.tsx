@@ -37,10 +37,16 @@ export function DemoEntry({ contactHref, demoEmail, expiresAtLabel }: DemoEntryP
   return (
     <div className="min-h-screen gradient-hero px-6 py-12">
       <div className="mx-auto max-w-5xl space-y-6">
-        <section className="surface-panel p-8">
+        <section className="surface-panel jumpstart-header p-8">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="max-w-2xl">
-              <p className="section-label">JumpStart Studio</p>
+              <div className="mb-4 flex items-center gap-3">
+                <div className="jumpstart-brand-mark" aria-hidden="true">J</div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">JumpStart</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Studio</p>
+                </div>
+              </div>
               <h1 className="page-heading mt-2">Compte démo</h1>
               <p className="mt-3 text-sm text-muted-foreground">
                 Explorez un workspace complet avec données fictives réalistes, export PDF et analyse stratégique.
@@ -49,8 +55,8 @@ export function DemoEntry({ contactHref, demoEmail, expiresAtLabel }: DemoEntryP
                 Données 100% synthétiques, anonymisées et sans PII réelle.
               </p>
             </div>
-            <div className="rounded-2xl border border-border/60 bg-white/85 px-5 py-4 text-right">
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Mode</p>
+            <div className="rounded-2xl border border-primary/15 bg-primary/5 px-5 py-4 text-right">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Mode</p>
               <p className="mt-1 text-sm font-semibold">Démo sécurisée</p>
               {expiresAtLabel && (
                 <p className="mt-2 text-xs text-muted-foreground">Expire le {expiresAtLabel}</p>
@@ -88,4 +94,3 @@ export function DemoEntry({ contactHref, demoEmail, expiresAtLabel }: DemoEntryP
     </div>
   );
 }
-

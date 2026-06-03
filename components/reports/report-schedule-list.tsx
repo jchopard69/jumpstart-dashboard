@@ -56,6 +56,10 @@ export function ReportScheduleList({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const toast = useToast();
   const router = useRouter();
+  const activeCount = schedules.filter((schedule) => schedule.is_active).length;
+  const nextActiveSend = schedules
+    .filter((schedule) => schedule.is_active && schedule.next_send_at)
+    .sort((a, b) => String(a.next_send_at).localeCompare(String(b.next_send_at)))[0]?.next_send_at ?? null;
 
   async function toggleActive(schedule: Schedule) {
     if (!canManage) return;
@@ -84,7 +88,7 @@ export function ReportScheduleList({
         toast.error(data?.message ?? "Erreur");
       }
     } catch {
-      toast.error("Erreur reseau");
+      toast.error("Erreur réseau");
     } finally {
       setTogglingId(null);
     }
@@ -109,7 +113,7 @@ export function ReportScheduleList({
         toast.error(data?.message ?? "Erreur");
       }
     } catch {
-      toast.error("Erreur reseau");
+      toast.error("Erreur réseau");
     } finally {
       setDeletingId(null);
     }
@@ -128,18 +132,33 @@ export function ReportScheduleList({
 
   if (schedules.length === 0 && !showForm) {
     return (
-      <section className="surface-panel p-12">
-        <div className="max-w-md mx-auto text-center space-y-4">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-purple-500/10">
-            <Mail className="h-8 w-8 text-purple-600" />
+      <section className="surface-panel p-8 sm:p-12">
+        <div className="mx-auto max-w-2xl text-center space-y-5">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10">
+            <Mail className="h-8 w-8 text-primary" aria-hidden="true" />
           </div>
           <div>
             <h3 className="text-lg font-semibold">
-              Aucun rapport configure
+              Aucun envoi automatique configuré
             </h3>
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-              Configurez l'envoi automatique de rapports PDF par email, chaque semaine ou chaque mois.
+              Ajoutez un rythme d'envoi pour transformer le dashboard en rituel client : score, contenus phares,
+              qualité des données et plan d'actions arrivent directement par email.
             </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 text-left sm:grid-cols-3">
+            <div className="rounded-xl border border-border/60 p-4">
+              <p className="text-sm font-medium">1. Destinataires</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Ajoutez l'équipe client et les décideurs.</p>
+            </div>
+            <div className="rounded-xl border border-border/60 p-4">
+              <p className="text-sm font-medium">2. Fréquence</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Choisissez hebdomadaire ou mensuel.</p>
+            </div>
+            <div className="rounded-xl border border-border/60 p-4">
+              <p className="text-sm font-medium">3. Suivi</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Le prochain envoi est suivi automatiquement.</p>
+            </div>
           </div>
           <Button
             onClick={() => setShowForm(true)}
@@ -150,7 +169,7 @@ export function ReportScheduleList({
           </Button>
           {isDemoTenant && (
             <p className="text-xs text-muted-foreground">
-              Configuration desactivee en mode demo.
+              Configuration désactivée en mode démo.
             </p>
           )}
           {!isDemoTenant && !canManage && (
@@ -175,10 +194,14 @@ export function ReportScheduleList({
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {schedules.length} rapport{schedules.length > 1 ? "s" : ""} configure{schedules.length > 1 ? "s" : ""}
-        </p>
+      <div className="surface-panel flex flex-wrap items-center justify-between gap-4 p-5">
+        <div>
+          <p className="section-label">Planification</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {schedules.length} rapport{schedules.length > 1 ? "s" : ""} configuré{schedules.length > 1 ? "s" : ""} · {activeCount} actif{activeCount > 1 ? "s" : ""}
+            {nextActiveSend ? ` · prochain envoi ${formatDate(nextActiveSend)}` : ""}
+          </p>
+        </div>
         <Button
           size="sm"
           onClick={() => {
@@ -233,8 +256,9 @@ export function ReportScheduleList({
                 size="sm"
                 onClick={() => toggleActive(schedule)}
                 disabled={togglingId === schedule.id || isDemoTenant || !canManage}
+                aria-label={`${schedule.is_active ? "Désactiver" : "Activer"} le rapport ${FREQ_LABELS[schedule.frequency] ?? schedule.frequency}`}
               >
-                {schedule.is_active ? "Desactiver" : "Activer"}
+                {schedule.is_active ? "Désactiver" : "Activer"}
               </Button>
               <Button
                 variant="ghost"
@@ -244,6 +268,7 @@ export function ReportScheduleList({
                   setShowForm(true);
                 }}
                 disabled={isDemoTenant || !canManage}
+                aria-label={`Modifier le rapport ${FREQ_LABELS[schedule.frequency] ?? schedule.frequency}`}
               >
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
@@ -253,6 +278,7 @@ export function ReportScheduleList({
                 onClick={() => handleDelete(schedule.id)}
                 disabled={deletingId === schedule.id || isDemoTenant || !canManage}
                 className="text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                aria-label={`Supprimer le rapport ${FREQ_LABELS[schedule.frequency] ?? schedule.frequency}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>

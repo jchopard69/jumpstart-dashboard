@@ -4,6 +4,7 @@ import { getSessionProfile, requireClientAccess, resolveActiveTenantId } from "@
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { ReportScheduleList } from "@/components/reports/report-schedule-list";
 import { canManageReportSchedules } from "@/lib/tenant-selection";
+import { ExportButtons } from "@/components/dashboard/export-buttons";
 
 export const metadata: Metadata = {
   title: "Rapports automatiques",
@@ -47,6 +48,11 @@ export default async function ReportsPage({
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
 
+  const exportParams = new URLSearchParams({ preset: "last_30_days" });
+  if (searchParams?.tenantId) {
+    exportParams.set("tenantId", searchParams.tenantId);
+  }
+
   return (
     <div className="space-y-8 fade-in">
       {/* Header */}
@@ -56,9 +62,34 @@ export default async function ReportsPage({
             <p className="section-label">JumpStart Studio</p>
             <h1 className="page-heading">Rapports automatiques</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Configurez l'envoi automatique de vos rapports PDF par email.
+              Programmez l'envoi email et téléchargez un rapport client prêt à partager.
             </p>
           </div>
+          <ExportButtons query={exportParams.toString()} />
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="surface-panel p-5">
+          <p className="section-label">Dans le PDF</p>
+          <h2 className="mt-2 text-base font-semibold">Plan d'actions</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Les priorités client issues du score, des objectifs et des alertes data sont incluses dans chaque rapport.
+          </p>
+        </div>
+        <div className="surface-panel p-5">
+          <p className="section-label">Fiabilité</p>
+          <h2 className="mt-2 text-base font-semibold">Qualité des données</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Le rapport signale la couverture des données et les synchronisations à rafraîchir avant décision.
+          </p>
+        </div>
+        <div className="surface-panel p-5">
+          <p className="section-label">Partage</p>
+          <h2 className="mt-2 text-base font-semibold">Rythme maîtrisé</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Les managers peuvent choisir un envoi hebdomadaire ou mensuel vers les bons destinataires.
+          </p>
         </div>
       </section>
 

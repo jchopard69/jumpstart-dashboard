@@ -1,22 +1,8 @@
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { resolveActiveTenantId } from "@/lib/auth";
 import { resolveDateRange, toIsoDate } from "@/lib/date";
+import { buildMetricCsvRows, toCsv } from "@/lib/csv-export";
 import type { Platform } from "@/lib/types";
-
-function toCsv(rows: Array<Record<string, any>>) {
-  if (!rows.length) return "";
-  const headers = Object.keys(rows[0]);
-  const escape = (value: any) => {
-    const stringValue = String(value ?? "");
-    if (stringValue.includes(",") || stringValue.includes("\n") || stringValue.includes('"')) {
-      return `"${stringValue.replace(/"/g, '""')}"`;
-    }
-    return stringValue;
-  };
-  const headerLine = headers.join(",");
-  const lines = rows.map((row) => headers.map((header) => escape(row[header])).join(","));
-  return [headerLine, ...lines].join("\n");
-}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -65,11 +51,12 @@ export async function GET(request: Request) {
   const platformParam = searchParams.get("platform");
   const platform =
     platformParam && platformParam !== "all" ? (platformParam as Platform) : null;
+  const accountId = searchParams.get("accountId");
 
   let query = dataClient
     .from("social_daily_metrics")
     .select(
-      "date,platform,followers,impressions,reach,engagements,views,watch_time,posts_count"
+      "date,platform,social_account_id,followers,impressions,reach,engagements,views,watch_time,posts_count"
     )
     .eq("tenant_id", tenantId)
     .gte("date", toIsoDate(range.start))
@@ -79,8 +66,24 @@ export async function GET(request: Request) {
   if (platform) {
     query = query.eq("platform", platform);
   }
+  if (accountId) {
+    query = query.eq("social_account_id", accountId);
+  }
 
-  const { data, error } = await query;
+  const [{ data, error }, { data: accounts }, { data: lastSync }] = await Promise.all([
+    query,
+    dataClient
+      .from("social_accounts")
+      .select("id,account_name")
+      .eq("tenant_id", tenantId),
+    dataClient
+      .from("sync_logs")
+      .select("status,finished_at")
+      .eq("tenant_id", tenantId)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   if (error) {
     console.error("[csv] query failed", error);
@@ -96,21 +99,21 @@ export async function GET(request: Request) {
     });
   }
 
-  // Format data for CSV export
-  const csvRows = data.map((row) => ({
-    Date: row.date,
-    Plateforme: row.platform,
-    Abonnés: row.followers ?? 0,
-    Impressions: row.impressions ?? 0,
-    Portée: row.reach ?? 0,
-    Engagements: row.engagements ?? 0,
-    Vues: row.views ?? 0,
-    "Temps de visionnage (min)": row.watch_time ? Math.round(row.watch_time / 60) : 0,
-    Publications: row.posts_count ?? 0,
-  }));
+  const msDay = 24 * 60 * 60 * 1000;
+  const expectedDays = Math.max(1, Math.ceil((range.end.getTime() - range.start.getTime()) / msDay) + 1);
+  const csvRows = buildMetricCsvRows({
+    rows: data,
+    accounts: accounts ?? [],
+    expectedDays,
+    lastSync,
+  });
 
   const csv = toCsv(csvRows);
-  const filename = `${tenant?.name ?? "export"}-metrics-${toIsoDate(range.start)}-${toIsoDate(range.end)}.csv`;
+  const safeName = (tenant?.name ?? "export")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const filename = `${safeName || "export"}-metrics-${toIsoDate(range.start)}-${toIsoDate(range.end)}.csv`;
 
   return new Response(csv, {
     headers: {
