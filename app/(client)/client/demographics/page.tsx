@@ -7,9 +7,11 @@ import {
 } from "@/lib/auth";
 import { fetchDemographics } from "@/lib/demographics-queries";
 import { AgeChart } from "@/components/demographics/age-chart";
+import { AudienceOpportunitiesCard } from "@/components/demographics/audience-opportunities-card";
 import { GenderChart } from "@/components/demographics/gender-chart";
 import { LocationChart } from "@/components/demographics/location-chart";
 import { Badge } from "@/components/ui/badge";
+import { buildAudienceOpportunities } from "@/lib/audience-opportunities";
 import { PLATFORM_LABELS, type Platform } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -83,6 +85,7 @@ export default async function DemographicsPage({
   const primaryCity = topEntry(demographics.city);
   const primaryFunction = topEntry(demographics.function);
   const primaryIndustry = topEntry(demographics.industry);
+  const audienceOpportunities = buildAudienceOpportunities(demographics);
   const lastFetchedLabel = demographics.lastFetchedAt
     ? new Date(demographics.lastFetchedAt).toLocaleDateString("fr-FR", {
         day: "numeric",
@@ -232,6 +235,8 @@ export default async function DemographicsPage({
               </div>
             </section>
           )}
+
+          <AudienceOpportunitiesCard opportunities={audienceOpportunities} />
 
           <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {demographics.age.length > 0 && <AgeChart data={demographics.age} />}
