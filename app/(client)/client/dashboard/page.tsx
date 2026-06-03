@@ -31,7 +31,6 @@ import { OpportunityCard } from "@/components/dashboard/opportunity-card";
 import { PlatformDiagnosisCard } from "@/components/dashboard/platform-diagnosis-card";
 import { PlatformMixCard } from "@/components/dashboard/platform-mix-card";
 import { MomentHighlightsCard } from "@/components/dashboard/moment-highlights-card";
-import { AiContentIdeasCard } from "@/components/dashboard/ai-content-ideas-card";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
 import { getSupportContactHref } from "@/lib/support";
@@ -109,11 +108,6 @@ export default async function ClientDashboardPage({
   if (searchParams.tenantId) queryParams.set("tenantId", searchParams.tenantId);
   if (searchParams.accountId) queryParams.set("accountId", searchParams.accountId);
   const queryString = queryParams.toString();
-  const aiQueryParams = new URLSearchParams(queryString);
-  if (effectiveTenantId) {
-    aiQueryParams.set("tenantId", effectiveTenantId);
-  }
-  const aiQueryString = aiQueryParams.toString();
 
   const msDay = 24 * 60 * 60 * 1000;
   const offsetDays = data.range && data.prevRange
@@ -612,7 +606,6 @@ export default async function ClientDashboardPage({
 
       <section id="dashboard-opportunities" className="scroll-mt-6 space-y-6">
         <OpportunityCard opportunities={opportunities} />
-        <AiContentIdeasCard tenantId={effectiveTenantId} initialQuery={aiQueryString} />
 
         <StrategyDashboardCard
           snapshot={strategySnapshot}

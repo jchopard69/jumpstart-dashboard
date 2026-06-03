@@ -15,6 +15,16 @@ function readPositiveInt(value: string | undefined, fallback: number) {
 
 export async function POST(request: Request) {
   try {
+    if (process.env.OPENAI_CONTENT_IDEAS_ENABLED !== "true") {
+      return NextResponse.json(
+        {
+          code: "content_ideas_disabled",
+          message: "L'assistant IA éditorial est mis de côté pour la V3 du dashboard.",
+        },
+        { status: 404 }
+      );
+    }
+
     const supabase = createSupabaseServerClient();
     const {
       data: { user },
