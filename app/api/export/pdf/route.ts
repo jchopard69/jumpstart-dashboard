@@ -15,6 +15,7 @@ import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
 import { buildPdfPostSummaries } from "@/lib/pdf-posts";
 import { buildDashboardActionPlan } from "@/lib/dashboard-action-plan";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
+import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
 import { fetchTenantGoals } from "@/lib/goals";
 import {
   getDemoPdfWatermarkText,
@@ -219,6 +220,14 @@ export async function GET(request: Request) {
     goals: tenantGoals,
     dataQuality,
   });
+  const opportunities = buildDashboardOpportunities(data.posts.map((post) => ({
+    platform: post.platform,
+    media_type: post.media_type,
+    caption: post.caption,
+    posted_at: post.posted_at,
+    metrics: post.metrics,
+    url: post.url,
+  })));
 
   const contentDna = analyzeContentDna({
     posts: data.posts.map((post) => ({
@@ -264,6 +273,7 @@ export async function GET(request: Request) {
       description: insight.description,
     })),
     actionPlan,
+    opportunities,
     dataQuality,
     contentDna:
       contentDna.patterns.length > 0

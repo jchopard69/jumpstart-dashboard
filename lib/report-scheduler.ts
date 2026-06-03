@@ -14,6 +14,7 @@ import { analyzeContentDna } from "@/lib/content-dna";
 import { buildPdfPostSummaries } from "@/lib/pdf-posts";
 import { buildDashboardActionPlan } from "@/lib/dashboard-action-plan";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
+import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
 import { sendReportEmail } from "@/lib/email";
 import { fetchTenantGoals } from "@/lib/goals";
 import { createTenantNotification } from "@/lib/notifications";
@@ -335,6 +336,13 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
     goals: tenantGoals,
     dataQuality,
   });
+  const opportunities = buildDashboardOpportunities(postsList.map((post) => ({
+    platform: post.platform,
+    media_type: post.media_type,
+    caption: post.caption,
+    posted_at: post.posted_at,
+    metrics: post.metrics,
+  })));
 
   const contentDna = analyzeContentDna({
     posts: postsList.map((post) => ({
@@ -396,6 +404,7 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
       description: insight.description,
     })),
     actionPlan,
+    opportunities,
     dataQuality,
     contentDna:
       contentDna.patterns.length > 0

@@ -42,6 +42,16 @@ test("PdfDocument renders with demo watermark", async () => {
           metric: "0% de couverture",
         },
       ],
+      opportunities: [
+        {
+          id: "replicate-engagement-winner",
+          title: "Répliquer le format gagnant Instagram",
+          automation: "Créer automatiquement 3 variations de brief à partir du post le plus engageant.",
+          impact: "Accélérer la production des contenus qui génèrent déjà de l'interaction.",
+          evidence: "2 400 engagements détectés",
+          confidence: "Haute",
+        },
+      ],
       dataQuality: {
         overallCoverage: 86,
         expectedDays: 31,

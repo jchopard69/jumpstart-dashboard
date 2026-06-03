@@ -2,6 +2,7 @@ import React from "react";
 import { Document, Image, Link, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { DashboardActionItem } from "./dashboard-action-plan";
 import type { DashboardDataQuality } from "./dashboard-data-quality";
+import type { DashboardOpportunity } from "./dashboard-opportunities";
 
 const PAGE_PADDING_X = 34;
 const PAGE_PADDING_TOP = 76;
@@ -291,6 +292,56 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: palette.surfaceStrong,
     minHeight: 132,
+  },
+  opportunityPanel: {
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#f0fdf4",
+    marginTop: 10,
+  },
+  opportunityGrid: {
+    flexDirection: "row",
+    marginLeft: -4,
+    marginRight: -4,
+  },
+  opportunityCell: {
+    width: "33.3333%",
+    paddingLeft: 4,
+    paddingRight: 4,
+  },
+  opportunityCard: {
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+    borderRadius: 12,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 86,
+  },
+  opportunityTitle: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: palette.ink,
+    marginBottom: 4,
+  },
+  opportunityAutomation: {
+    fontSize: 7.1,
+    lineHeight: 1.3,
+    color: palette.muted,
+    marginBottom: 5,
+  },
+  opportunityEvidence: {
+    fontSize: 7,
+    color: palette.teal,
+    fontFamily: "Helvetica-Bold",
+  },
+  opportunityConfidence: {
+    marginTop: 4,
+    fontSize: 6.7,
+    color: palette.amber,
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
   },
   actionItem: {
     borderTopWidth: 1,
@@ -874,6 +925,7 @@ export type PdfDocumentProps = {
   insights?: Array<{ title: string; description: string }>;
   contentDna?: ContentDnaPattern[];
   actionPlan?: DashboardActionItem[];
+  opportunities?: DashboardOpportunity[];
   dataQuality?: DashboardDataQuality;
   watermark?: string;
 };
@@ -1160,6 +1212,37 @@ function DataQualityPanel({ dataQuality }: { dataQuality?: DashboardDataQuality 
           </Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+function OpportunitiesPanel({ opportunities }: { opportunities?: DashboardOpportunity[] }) {
+  const visibleOpportunities = (opportunities ?? []).slice(0, 3);
+  if (!visibleOpportunities.length) return null;
+
+  return (
+    <View style={styles.opportunityPanel} wrap={false}>
+      <Text style={styles.panelEyebrow}>Opportunités automatiques</Text>
+      <View style={styles.opportunityGrid}>
+        {visibleOpportunities.map((opportunity) => (
+          <View key={opportunity.id} style={styles.opportunityCell}>
+            <View style={styles.opportunityCard}>
+              <Text style={styles.opportunityTitle}>
+                {truncateText(sanitizeText(opportunity.title), 54)}
+              </Text>
+              <Text style={styles.opportunityAutomation}>
+                {truncateText(sanitizeText(opportunity.automation), 108)}
+              </Text>
+              <Text style={styles.opportunityEvidence}>
+                {truncateText(sanitizeText(opportunity.evidence), 48)}
+              </Text>
+              <Text style={styles.opportunityConfidence}>
+                Confiance {sanitizeText(opportunity.confidence)}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -1463,6 +1546,8 @@ export function PdfDocument(props: PdfDocumentProps) {
             </View>
           </View>
         ) : null}
+
+        <OpportunitiesPanel opportunities={props.opportunities} />
 
         <View style={styles.section}>
           <Text style={styles.sectionEyebrow}>Performance</Text>
