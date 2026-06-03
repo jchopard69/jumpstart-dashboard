@@ -55,6 +55,39 @@ function getCoverageByPlatform(rows: CsvMetricRow[], expectedDays: number) {
   return coverage;
 }
 
+function computeRowEngagementRate(row: CsvMetricRow): number | null {
+  const engagements = row.engagements ?? 0;
+  const views = row.views ?? 0;
+  const reach = row.reach ?? 0;
+  if (views > 0) return (engagements / views) * 100;
+  if (reach > 0) return (engagements / reach) * 100;
+  return null;
+}
+
+function getDataStatus(coverage: number, row: CsvMetricRow): string {
+  if (coverage < 50) return "Données à fiabiliser";
+  if ((row.views ?? 0) === 0 && (row.reach ?? 0) === 0 && (row.impressions ?? 0) === 0) {
+    return "Visibilité manquante";
+  }
+  if ((row.engagements ?? 0) === 0) return "Engagement manquant";
+  if (coverage < 80) return "Couverture partielle";
+  return "Exploitable";
+}
+
+function getAutomatedRecommendation(row: CsvMetricRow, coverage: number): string {
+  const rate = computeRowEngagementRate(row);
+  if (coverage < 50) return "Vérifier la synchronisation avant analyse";
+  if ((row.posts_count ?? 0) === 0 && hasMetricSignal(row)) return "Contrôler le volume de publications";
+  if ((row.views ?? 0) === 0 && (row.reach ?? 0) === 0 && (row.impressions ?? 0) === 0) {
+    return "Reconnecter ou contrôler les permissions de visibilité";
+  }
+  if (rate != null && rate >= 5 && (row.engagements ?? 0) >= 20) return "Capitaliser sur ce créneau ou format";
+  if ((row.engagements ?? 0) === 0 && ((row.views ?? 0) > 0 || (row.reach ?? 0) > 0)) {
+    return "Tester un angle plus engageant";
+  }
+  return "Suivre dans le prochain reporting";
+}
+
 export function toCsv(rows: Array<Record<string, unknown>>) {
   if (!rows.length) return "";
   const headers = Object.keys(rows[0]);
@@ -84,6 +117,8 @@ export function buildMetricCsvRows(params: {
 
   return params.rows.map((row) => {
     const platform = row.platform ? String(row.platform) : "";
+    const coverage = coverageByPlatform.get(platform) ?? 0;
+    const engagementRate = computeRowEngagementRate(row);
     return {
       Date: row.date,
       Plateforme: platform,
@@ -94,10 +129,12 @@ export function buildMetricCsvRows(params: {
       Vues: row.views ?? 0,
       "Temps de visionnage (min)": row.watch_time ? Math.round(row.watch_time / 60) : 0,
       Publications: row.posts_count ?? 0,
+      "Taux d'engagement (%)": engagementRate == null ? "" : Math.round(engagementRate * 10) / 10,
       Compte: row.social_account_id ? accountNameById.get(row.social_account_id) ?? row.social_account_id : "",
-      "Couverture période (%)": coverageByPlatform.get(platform) ?? 0,
+      "Couverture période (%)": coverage,
+      "Statut donnée": getDataStatus(coverage, row),
+      "Recommandation automatique": getAutomatedRecommendation(row, coverage),
       "Dernière synchronisation": syncLabel,
     };
   });
 }
-
