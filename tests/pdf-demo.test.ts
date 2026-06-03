@@ -52,6 +52,17 @@ test("PdfDocument renders with demo watermark", async () => {
           confidence: "Haute",
         },
       ],
+      clientNextActions: [
+        {
+          id: "dashboard-data-tiktok",
+          label: "A traiter",
+          title: "Réparer les données TikTok",
+          detail: "Les décisions clients sont fragilisées tant que cette source n'est pas fiable.",
+          proof: "0% de couverture",
+          href: "#dashboard-operations",
+          priority: "high",
+        },
+      ],
       dataQuality: {
         overallCoverage: 86,
         expectedDays: 31,

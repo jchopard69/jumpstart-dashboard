@@ -3,6 +3,7 @@ import { Document, Image, Link, Page, Text, View, StyleSheet } from "@react-pdf/
 import type { DashboardActionItem } from "./dashboard-action-plan";
 import type { DashboardDataQuality } from "./dashboard-data-quality";
 import type { DashboardOpportunity } from "./dashboard-opportunities";
+import type { ClientNextAction } from "./client-next-actions";
 
 const PAGE_PADDING_X = 34;
 const PAGE_PADDING_TOP = 76;
@@ -342,6 +343,56 @@ const styles = StyleSheet.create({
     color: palette.amber,
     textTransform: "uppercase",
     letterSpacing: 0.7,
+  },
+  nextActionsPanel: {
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#eef2ff",
+    marginTop: 10,
+  },
+  nextActionsGrid: {
+    flexDirection: "row",
+    marginLeft: -4,
+    marginRight: -4,
+  },
+  nextActionCell: {
+    width: "33.3333%",
+    paddingLeft: 4,
+    paddingRight: 4,
+  },
+  nextActionCard: {
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+    borderRadius: 12,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 92,
+  },
+  nextActionLabel: {
+    fontSize: 6.7,
+    color: palette.blue,
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+    marginBottom: 4,
+  },
+  nextActionTitle: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: palette.ink,
+    marginBottom: 4,
+  },
+  nextActionDetail: {
+    fontSize: 7.1,
+    lineHeight: 1.3,
+    color: palette.muted,
+    marginBottom: 5,
+  },
+  nextActionProof: {
+    fontSize: 7,
+    color: palette.teal,
+    fontFamily: "Helvetica-Bold",
   },
   actionItem: {
     borderTopWidth: 1,
@@ -926,6 +977,7 @@ export type PdfDocumentProps = {
   contentDna?: ContentDnaPattern[];
   actionPlan?: DashboardActionItem[];
   opportunities?: DashboardOpportunity[];
+  clientNextActions?: ClientNextAction[];
   dataQuality?: DashboardDataQuality;
   watermark?: string;
 };
@@ -1247,6 +1299,35 @@ function OpportunitiesPanel({ opportunities }: { opportunities?: DashboardOpport
   );
 }
 
+function ClientNextActionsPanel({ actions }: { actions?: ClientNextAction[] }) {
+  const visibleActions = (actions ?? []).slice(0, 3);
+  if (!visibleActions.length) return null;
+
+  return (
+    <View style={styles.nextActionsPanel} wrap={false}>
+      <Text style={styles.panelEyebrow}>Prochaines décisions client</Text>
+      <View style={styles.nextActionsGrid}>
+        {visibleActions.map((action) => (
+          <View key={action.id} style={styles.nextActionCell}>
+            <View style={styles.nextActionCard}>
+              <Text style={styles.nextActionLabel}>{truncateText(sanitizeText(action.label), 28)}</Text>
+              <Text style={styles.nextActionTitle}>
+                {truncateText(sanitizeText(action.title), 56)}
+              </Text>
+              <Text style={styles.nextActionDetail}>
+                {truncateText(sanitizeText(action.detail), 106)}
+              </Text>
+              <Text style={styles.nextActionProof}>
+                {truncateText(sanitizeText(action.proof), 48)}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function InsightCard({ title, description }: { title: string; description: string }) {
   return (
     <View style={styles.insightCell} wrap={false}>
@@ -1548,6 +1629,8 @@ export function PdfDocument(props: PdfDocumentProps) {
         ) : null}
 
         <OpportunitiesPanel opportunities={props.opportunities} />
+
+        <ClientNextActionsPanel actions={props.clientNextActions} />
 
         <View style={styles.section}>
           <Text style={styles.sectionEyebrow}>Performance</Text>

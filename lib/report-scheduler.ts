@@ -15,6 +15,8 @@ import { buildPdfPostSummaries } from "@/lib/pdf-posts";
 import { buildDashboardActionPlan } from "@/lib/dashboard-action-plan";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
+import { buildClientNextActions } from "@/lib/client-next-actions";
+import { fetchClientStrategySnapshot } from "@/lib/client-strategy";
 import { sendReportEmail } from "@/lib/email";
 import { fetchTenantGoals } from "@/lib/goals";
 import { createTenantNotification } from "@/lib/notifications";
@@ -294,7 +296,14 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
   const pdfInsights = generateStrategicInsights(insightsInput);
   const pdfTakeaways = generateKeyTakeaways(insightsInput);
   const pdfSummary = generateExecutiveSummary(insightsInput);
-  const tenantGoals = await fetchTenantGoals(tenantId);
+  const [tenantGoals, strategySnapshot] = await Promise.all([
+    fetchTenantGoals(tenantId),
+    fetchClientStrategySnapshot({
+      tenantId,
+      admin: true,
+      includeDraftBriefs: false,
+    }),
+  ]);
 
   const { data: lastSync } = await supabase
     .from("sync_logs")
@@ -343,6 +352,12 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
     posted_at: post.posted_at,
     metrics: post.metrics,
   })));
+  const clientNextActions = buildClientNextActions({
+    actionPlan,
+    opportunities,
+    strategy: strategySnapshot,
+    tenantId,
+  });
 
   const contentDna = analyzeContentDna({
     posts: postsList.map((post) => ({
@@ -405,6 +420,7 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
     })),
     actionPlan,
     opportunities,
+    clientNextActions,
     dataQuality,
     contentDna:
       contentDna.patterns.length > 0
