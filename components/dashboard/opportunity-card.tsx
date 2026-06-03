@@ -1,4 +1,4 @@
-import { ArrowUpRight, Sparkles, Target, Wand2 } from "lucide-react";
+import { ArrowUpRight, SearchCheck, Sparkles, Target, Wand2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { DashboardOpportunity } from "@/lib/dashboard-opportunities";
@@ -8,7 +8,38 @@ type OpportunityCardProps = {
 };
 
 export function OpportunityCard({ opportunities }: OpportunityCardProps) {
-  if (!opportunities.length) return null;
+  if (!opportunities.length) {
+    return (
+      <Card className="card-surface overflow-hidden p-0 fade-in-up">
+        <div className="border-b border-border/60 bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(37,99,235,0.84))] p-6 text-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-white/10 shadow-sm">
+              <Sparkles className="h-4.5 w-4.5 text-white" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold leading-tight">Opportunités prioritaires</h2>
+              <p className="mt-1 text-xs text-white/70">Les signaux faibles restent filtrés pour ne garder que les leviers crédibles.</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-white text-primary">
+                <SearchCheck className="h-4.5 w-4.5" aria-hidden="true" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Aucun levier fiable détecté</h3>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Les données de la période ne montrent pas encore de contenu suffisamment distinctif pour recommander une activation.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="card-surface overflow-hidden p-0 fade-in-up">
@@ -19,7 +50,7 @@ export function OpportunityCard({ opportunities }: OpportunityCardProps) {
               <Sparkles className="h-4.5 w-4.5 text-white" aria-hidden="true" />
             </div>
             <div>
-              <h2 className="text-base font-semibold leading-tight">Opportunités</h2>
+              <h2 className="text-base font-semibold leading-tight">Opportunités prioritaires</h2>
               <p className="mt-1 text-xs text-white/70">Les leviers les plus crédibles détectés dans les contenus de la période.</p>
             </div>
           </div>

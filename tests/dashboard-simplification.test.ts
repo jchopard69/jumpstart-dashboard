@@ -25,5 +25,14 @@ test("pdf and csv exports stay focused on useful signals", () => {
   const csv = readFileSync("lib/csv-export.ts", "utf8");
 
   assert.doesNotMatch(pdf, /Plan d'actions|Prochaines décisions client|Briefs éditoriaux générés|contentBriefs|clientNextActions|actionPlan/);
+  assert.doesNotMatch(pdf, /Opportunités automatiques/);
   assert.doesNotMatch(csv, /Priorité V2|Brief automatisable|getAutomatableBrief|getV2Priority/);
+});
+
+test("opportunity card keeps a premium empty state without adding gadget features", () => {
+  const source = readFileSync("components/dashboard/opportunity-card.tsx", "utf8");
+
+  assert.match(source, /Opportunités prioritaires/);
+  assert.match(source, /Aucun levier fiable détecté/);
+  assert.doesNotMatch(source, /Briefs automatisés|Prochaines décisions client|Plan d'actions/);
 });

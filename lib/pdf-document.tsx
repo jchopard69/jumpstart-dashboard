@@ -1132,7 +1132,7 @@ function OpportunitiesPanel({ opportunities }: { opportunities?: DashboardOpport
 
   return (
     <View style={styles.opportunityPanel} wrap={false}>
-      <Text style={styles.panelEyebrow}>Opportunités automatiques</Text>
+      <Text style={styles.panelEyebrow}>Opportunités prioritaires</Text>
       <View style={styles.opportunityGrid}>
         {visibleOpportunities.map((opportunity) => (
           <View key={opportunity.id} style={styles.opportunityCell}>
