@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { PLATFORM_ICONS } from "@/lib/types";
+import type { AdminClientHealth } from "@/lib/admin-client-health";
 import type { Platform, SyncStatus } from "@/lib/types";
 
 export type ClientRow = {
@@ -18,6 +19,7 @@ export type ClientRow = {
   platforms: Platform[];
   lastSyncStatus: SyncStatus | null;
   lastSyncAt: string | null;
+  health: AdminClientHealth;
 };
 
 interface ClientsListProps {
@@ -32,7 +34,9 @@ export function ClientsList({ clients, deactivateAction }: ClientsListProps) {
     ? clients.filter(
         (c) =>
           c.name.toLowerCase().includes(query.toLowerCase()) ||
-          c.slug.toLowerCase().includes(query.toLowerCase())
+          c.slug.toLowerCase().includes(query.toLowerCase()) ||
+          c.health.summary.toLowerCase().includes(query.toLowerCase()) ||
+          c.health.nextAction.toLowerCase().includes(query.toLowerCase())
       )
     : clients;
 
@@ -56,6 +60,7 @@ export function ClientsList({ clients, deactivateAction }: ClientsListProps) {
             <TableRow>
               <TableHead>Client</TableHead>
               <TableHead>Plateformes</TableHead>
+              <TableHead>Santé</TableHead>
               <TableHead>Dernière sync</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -64,7 +69,7 @@ export function ClientsList({ clients, deactivateAction }: ClientsListProps) {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                   {query ? "Aucun client trouvé" : "Aucun client"}
                 </TableCell>
               </TableRow>
@@ -89,6 +94,34 @@ export function ClientsList({ clients, deactivateAction }: ClientsListProps) {
                     ) : (
                       <span className="text-xs text-muted-foreground">-</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="min-w-[180px]">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={
+                            client.health.status === "healthy"
+                              ? "success"
+                              : client.health.status === "watch"
+                                ? "warning"
+                                : client.health.status === "risk"
+                                  ? "danger"
+                                  : "secondary"
+                          }
+                        >
+                          {client.health.label}
+                        </Badge>
+                        <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                          {client.health.score}%
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        {client.health.summary}
+                      </p>
+                      <p className="mt-1 text-xs font-medium leading-relaxed text-foreground/75">
+                        {client.health.nextAction}
+                      </p>
+                    </div>
                   </TableCell>
                   <TableCell>
                     {client.lastSyncAt ? (

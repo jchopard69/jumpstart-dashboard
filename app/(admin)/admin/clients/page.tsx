@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createTenant, deactivateTenant } from "@/app/(admin)/admin/actions";
 import { ClientsList, type ClientRow } from "@/components/admin/clients-list";
+import { computeAdminClientHealth } from "@/lib/admin-client-health";
 import type { Platform, SyncStatus } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -54,7 +55,20 @@ export default async function AdminClientsPage() {
     platforms: Array.from(platformsByTenant.get(t.id) ?? []),
     lastSyncStatus: lastSyncByTenant.get(t.id)?.status ?? null,
     lastSyncAt: lastSyncByTenant.get(t.id)?.started_at ?? null,
+    health: computeAdminClientHealth({
+      isActive: t.is_active,
+      platforms: Array.from(platformsByTenant.get(t.id) ?? []),
+      lastSyncStatus: lastSyncByTenant.get(t.id)?.status ?? null,
+      lastSyncAt: lastSyncByTenant.get(t.id)?.started_at ?? null,
+    }),
   }));
+  const activeClients = clientRows.filter((client) => client.is_active);
+  const riskClients = clientRows.filter((client) => client.health.status === "risk").length;
+  const watchClients = clientRows.filter((client) => client.health.status === "watch").length;
+  const healthyClients = clientRows.filter((client) => client.health.status === "healthy").length;
+  const averageHealth = activeClients.length
+    ? Math.round(activeClients.reduce((sum, client) => sum + client.health.score, 0) / activeClients.length)
+    : 0;
 
   return (
     <div className="space-y-8 fade-in">
@@ -77,6 +91,24 @@ export default async function AdminClientsPage() {
       </section>
 
       <section className="card-surface rounded-2xl p-6 fade-in-up">
+        <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="rounded-xl border border-border/60 bg-muted/25 p-4">
+            <p className="section-label">Santé moyenne</p>
+            <p className="mt-2 text-2xl font-semibold tabular-nums">{averageHealth}%</p>
+          </div>
+          <div className="rounded-xl border border-rose-200/70 bg-rose-50/70 p-4">
+            <p className="section-label text-rose-700">À traiter</p>
+            <p className="mt-2 text-2xl font-semibold text-rose-700 tabular-nums">{riskClients}</p>
+          </div>
+          <div className="rounded-xl border border-amber-200/70 bg-amber-50/70 p-4">
+            <p className="section-label text-amber-700">À surveiller</p>
+            <p className="mt-2 text-2xl font-semibold text-amber-700 tabular-nums">{watchClients}</p>
+          </div>
+          <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/70 p-4">
+            <p className="section-label text-emerald-700">Sains</p>
+            <p className="mt-2 text-2xl font-semibold text-emerald-700 tabular-nums">{healthyClients}</p>
+          </div>
+        </div>
         <ClientsList clients={clientRows} deactivateAction={deactivateTenant} />
       </section>
     </div>
