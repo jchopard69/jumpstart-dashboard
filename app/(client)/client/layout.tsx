@@ -138,7 +138,7 @@ export default async function ClientLayout({ children }: { children: React.React
               <header className="sticky top-0 z-30 border-b border-border/70 bg-white/80 backdrop-blur xl:hidden">
                 <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <MobileNav isAdmin={isAdmin} signOutAction={signOut} />
+                    <MobileNav isAdmin={isAdmin} signOutAction={signOut} pulse={clientPulse} />
                     <Image src="/jumpstart-logo.png" alt="JumpStart Studio" width={100} height={24} priority />
                   </div>
                   <div className="flex items-center gap-2">

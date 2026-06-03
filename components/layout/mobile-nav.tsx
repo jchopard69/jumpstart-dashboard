@@ -11,7 +11,9 @@ import {
   SheetTitle,
   SheetTrigger
 } from "@/components/ui/sheet";
+import { ClientPulseCard } from "@/components/layout/client-pulse-card";
 import { cn } from "@/lib/utils";
+import type { ClientPulse } from "@/lib/client-pulse-core";
 
 type NavItem = {
   href: string;
@@ -70,9 +72,10 @@ const navItems: NavItem[] = [
 type MobileNavProps = {
   isAdmin?: boolean;
   signOutAction: () => Promise<void>;
+  pulse?: ClientPulse | null;
 };
 
-export function MobileNav({ isAdmin, signOutAction }: MobileNavProps) {
+export function MobileNav({ isAdmin, signOutAction, pulse }: MobileNavProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tenantId = searchParams.get("tenantId");
@@ -92,7 +95,7 @@ export function MobileNav({ isAdmin, signOutAction }: MobileNavProps) {
           <span className="sr-only">Menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 bg-white/95 backdrop-blur">
+      <SheetContent side="left" className="flex w-72 flex-col bg-white/95 backdrop-blur">
         <SheetHeader className="text-left">
           <div className="flex items-center gap-3">
             <Image src="/jumpstart-logo.png" alt="JumpStart Studio" width={120} height={28} priority />
@@ -146,7 +149,9 @@ export function MobileNav({ isAdmin, signOutAction }: MobileNavProps) {
           )}
         </nav>
 
-        <div className="absolute bottom-6 left-6 right-6">
+        {!isAdmin && <ClientPulseCard pulse={pulse ?? null} tenantId={tenantId} />}
+
+        <div className="mt-auto pt-6">
           <form action={signOutAction}>
             <Button variant="outline" className="w-full" type="submit">
               Déconnexion
