@@ -1,5 +1,5 @@
 import type React from "react";
-import { AlertTriangle, CalendarClock, CheckCircle2, Target } from "lucide-react";
+import { AlertTriangle, Bot, CalendarClock, CheckCircle2, Target, UserRound } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,8 @@ export function ActionPlanCard({ actions }: ActionPlanCardProps) {
       <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-3">
         {actions.map((action, index) => {
           const style = priorityStyles[action.priority];
+          const owner = action.owner ?? "Partage";
+          const automation = action.automation ?? "Préparer une synthèse de suivi pour cadrer la prochaine itération.";
           return (
             <div key={action.id} className="rounded-xl border border-border/60 bg-white/70 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
               <div className="flex items-start justify-between gap-3">
@@ -55,8 +57,20 @@ export function ActionPlanCard({ actions }: ActionPlanCardProps) {
                   {horizonIcons[action.horizon]}
                   <span>{action.horizon}</span>
                 </div>
+                <div className="flex flex-wrap gap-2 text-[11px] font-medium text-foreground/70">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-white px-2 py-0.5">
+                    <UserRound className="h-3 w-3 text-primary" aria-hidden="true" />
+                    {owner}
+                  </span>
+                </div>
                 <h3 className="text-sm font-semibold leading-snug text-foreground">{action.title}</h3>
                 <p className="text-xs leading-relaxed text-muted-foreground">{action.rationale}</p>
+                <div className="rounded-lg border border-primary/10 bg-primary/5 p-2.5">
+                  <div className="flex items-start gap-2">
+                    <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                    <p className="text-xs leading-relaxed text-foreground/80">{automation}</p>
+                  </div>
+                </div>
                 {action.metric && (
                   <div className="flex items-center gap-2 pt-1 text-[11px] font-medium text-foreground/75">
                     <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />

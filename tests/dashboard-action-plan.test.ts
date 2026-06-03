@@ -53,6 +53,8 @@ test("buildDashboardActionPlan prioritizes broken data before content recommenda
 
   assert.equal(actions[0]?.id, "data-tiktok");
   assert.equal(actions[0]?.priority, "high");
+  assert.equal(actions[0]?.owner, "JumpStart");
+  assert.match(actions[0]?.automation ?? "", /synchronisation/);
 });
 
 test("buildDashboardActionPlan flags missed engagement and cadence targets", () => {
@@ -79,6 +81,8 @@ test("buildDashboardActionPlan flags missed engagement and cadence targets", () 
 
   assert.ok(actions.some((action) => action.id === "engagement-target"));
   assert.ok(actions.some((action) => action.id === "publishing-rhythm"));
+  assert.ok(actions.every((action) => action.owner));
+  assert.ok(actions.every((action) => action.automation));
 });
 
 test("buildDashboardActionPlan recommends scaling a strong platform when data is healthy", () => {
@@ -106,4 +110,5 @@ test("buildDashboardActionPlan recommends scaling a strong platform when data is
   });
 
   assert.ok(actions.some((action) => action.id === "scale-linkedin"));
+  assert.match(actions.find((action) => action.id === "scale-linkedin")?.automation ?? "", /briefs de variation/);
 });

@@ -427,6 +427,18 @@ const styles = StyleSheet.create({
     lineHeight: 1.3,
     color: palette.muted,
   },
+  actionOwner: {
+    marginTop: 3,
+    fontSize: 7.1,
+    color: palette.blue,
+    fontFamily: "Helvetica-Bold",
+  },
+  actionAutomation: {
+    marginTop: 3,
+    fontSize: 7.1,
+    lineHeight: 1.25,
+    color: palette.ink,
+  },
   actionMetric: {
     marginTop: 3,
     fontSize: 7.2,
@@ -1271,6 +1283,14 @@ function ActionPlanPanel({ actionPlan }: { actionPlan?: DashboardActionItem[] })
             <Text style={styles.actionRationale}>
               {truncateText(sanitizeText(action.rationale), 116)}
             </Text>
+            <Text style={styles.actionOwner}>
+              Responsable recommandé : {sanitizeText(action.owner ?? "Partage")}
+            </Text>
+            {action.automation ? (
+              <Text style={styles.actionAutomation}>
+                {truncateText(sanitizeText(action.automation), 108)}
+              </Text>
+            ) : null}
             {action.metric ? (
               <Text style={styles.actionMetric}>{truncateText(sanitizeText(action.metric), 52)}</Text>
             ) : null}

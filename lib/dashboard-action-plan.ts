@@ -27,9 +27,11 @@ export type DashboardActionItem = {
   id: string;
   priority: "high" | "medium" | "low";
   horizon: "Aujourd'hui" | "Cette semaine" | "Ce mois-ci";
+  owner?: "JumpStart" | "Client" | "Partage";
   title: string;
   rationale: string;
   metric?: string;
+  automation?: string;
 };
 
 const PLATFORM_LABELS: Record<Platform, string> = {
@@ -45,10 +47,58 @@ function formatPercent(value: number): string {
   return `${value > 0 ? "+" : ""}${Math.round(value)}%`;
 }
 
-function addUnique(actions: DashboardActionItem[], item: DashboardActionItem) {
+function addUnique(actions: DashboardActionItem[], item: Omit<DashboardActionItem, "owner" | "automation">) {
   if (!actions.some((existing) => existing.id === item.id)) {
-    actions.push(item);
+    actions.push(qualifyAction(item));
   }
+}
+
+function qualifyAction(item: Omit<DashboardActionItem, "owner" | "automation">): DashboardActionItem {
+  if (item.id.startsWith("data-") || item.id.startsWith("coverage-") || item.id === "refresh-data") {
+    return {
+      ...item,
+      owner: "JumpStart",
+      automation: "Relancer les contrôles de synchronisation et bloquer les recommandations fragiles tant que la donnée reste partielle.",
+    };
+  }
+
+  if (item.id === "engagement-target" || item.id === "engagement-drop") {
+    return {
+      ...item,
+      owner: "Partage",
+      automation: "Créer une alerte de suivi et générer 3 angles éditoriaux à tester sur les prochains contenus.",
+    };
+  }
+
+  if (item.id === "publishing-rhythm" || item.id === "low-frequency") {
+    return {
+      ...item,
+      owner: "JumpStart",
+      automation: "Transformer la cadence cible en créneaux de publication et briefs prêts à planifier.",
+    };
+  }
+
+  if (item.id.startsWith("platform-drop-")) {
+    return {
+      ...item,
+      owner: "JumpStart",
+      automation: "Comparer automatiquement la plateforme avec la période précédente et isoler formats, horaires et contenus en recul.",
+    };
+  }
+
+  if (item.id.startsWith("scale-")) {
+    return {
+      ...item,
+      owner: "JumpStart",
+      automation: "Dupliquer les patterns gagnants en briefs de variation et opportunités de repost ou amplification.",
+    };
+  }
+
+  return {
+    ...item,
+    owner: "Partage",
+    automation: "Préparer une synthèse de revue pour valider les apprentissages et verrouiller la prochaine itération.",
+  };
 }
 
 export function buildDashboardActionPlan(params: {
