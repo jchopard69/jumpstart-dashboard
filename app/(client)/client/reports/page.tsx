@@ -5,6 +5,8 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/s
 import { ReportScheduleList } from "@/components/reports/report-schedule-list";
 import { canManageReportSchedules } from "@/lib/tenant-selection";
 import { ExportButtons } from "@/components/dashboard/export-buttons";
+import { ReportingHealthCard } from "@/components/reports/reporting-health-card";
+import { buildReportingHealth } from "@/lib/reporting-health";
 
 export const metadata: Metadata = {
   title: "Rapports automatiques",
@@ -47,6 +49,7 @@ export default async function ReportsPage({
     .select("*")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
+  const reportingHealth = buildReportingHealth({ schedules: schedules ?? [] });
 
   const exportParams = new URLSearchParams({ preset: "last_30_days" });
   if (searchParams?.tenantId) {
@@ -92,6 +95,8 @@ export default async function ReportsPage({
           </p>
         </div>
       </section>
+
+      <ReportingHealthCard health={reportingHealth} />
 
       <ReportScheduleList
         initialSchedules={schedules ?? []}
