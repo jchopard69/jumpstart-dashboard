@@ -88,6 +88,37 @@ function getAutomatedRecommendation(row: CsvMetricRow, coverage: number): string
   return "Suivre dans le prochain reporting";
 }
 
+function getV2Priority(row: CsvMetricRow, coverage: number): string {
+  const rate = computeRowEngagementRate(row);
+  if (coverage < 50) return "Fiabilisation data";
+  if ((row.views ?? 0) === 0 && (row.reach ?? 0) === 0 && (row.impressions ?? 0) === 0) {
+    return "Visibilité à réparer";
+  }
+  if (rate != null && rate >= 5 && (row.engagements ?? 0) >= 20) return "Brief à produire";
+  if ((row.engagements ?? 0) === 0 && ((row.views ?? 0) > 0 || (row.reach ?? 0) > 0)) {
+    return "Angle à retravailler";
+  }
+  return "Suivi reporting";
+}
+
+function getAutomatableBrief(row: CsvMetricRow, coverage: number): string {
+  const platform = row.platform ? String(row.platform) : "plateforme";
+  const rate = computeRowEngagementRate(row);
+  if (coverage < 50) {
+    return `Contrôler la synchronisation ${platform} avant de générer des briefs.`;
+  }
+  if ((row.views ?? 0) === 0 && (row.reach ?? 0) === 0 && (row.impressions ?? 0) === 0) {
+    return `Vérifier la visibilité ${platform} puis relancer l'analyse créative.`;
+  }
+  if (rate != null && rate >= 5 && (row.engagements ?? 0) >= 20) {
+    return `Créer un brief ${platform} à partir du créneau performant: hook, preuve, CTA et variante sponsorisable.`;
+  }
+  if ((row.engagements ?? 0) === 0 && ((row.views ?? 0) > 0 || (row.reach ?? 0) > 0)) {
+    return `Préparer une variante ${platform} avec question, preuve ou appel au commentaire.`;
+  }
+  return `Conserver ce point ${platform} comme signal de suivi pour le prochain rapport.`;
+}
+
 export function toCsv(rows: Array<Record<string, unknown>>) {
   if (!rows.length) return "";
   const headers = Object.keys(rows[0]);
@@ -134,6 +165,8 @@ export function buildMetricCsvRows(params: {
       "Couverture période (%)": coverage,
       "Statut donnée": getDataStatus(coverage, row),
       "Recommandation automatique": getAutomatedRecommendation(row, coverage),
+      "Priorité V2": getV2Priority(row, coverage),
+      "Brief automatisable": getAutomatableBrief(row, coverage),
       "Dernière synchronisation": syncLabel,
     };
   });
