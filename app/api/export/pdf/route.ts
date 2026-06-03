@@ -17,6 +17,7 @@ import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
 import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
 import { buildContentPortfolio } from "@/lib/content-portfolio";
+import { buildTrendTrajectoryFromDailyMetrics } from "@/lib/trend-trajectory";
 import {
   getDemoPdfWatermarkText,
   shouldUseDemoPdfWatermark,
@@ -214,6 +215,7 @@ export async function GET(request: Request) {
     url: post.url,
   })));
   const platformDiagnosis = buildPlatformDiagnosis(data.perPlatform);
+  const trendTrajectory = buildTrendTrajectoryFromDailyMetrics(data.metrics);
 
   const contentDna = analyzeContentDna({
     posts: data.posts.map((post) => ({
@@ -266,6 +268,7 @@ export async function GET(request: Request) {
     opportunities,
     platformDiagnosis,
     contentPortfolio,
+    trendTrajectory,
     dataQuality,
     contentDna:
       contentDna.patterns.length > 0

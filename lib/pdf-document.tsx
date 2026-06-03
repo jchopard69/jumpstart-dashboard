@@ -4,6 +4,7 @@ import type { DashboardDataQuality } from "./dashboard-data-quality";
 import type { DashboardOpportunity } from "./dashboard-opportunities";
 import type { PlatformDiagnosis, PlatformDiagnosisItem } from "./platform-diagnosis";
 import type { ContentPortfolio } from "./content-portfolio";
+import type { TrendTrajectoryItem } from "./trend-trajectory";
 
 const PAGE_PADDING_X = 34;
 const PAGE_PADDING_TOP = 76;
@@ -398,6 +399,77 @@ const styles = StyleSheet.create({
     width: "33.3333%",
     paddingLeft: 4,
     paddingRight: 4,
+  },
+  trajectoryPanel: {
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#f8f7ff",
+    marginBottom: 10,
+  },
+  trajectoryGrid: {
+    flexDirection: "row",
+    marginLeft: -4,
+    marginRight: -4,
+  },
+  trajectoryCell: {
+    width: "25%",
+    paddingLeft: 4,
+    paddingRight: 4,
+  },
+  trajectoryCard: {
+    borderWidth: 1,
+    borderColor: "#ddd6fe",
+    borderRadius: 12,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 96,
+  },
+  trajectoryTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 5,
+  },
+  trajectoryLabel: {
+    fontSize: 7,
+    color: palette.violet,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.9,
+  },
+  trajectoryChange: {
+    fontSize: 7,
+    color: palette.teal,
+    fontFamily: "Helvetica-Bold",
+  },
+  trajectoryValue: {
+    fontSize: 14,
+    color: palette.ink,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 6,
+  },
+  trajectoryBars: {
+    height: 28,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginLeft: -1,
+    marginRight: -1,
+    marginBottom: 6,
+  },
+  trajectoryBar: {
+    flexGrow: 1,
+    marginLeft: 1,
+    marginRight: 1,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
+    backgroundColor: palette.violet,
+  },
+  trajectorySummary: {
+    fontSize: 6.8,
+    lineHeight: 1.25,
+    color: palette.muted,
   },
   qualityScore: {
     fontSize: 22,
@@ -946,6 +1018,7 @@ export type PdfDocumentProps = {
   opportunities?: DashboardOpportunity[];
   platformDiagnosis?: PlatformDiagnosis;
   contentPortfolio?: ContentPortfolio;
+  trendTrajectory?: TrendTrajectoryItem[];
   dataQuality?: DashboardDataQuality;
   watermark?: string;
 };
@@ -1292,6 +1365,66 @@ function ContentPortfolioPanel({ portfolio }: { portfolio?: ContentPortfolio }) 
             {portfolio.averageEngagementRate != null ? `${formatNumber(portfolio.averageEngagementRate, 1)}%` : "-"} - {sanitizeText(portfolio.qualityLabel)}
           </Text>
         </View>
+      </View>
+    </View>
+  );
+}
+
+function TrendTrajectoryPanel({ items }: { items?: TrendTrajectoryItem[] }) {
+  const visibleItems = (items ?? []).slice(0, 4);
+  if (visibleItems.length === 0) return null;
+
+  return (
+    <View style={styles.trajectoryPanel} wrap={false}>
+      <Text style={styles.panelEyebrow}>Trajectoire du mois</Text>
+      <Text style={styles.sectionLead}>
+        Lecture visuelle du rythme de fin de période, en complément des volumes cumulés.
+      </Text>
+      <View style={styles.trajectoryGrid}>
+        {visibleItems.map((item) => (
+          <View key={item.id} style={styles.trajectoryCell}>
+            <View style={styles.trajectoryCard}>
+              <View style={styles.trajectoryTopRow}>
+                <Text style={styles.trajectoryLabel}>{sanitizeText(item.label)}</Text>
+                <Text
+                  style={[
+                    styles.trajectoryChange,
+                    item.direction === "down"
+                      ? { color: palette.red }
+                      : item.direction === "flat"
+                        ? { color: palette.muted }
+                        : {},
+                  ]}
+                >
+                  {sanitizeText(item.changeLabel)}
+                </Text>
+              </View>
+              <Text style={styles.trajectoryValue}>{sanitizeText(item.valueLabel)}</Text>
+              <View style={styles.trajectoryBars}>
+                {item.bars.map((height, index) => (
+                  <View
+                    key={`${item.id}-${index}`}
+                    style={[
+                      styles.trajectoryBar,
+                      {
+                        height: `${Math.max(8, Math.min(100, height))}%`,
+                        backgroundColor:
+                          item.direction === "down"
+                            ? palette.red
+                            : item.direction === "flat"
+                              ? palette.muted
+                              : palette.violet,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+              <Text style={styles.trajectorySummary}>
+                {truncateText(sanitizeText(item.summary), 68)}
+              </Text>
+            </View>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -1654,6 +1787,10 @@ export function PdfDocument(props: PdfDocumentProps) {
             Détail des volumes, de la visibilité et du rendement par canal sur la période exportée.
           </Text>
           <PlatformTable platforms={props.platforms} />
+        </View>
+
+        <View style={styles.section}>
+          <TrendTrajectoryPanel items={props.trendTrajectory} />
         </View>
 
         <View style={styles.section}>
