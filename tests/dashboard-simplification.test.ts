@@ -29,6 +29,19 @@ test("pdf and csv exports stay focused on useful signals", () => {
   assert.doesNotMatch(csv, /Priorité V2|Brief automatisable|getAutomatableBrief|getV2Priority/);
 });
 
+test("Content DNA remains available in dashboard and PDF exports", () => {
+  const dashboard = readFileSync("app/(client)/client/dashboard/page.tsx", "utf8");
+  const pdf = readFileSync("app/api/export/pdf/route.ts", "utf8");
+  const scheduler = readFileSync("lib/report-scheduler.ts", "utf8");
+  const document = readFileSync("lib/pdf-document.tsx", "utf8");
+
+  assert.match(dashboard, /ContentDnaCard/);
+  assert.match(dashboard, /analyzeContentDna/);
+  assert.match(pdf, /contentDna/);
+  assert.match(scheduler, /contentDna/);
+  assert.match(document, /ADN de contenu/);
+});
+
 test("opportunity card keeps a premium empty state without adding gadget features", () => {
   const source = readFileSync("components/dashboard/opportunity-card.tsx", "utf8");
 
