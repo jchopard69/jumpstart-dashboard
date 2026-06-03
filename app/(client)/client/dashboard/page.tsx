@@ -3,6 +3,7 @@ import { getSessionProfile, getUserTenants } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
+import { DashboardSectionNav } from "@/components/dashboard/dashboard-section-nav";
 import { RefreshButton } from "@/components/dashboard/refresh-button";
 import { ExportButtons } from "@/components/dashboard/export-buttons";
 import { KpiSection } from "@/components/dashboard/kpi-section";
@@ -562,6 +563,9 @@ export default async function ClientDashboardPage({
             accounts={accounts}
           />
         </div>
+        <div className="mt-4">
+          <DashboardSectionNav />
+        </div>
       </section>
 
       {isDemoTenant && (
@@ -613,18 +617,20 @@ export default async function ClientDashboardPage({
         postsAnalyzed={data.posts.length}
       />
 
-      <ActionPlanCard actions={actionPlan} />
+      <section id="dashboard-priorities" className="scroll-mt-6 space-y-6">
+        <ActionPlanCard actions={actionPlan} />
 
-      <OpportunityCard opportunities={opportunities} />
+        <OpportunityCard opportunities={opportunities} />
 
-      <ClientNextActionsCard actions={clientNextActions} />
+        <ClientNextActionsCard actions={clientNextActions} />
 
-      <StrategyDashboardCard
-        snapshot={strategySnapshot}
-        tenantId={profile.role === "agency_admin" ? effectiveTenantId : undefined}
-      />
+        <StrategyDashboardCard
+          snapshot={strategySnapshot}
+          tenantId={profile.role === "agency_admin" ? effectiveTenantId : undefined}
+        />
+      </section>
 
-      <section id="dashboard-kpis">
+      <section id="dashboard-kpis" className="scroll-mt-6">
         <KpiSection
           totals={data.totals}
           delta={data.delta}
@@ -640,7 +646,7 @@ export default async function ClientDashboardPage({
       {/* ─── Strategic Analysis ─── */}
       <div className="section-divider" />
 
-      <section id="dashboard-insights" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <section id="dashboard-insights" className="grid scroll-mt-6 grid-cols-1 gap-6 lg:grid-cols-3">
         <InsightCard insights={strategicInsights.map(i => ({
           type: i.type as any,
           title: i.title,
@@ -669,7 +675,7 @@ export default async function ClientDashboardPage({
       {/* ─── Content Strategy: Top Posts + Best Time ─── */}
       <div className="section-divider" />
 
-      <div id="dashboard-content" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div id="dashboard-content" className="grid scroll-mt-6 grid-cols-1 gap-6 lg:grid-cols-2">
         <TopPosts posts={data.posts} />
         {bestTimeData && <BestTimeHeatmap data={bestTimeData} />}
       </div>
@@ -684,7 +690,7 @@ export default async function ClientDashboardPage({
       {/* ─── Operations ─── */}
       <div className="section-divider" />
 
-      <div id="dashboard-operations" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div id="dashboard-operations" className="grid scroll-mt-6 grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-6">
           <DataQualityCard quality={dataQuality} />
           <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
