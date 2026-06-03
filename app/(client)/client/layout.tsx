@@ -8,6 +8,8 @@ import { NavLink } from "@/components/layout/nav-link";
 import { TenantSwitcher } from "@/components/layout/tenant-switcher";
 import { ClientSwitcher, type ClientInfo } from "@/components/admin/client-switcher";
 import { AdminClientContext } from "@/components/layout/admin-client-context";
+import { ClientPulseCard } from "@/components/layout/client-pulse-card";
+import { fetchClientPulse } from "@/lib/client-pulse";
 import type { Platform, SyncStatus } from "@/lib/types";
 import { cookies } from "next/headers";
 
@@ -35,6 +37,7 @@ export default async function ClientLayout({ children }: { children: React.React
     : profile.tenant_id ?? tenants[0]?.id ?? "";
   const currentTenant = tenants.find((tenant) => tenant.id === currentTenantId);
   const isDemoTenant = Boolean(currentTenant?.is_demo);
+  const clientPulse = !isAdmin && currentTenantId ? await fetchClientPulse(currentTenantId) : null;
 
   // Fetch enriched tenant data for admin ClientSwitcher
   let clientsData: ClientInfo[] = [];
@@ -114,6 +117,7 @@ export default async function ClientLayout({ children }: { children: React.React
                     <NavLink href="/client/reports">Rapports</NavLink>
                     {isAdmin && <NavLink href="/admin">Admin</NavLink>}
                   </nav>
+                  {!isAdmin && <ClientPulseCard pulse={clientPulse} tenantId={currentTenantId} />}
                   {isAdmin && clientsData.length > 0 && (
                     <div className="mt-6 border-t border-border/50 pt-5">
                       <p className="mb-2 section-label">Changer de client</p>
