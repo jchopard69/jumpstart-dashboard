@@ -171,11 +171,15 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
 
   return (
     <Card
-      className={cn("card-surface relative overflow-hidden p-5 fade-in-up group", className)}
+      className={cn(
+        "card-surface relative overflow-hidden p-5 fade-in-up group",
+        "bg-[radial-gradient(circle_at_top_right,rgba(32,214,162,0.13),transparent_36%),linear-gradient(145deg,rgba(255,255,255,0.99),rgba(248,250,252,0.94))]",
+        className
+      )}
       style={{ animationDelay: `${index * 80}ms` }}
     >
-      {/* Gradient accent bar */}
-      <div className="absolute inset-x-0 top-0 h-[2px] bg-primary/70 opacity-70 transition-opacity group-hover:opacity-100" />
+      <div className="absolute inset-x-0 top-0 h-[3px] bg-[linear-gradient(90deg,#6d4dff,#20d6a2)] opacity-80 transition-opacity group-hover:opacity-100" />
+      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full border border-primary/10 bg-primary/[0.035]" />
 
       <div className="flex min-w-0 items-start justify-between gap-2">
         <p className="section-label leading-tight truncate flex items-center gap-1">
@@ -192,10 +196,10 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
         {delta !== 0 && (
           <span
             className={cn(
-              "inline-flex items-center gap-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap",
+              "inline-flex items-center gap-0.5 shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold whitespace-nowrap shadow-sm",
               trend === "up"
-                ? "bg-emerald-500/10 text-emerald-600"
-                : "bg-rose-500/10 text-rose-600"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-rose-200 bg-rose-50 text-rose-700"
             )}
           >
             <svg className="h-2.5 w-2.5 shrink-0" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2} aria-hidden="true">
@@ -210,7 +214,7 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
         )}
       </div>
 
-      <div className="mt-5">
+      <div className="mt-5 rounded-2xl border border-white/80 bg-white/68 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
         {value === null ? (
           <p className="text-3xl font-semibold font-display text-muted-foreground/50">N/A</p>
         ) : (
@@ -219,7 +223,7 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
       </div>
 
       {sparkline && sparkline.length >= 2 && (
-        <div className="mt-3">
+        <div className="mt-3 rounded-xl border border-border/50 bg-white/50 px-2 py-1">
           <MiniSparkline data={sparkline} trend={trend} />
         </div>
       )}
@@ -230,11 +234,15 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
             <span>Objectif : {formatCompact(goal!)}{suffix ?? ""}</span>
             <span className="font-medium">{Math.round(goalProgress)}%</span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-muted/40 overflow-hidden">
+          <div className="h-2 w-full rounded-full bg-muted/40 overflow-hidden">
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-700",
-                goalProgress >= 100 ? "bg-emerald-500" : goalProgress >= 60 ? "bg-violet-500" : "bg-amber-500"
+                goalProgress >= 100
+                  ? "bg-[linear-gradient(90deg,#10b981,#20d6a2)]"
+                  : goalProgress >= 60
+                    ? "bg-[linear-gradient(90deg,#6d4dff,#8b5cf6)]"
+                    : "bg-[linear-gradient(90deg,#f59e0b,#fbbf24)]"
               )}
               style={{ width: `${Math.min(goalProgress, 100)}%` }}
             />

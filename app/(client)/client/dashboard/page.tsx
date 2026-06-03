@@ -522,11 +522,11 @@ export default async function ClientDashboardPage({
               Lecture client de la performance, des opportunités et de l&apos;ADN créatif détecté sur la période.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1 text-white/72">
-                Période : <span className="font-medium text-white">{periodLabel}</span>
+              <span className="rounded-lg border border-primary/15 bg-white/70 px-2.5 py-1 text-muted-foreground shadow-sm">
+                Période : <span className="font-medium text-foreground/80">{periodLabel}</span>
               </span>
               {platformList.length > 0 && (
-                <span className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1 text-white/72">
+                <span className="rounded-lg border border-primary/15 bg-white/70 px-2.5 py-1 text-muted-foreground shadow-sm">
                   {platformList.length} plateforme{platformList.length > 1 ? "s" : ""}
                 </span>
               )}

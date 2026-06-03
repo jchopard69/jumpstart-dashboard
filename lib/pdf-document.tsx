@@ -105,9 +105,9 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
   },
   hero: {
-    backgroundColor: "#15122e",
+    backgroundColor: "#f8f7ff",
     borderWidth: 1,
-    borderColor: "#312e81",
+    borderColor: "#c7d2fe",
     borderRadius: 18,
     padding: 18,
     marginBottom: 12,
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   },
   heroEyebrow: {
     fontSize: 8,
-    color: "#a7f3d0",
+    color: palette.violet,
     textTransform: "uppercase",
     letterSpacing: 2,
     marginBottom: 7,
@@ -129,14 +129,14 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 27,
     lineHeight: 1.15,
-    color: "#ffffff",
+    color: palette.ink,
     fontFamily: "Helvetica-Bold",
   },
   heroSubtitle: {
     marginTop: 5,
     fontSize: 8.4,
     lineHeight: 1.35,
-    color: "#cbd5e1",
+    color: palette.muted,
   },
   heroFactsRow: {
     flexDirection: "row",
@@ -152,22 +152,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   heroFact: {
-    backgroundColor: "#211c4f",
+    backgroundColor: "#ffffff",
     borderRadius: 10,
     padding: 8,
     borderWidth: 1,
-    borderColor: "#3d367c",
+    borderColor: "#ddd6fe",
   },
   heroFactLabel: {
     fontSize: 7,
-    color: "#93c5fd",
+    color: palette.violet,
     textTransform: "uppercase",
     letterSpacing: 1.2,
     marginBottom: 3,
   },
   heroFactValue: {
     fontSize: 11,
-    color: "#ffffff",
+    color: palette.ink,
     fontFamily: "Helvetica-Bold",
   },
   row: {
