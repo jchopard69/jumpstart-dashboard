@@ -509,10 +509,14 @@ export default async function ClientDashboardPage({
   return (
     <div className="space-y-10 fade-in">
       {/* ─── Header + Filters ─── */}
-      <section className="surface-panel jumpstart-header p-6 sm:p-8">
+      <section className="dashboard-command-center jumpstart-header p-6 sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4 sm:gap-6">
           <div>
+            <p className="section-label text-primary">JumpStart Intelligence</p>
             <h1 className="page-heading">Vue d&apos;ensemble</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              Lecture client de la performance, des opportunités et de l&apos;ADN créatif détecté sur la période.
+            </p>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="rounded-lg border border-primary/15 bg-primary/5 px-2.5 py-1">
                 Période : <span className="font-medium text-foreground/75">{periodLabel}</span>
@@ -618,13 +622,26 @@ export default async function ClientDashboardPage({
       {/* ─── Strategic Analysis ─── */}
       <div className="section-divider" />
 
-      <section id="dashboard-insights" className="grid scroll-mt-6 grid-cols-1 gap-6 lg:grid-cols-3">
+      <section id="dashboard-insights" className="scroll-mt-6 space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="section-label">Intelligence créative</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-normal text-foreground font-display">
+              Ce qui explique vraiment la période
+            </h2>
+          </div>
+          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+            Les insights et Content DNA sont regroupés pour lire à la fois la performance business et les patterns éditoriaux qui la créent.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <InsightCard insights={strategicInsights.map(i => ({
           type: i.type as any,
           title: i.title,
           description: i.description,
         }))} />
         <ContentDnaCard dna={contentDna} />
+        </div>
       </section>
 
       {/* ─── Score Trend ─── */}

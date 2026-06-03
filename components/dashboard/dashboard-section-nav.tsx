@@ -35,7 +35,7 @@ const sections = [
 
 export function DashboardSectionNav() {
   return (
-    <nav className="surface-inset p-2" aria-label="Sections du dashboard">
+    <nav className="surface-inset border-primary/10 bg-white/55 p-2 shadow-sm" aria-label="Sections du dashboard">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
         {sections.map((section) => {
           const Icon = section.icon;
@@ -43,10 +43,10 @@ export function DashboardSectionNav() {
             <a
               key={section.href}
               href={section.href}
-              className="group flex min-h-[72px] items-center justify-between gap-3 rounded-xl border border-transparent bg-white/65 px-4 py-3 text-left transition-colors hover:border-primary/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              className="group flex min-h-[74px] items-center justify-between gap-3 rounded-xl border border-transparent bg-white/72 px-4 py-3 text-left shadow-[0_1px_2px_rgba(15,23,42,0.025)] transition-colors hover:border-primary/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             >
               <span className="flex min-w-0 items-center gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/5 text-primary">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/5 text-primary transition-colors group-hover:bg-primary group-hover:text-white">
                   <Icon className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">

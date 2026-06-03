@@ -18,6 +18,8 @@ const palette = {
   navy: "#0f172a",
   blue: "#2563eb",
   blueSoft: "#dbeafe",
+  violet: "#6d4dff",
+  violetSoft: "#ede9fe",
   teal: "#0f766e",
   tealSoft: "#ccfbf1",
   amber: "#b45309",
@@ -100,19 +102,26 @@ const styles = StyleSheet.create({
   },
   hero: {
     backgroundColor: palette.navy,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 10,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 12,
+  },
+  heroAccent: {
+    width: 96,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: "#20d6a2",
+    marginBottom: 12,
   },
   heroEyebrow: {
     fontSize: 8,
-    color: "#bfdbfe",
+    color: "#a7f3d0",
     textTransform: "uppercase",
     letterSpacing: 2,
-    marginBottom: 8,
+    marginBottom: 7,
   },
   heroTitle: {
-    fontSize: 24,
+    fontSize: 27,
     lineHeight: 1.15,
     color: "#ffffff",
     fontFamily: "Helvetica-Bold",
@@ -138,8 +147,10 @@ const styles = StyleSheet.create({
   },
   heroFact: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 12,
+    borderRadius: 10,
     padding: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
   },
   heroFactLabel: {
     fontSize: 7,
@@ -171,7 +182,7 @@ const styles = StyleSheet.create({
   panel: {
     borderWidth: 1,
     borderColor: palette.line,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     backgroundColor: "#ffffff",
   },
@@ -275,11 +286,11 @@ const styles = StyleSheet.create({
   },
   opportunityPanel: {
     borderWidth: 1,
-    borderColor: "#bbf7d0",
+    borderColor: "#c7d2fe",
     borderRadius: 14,
     padding: 12,
-    backgroundColor: "#f0fdf4",
-    marginTop: 10,
+    backgroundColor: "#f8f7ff",
+    marginTop: 12,
   },
   opportunityGrid: {
     flexDirection: "row",
@@ -293,11 +304,11 @@ const styles = StyleSheet.create({
   },
   opportunityCard: {
     borderWidth: 1,
-    borderColor: "#bbf7d0",
+    borderColor: "#ddd6fe",
     borderRadius: 12,
     padding: 9,
     backgroundColor: "#ffffff",
-    minHeight: 86,
+    minHeight: 92,
   },
   opportunityTitle: {
     fontSize: 8.5,
@@ -313,13 +324,13 @@ const styles = StyleSheet.create({
   },
   opportunityEvidence: {
     fontSize: 7,
-    color: palette.teal,
+    color: palette.violet,
     fontFamily: "Helvetica-Bold",
   },
   opportunityConfidence: {
     marginTop: 4,
     fontSize: 6.7,
-    color: palette.amber,
+    color: palette.teal,
     textTransform: "uppercase",
     letterSpacing: 0.7,
   },
@@ -354,7 +365,7 @@ const styles = StyleSheet.create({
     color: palette.muted,
   },
   section: {
-    marginTop: 10,
+    marginTop: 12,
   },
   sectionEyebrow: {
     fontSize: 7,
@@ -364,7 +375,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: "Helvetica-Bold",
     color: palette.ink,
     marginBottom: 3,
@@ -676,20 +687,22 @@ const styles = StyleSheet.create({
   },
   dnaCard: {
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: "#ddd6fe",
     borderRadius: 12,
     padding: 10,
-    backgroundColor: "#ffffff",
-    minHeight: 92,
+    backgroundColor: "#fbfaff",
+    minHeight: 96,
   },
   dnaLabel: {
-    fontSize: 10,
-    color: palette.blue,
+    fontSize: 7,
+    color: palette.violet,
     fontFamily: "Helvetica-Bold",
     marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 1.1,
   },
   dnaInsight: {
-    fontSize: 8.4,
+    fontSize: 9,
     lineHeight: 1.35,
     color: palette.ink,
     marginBottom: 4,
@@ -708,14 +721,14 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     height: 5,
     borderRadius: 999,
-    backgroundColor: "#dbeafe",
+    backgroundColor: "#ede9fe",
     overflow: "hidden",
     marginRight: 8,
   },
   strengthFill: {
     height: 5,
     borderRadius: 999,
-    backgroundColor: palette.blue,
+    backgroundColor: palette.violet,
   },
   strengthText: {
     fontSize: 7.5,
@@ -1133,6 +1146,9 @@ function OpportunitiesPanel({ opportunities }: { opportunities?: DashboardOpport
   return (
     <View style={styles.opportunityPanel} wrap={false}>
       <Text style={styles.panelEyebrow}>Opportunités prioritaires</Text>
+      <Text style={styles.sectionLead}>
+        Les leviers ci-dessous sont filtrés pour ne retenir que les signaux exploitables par le client.
+      </Text>
       <View style={styles.opportunityGrid}>
         {visibleOpportunities.map((opportunity) => (
           <View key={opportunity.id} style={styles.opportunityCell}>
@@ -1419,7 +1435,8 @@ export function PdfDocument(props: PdfDocumentProps) {
         />
 
         <View style={styles.hero} wrap={false}>
-          <Text style={styles.heroEyebrow}>Rapport premium - performance sociale</Text>
+          <View style={styles.heroAccent} />
+          <Text style={styles.heroEyebrow}>Rapport premium - JumpStart Intelligence</Text>
           <Text style={styles.heroTitle}>{safeTenantName}</Text>
           <Text style={styles.heroSubtitle}>{truncateText(safeExecutiveSummary, 190)}</Text>
           <View style={styles.heroFactsRow}>
