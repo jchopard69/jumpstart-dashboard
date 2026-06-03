@@ -16,6 +16,32 @@ export type MetricDropDetail = {
   dropPercent: number;
 };
 
+function buildMetricDropRecommendation(drops: MetricDropDetail[]) {
+  const keys = new Set(drops.map((drop) => drop.key));
+  if (keys.has("engagements")) {
+    return {
+      action: "Comparer les contenus récents avec les formats les plus engageants et préparer une variante plus interactive.",
+      href: "#dashboard-content",
+    };
+  }
+  if (keys.has("reach") || keys.has("views")) {
+    return {
+      action: "Vérifier les meilleurs créneaux, formats visibles et opportunités de repost ou amplification.",
+      href: "#dashboard-content",
+    };
+  }
+  if (keys.has("followers")) {
+    return {
+      action: "Contrôler les contenus récents et relancer une séquence d'acquisition ou de réassurance.",
+      href: "#dashboard-kpis",
+    };
+  }
+  return {
+    action: "Ouvrir le dashboard pour prioriser le plan d'actions de la période.",
+    href: "#dashboard-priorities",
+  };
+}
+
 const METRIC_ALERT_CONFIG: Record<MetricKey, MetricAlertConfig> = {
   followers: {
     label: "Abonnés",
@@ -97,12 +123,15 @@ export function buildMetricDropAlert(params: {
   const severeDrops = drops.filter((detail) => detail.dropPercent <= -35);
   const plural = drops.length > 1 ? "Les métriques suivantes reculent" : "Une baisse notable est détectée";
   const message = `${plural} par rapport à la période précédente : ${summary}.`;
+  const recommendation = buildMetricDropRecommendation(drops);
 
   return {
     title: severeDrops.length > 0 ? "Baisse de performance prioritaire" : "Baisse de performance détectée",
     message,
     metadata: {
       severity: severeDrops.length > 0 ? "high" : "medium",
+      recommended_action: recommendation.action,
+      recommended_href: recommendation.href,
       metrics: drops.map((detail) => ({
         key: detail.key,
         label: detail.label,
@@ -152,6 +181,8 @@ export function buildScoreDropAlert(params: {
     message: `Le score passe de ${previousScore}/100 à ${currentScore}/100 (${dropPoints} points)${gradeSuffix}.`,
     metadata: {
       severity: dropPoints <= -15 ? "high" : "medium",
+      recommended_action: "Analyser les sous-scores, la qualité des données et les priorités du plan d'actions.",
+      recommended_href: "#dashboard-priorities",
       previous_score: previousScore,
       current_score: currentScore,
       drop_points: dropPoints,

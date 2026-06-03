@@ -42,6 +42,18 @@ function getMetadataSummary(notification: NotificationData) {
   return labels.length ? labels.join(" · ") : null;
 }
 
+function getRecommendedAction(notification: NotificationData) {
+  const metadata = notification.metadata;
+  if (!metadata || typeof metadata !== "object") return null;
+  const action = "recommended_action" in metadata ? String(metadata.recommended_action ?? "") : "";
+  const href = "recommended_href" in metadata ? String(metadata.recommended_href ?? "") : "";
+  if (!action.trim()) return null;
+  return {
+    action,
+    href: href.startsWith("#") || href.startsWith("/") ? href : "#dashboard-priorities",
+  };
+}
+
 function formatRelative(dateIso: string) {
   const then = new Date(dateIso);
   if (Number.isNaN(then.getTime())) return "";
@@ -148,6 +160,7 @@ export function NotificationsCard({
             const t = getTypeLabel(n.type);
             const severity = getSeverity(n.metadata);
             const metadataSummary = getMetadataSummary(n);
+            const recommendedAction = getRecommendedAction(n);
             return (
               <button
                 key={n.id}
@@ -186,6 +199,15 @@ export function NotificationsCard({
                     )}
                     {metadataSummary && (
                       <p className="mt-2 text-xs font-medium text-foreground/75">{metadataSummary}</p>
+                    )}
+                    {recommendedAction && (
+                      <a
+                        href={recommendedAction.href}
+                        onClick={(event) => event.stopPropagation()}
+                        className="mt-3 inline-flex rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-xs font-medium leading-relaxed text-primary hover:bg-primary/10"
+                      >
+                        {recommendedAction.action}
+                      </a>
                     )}
                   </div>
                 </div>

@@ -69,6 +69,11 @@ test("buildMetricDropAlert returns a generic performance warning", () => {
   assert.match(alert?.message ?? "", /vues -30%/i);
   assert.match(alert?.message ?? "", /engagements -33%/i);
   assert.equal(alert?.metadata.severity, "medium");
+  assert.equal(
+    alert?.metadata.recommended_action,
+    "Comparer les contenus récents avec les formats les plus engageants et préparer une variante plus interactive."
+  );
+  assert.equal(alert?.metadata.recommended_href, "#dashboard-content");
 });
 
 test("buildScoreDropAlert requires a meaningful drop", () => {
@@ -92,6 +97,7 @@ test("buildScoreDropAlert requires a meaningful drop", () => {
   assert.ok(alert);
   assert.equal(alert?.title, "Score JumpStart en baisse");
   assert.match(alert?.message ?? "", /78\/100 à 64\/100/);
+  assert.equal(alert?.metadata.recommended_href, "#dashboard-priorities");
 });
 
 test("buildMetricDropAlert marks severe drops as high severity", () => {
