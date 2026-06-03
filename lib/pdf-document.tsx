@@ -5,6 +5,7 @@ import type { DashboardOpportunity } from "./dashboard-opportunities";
 import type { PlatformDiagnosis, PlatformDiagnosisItem } from "./platform-diagnosis";
 import type { ContentPortfolio } from "./content-portfolio";
 import type { PlatformMix } from "./platform-mix";
+import type { MomentHighlight } from "./moment-highlights";
 import { buildProductionReadiness } from "./production-readiness";
 
 const PAGE_PADDING_X = 34;
@@ -339,6 +340,57 @@ const styles = StyleSheet.create({
     color: palette.teal,
     textTransform: "uppercase",
     letterSpacing: 0.7,
+  },
+  momentPanel: {
+    borderWidth: 1,
+    borderColor: "#ccfbf1",
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#f0fdfa",
+    marginTop: 10,
+  },
+  momentGrid: {
+    flexDirection: "row",
+    marginLeft: -4,
+    marginRight: -4,
+  },
+  momentCell: {
+    width: "33.3333%",
+    paddingLeft: 4,
+    paddingRight: 4,
+  },
+  momentCard: {
+    borderWidth: 1,
+    borderColor: "#99f6e4",
+    borderRadius: 12,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 88,
+  },
+  momentDate: {
+    fontSize: 7.2,
+    color: palette.teal,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.9,
+    marginBottom: 5,
+  },
+  momentValue: {
+    fontSize: 12,
+    color: palette.ink,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 4,
+  },
+  momentLift: {
+    fontSize: 7,
+    color: palette.violet,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 4,
+  },
+  momentSummary: {
+    fontSize: 7.1,
+    lineHeight: 1.3,
+    color: palette.muted,
   },
   diagnosisPanel: {
     borderWidth: 1,
@@ -993,6 +1045,7 @@ export type PdfDocumentProps = {
   contentPortfolio?: ContentPortfolio;
   platformMix?: PlatformMix;
   dataQuality?: DashboardDataQuality;
+  momentHighlights?: MomentHighlight[];
   watermark?: string;
 };
 
@@ -1267,6 +1320,36 @@ function OpportunitiesPanel({ opportunities }: { opportunities?: DashboardOpport
               </Text>
               <Text style={styles.opportunityConfidence}>
                 Confiance {sanitizeText(opportunity.confidence)}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function MomentHighlightsPanel({ highlights }: { highlights?: MomentHighlight[] }) {
+  const visibleHighlights = (highlights ?? []).slice(0, 3);
+  if (!visibleHighlights.length) return null;
+
+  return (
+    <View style={styles.momentPanel} wrap={false}>
+      <Text style={styles.panelEyebrow}>Moments clés</Text>
+      <Text style={styles.sectionLead}>
+        Journées qui ressortent nettement de la moyenne et contenus associés quand le signal est disponible.
+      </Text>
+      <View style={styles.momentGrid}>
+        {visibleHighlights.map((highlight) => (
+          <View key={`${highlight.date}-${highlight.metric}`} style={styles.momentCell}>
+            <View style={styles.momentCard}>
+              <Text style={styles.momentDate}>{sanitizeText(highlight.label)}</Text>
+              <Text style={styles.momentValue}>
+                {sanitizeText(highlight.metric)} - {formatNumber(highlight.value)}
+              </Text>
+              <Text style={styles.momentLift}>x{formatNumber(highlight.lift, 1)} vs moyenne</Text>
+              <Text style={styles.momentSummary}>
+                {truncateText(sanitizeText(highlight.summary), 92)}
               </Text>
             </View>
           </View>
@@ -1625,6 +1708,7 @@ export function PdfDocument(props: PdfDocumentProps) {
         ) : null}
 
         <OpportunitiesPanel opportunities={props.opportunities} />
+        <MomentHighlightsPanel highlights={props.momentHighlights} />
         <PlatformDiagnosisPanel diagnosis={props.platformDiagnosis} />
 
         <View style={styles.section}>

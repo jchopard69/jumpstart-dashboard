@@ -30,6 +30,8 @@ import { DataQualityCard } from "@/components/dashboard/data-quality-card";
 import { OpportunityCard } from "@/components/dashboard/opportunity-card";
 import { PlatformDiagnosisCard } from "@/components/dashboard/platform-diagnosis-card";
 import { PlatformMixCard } from "@/components/dashboard/platform-mix-card";
+import { MomentHighlightsCard } from "@/components/dashboard/moment-highlights-card";
+import { AiContentIdeasCard } from "@/components/dashboard/ai-content-ideas-card";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
 import { getSupportContactHref } from "@/lib/support";
@@ -40,6 +42,7 @@ import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
 import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
 import { buildPlatformMix } from "@/lib/platform-mix";
+import { buildMomentHighlights } from "@/lib/moment-highlights";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -391,6 +394,7 @@ export default async function ClientDashboardPage({
   })));
   const platformDiagnosis = buildPlatformDiagnosis(data.perPlatform);
   const platformMix = buildPlatformMix(data.perPlatform);
+  const momentHighlights = buildMomentHighlights({ metrics: data.metrics, posts: data.posts });
 
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
@@ -603,6 +607,7 @@ export default async function ClientDashboardPage({
 
       <section id="dashboard-opportunities" className="scroll-mt-6 space-y-6">
         <OpportunityCard opportunities={opportunities} />
+        <AiContentIdeasCard />
 
         <StrategyDashboardCard
           snapshot={strategySnapshot}
@@ -648,6 +653,7 @@ export default async function ClientDashboardPage({
         }))} />
         <ContentDnaCard dna={contentDna} />
         </div>
+        <MomentHighlightsCard highlights={momentHighlights} />
       </section>
 
       {/* ─── Score Trend ─── */}
