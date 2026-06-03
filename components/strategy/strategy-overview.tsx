@@ -2,6 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { ClientStrategySnapshot, StrategyActionItem } from "@/lib/client-strategy";
 import { splitStrategyLines } from "@/lib/client-strategy";
+import { buildStrategyHealth } from "@/lib/strategy-health";
+import { StrategyHealthCard } from "./strategy-health-card";
 import { CalendarDays, CheckCircle2, Clock3, Sparkles, Target, UserRoundCheck } from "lucide-react";
 
 const STATUS_LABELS: Record<StrategyActionItem["status"], string> = {
@@ -97,6 +99,7 @@ export function StrategyOverview({ snapshot }: { snapshot: ClientStrategySnapsho
   const completedCount = actionItems.length - activeActions.length;
   const urgentActions = activeActions.filter((item) => item.priority === "critical" || item.priority === "high" || isDueSoon(item.due_date));
   const strategyCoverage = countFilledBlocks(profile);
+  const strategyHealth = buildStrategyHealth({ snapshot });
   const nextAction =
     activeActions.find((item) => item.priority === "critical" || item.priority === "high") ??
     activeActions[0] ??
@@ -121,6 +124,8 @@ export function StrategyOverview({ snapshot }: { snapshot: ClientStrategySnapsho
           </div>
         </div>
       </section>
+
+      <StrategyHealthCard health={strategyHealth} />
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card className="card-surface p-5">
