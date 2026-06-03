@@ -77,22 +77,27 @@ const typeStyles: Record<InsightType, { bg: string; text: string; iconBg: string
 };
 
 export function InsightCard({ insights }: InsightCardProps) {
+  const [primaryInsight, ...secondaryInsights] = insights;
+
   return (
-    <Card className="card-surface p-6 fade-in-up lg:col-span-2">
-      <div className="flex items-center gap-2 mb-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/15 bg-primary/5">
-          <svg className="h-4.5 w-4.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
-          </svg>
-        </div>
-        <div>
-          <h2 className="section-title">Analyse stratégique</h2>
-          <p className="text-xs text-muted-foreground">Insights clés et recommandations.</p>
+    <Card className="card-surface overflow-hidden p-0 fade-in-up lg:col-span-2">
+      <div className="border-b border-border/60 bg-[linear-gradient(135deg,hsl(var(--primary)/0.10),hsl(var(--secondary)/0.10),transparent)] p-6">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/15 bg-primary/5">
+            <svg className="h-4.5 w-4.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+            </svg>
+          </div>
+          <div>
+            <p className="section-label text-primary">Lecture stratégique</p>
+            <h2 className="section-title">Analyse stratégique</h2>
+            <p className="text-xs text-muted-foreground">Signal principal et angles d'appui.</p>
+          </div>
         </div>
       </div>
 
       {insights.length === 0 ? (
-        <div className="flex items-center justify-center py-8 text-center">
+        <div className="flex items-center justify-center p-8 text-center">
           <div>
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-50">
               <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
@@ -104,8 +109,34 @@ export function InsightCard({ insights }: InsightCardProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {insights.map((insight, index) => {
+        <div className="space-y-4 p-6">
+          {primaryInsight ? (() => {
+            const style = typeStyles[primaryInsight.type];
+            return (
+              <div className={cn("rounded-xl border p-5", style.bg)}>
+                <div className="flex items-start gap-3">
+                  <div className={cn("shrink-0 mt-0.5 h-9 w-9 rounded-lg flex items-center justify-center", style.iconBg)}>
+                    {style.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      Signal principal
+                    </p>
+                    <p className={cn("mt-1 text-base font-semibold leading-snug", style.text)}>
+                      {primaryInsight.title}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+                      {primaryInsight.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })() : null}
+
+          {secondaryInsights.length > 0 && (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {secondaryInsights.map((insight, index) => {
             const style = typeStyles[insight.type];
             return (
               <div
@@ -120,6 +151,9 @@ export function InsightCard({ insights }: InsightCardProps) {
                     {style.icon}
                   </div>
                   <div className="min-w-0">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Angle {index + 2}
+                    </p>
                     <p className={cn("text-sm font-medium", style.text)}>{insight.title}</p>
                     <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{insight.description}</p>
                   </div>
@@ -127,6 +161,8 @@ export function InsightCard({ insights }: InsightCardProps) {
               </div>
             );
           })}
+            </div>
+          )}
         </div>
       )}
     </Card>

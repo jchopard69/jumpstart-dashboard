@@ -599,6 +599,12 @@ const styles = StyleSheet.create({
     paddingRight: 5,
     marginBottom: 6,
   },
+  insightPrimaryCell: {
+    width: "100%",
+    paddingLeft: 5,
+    paddingRight: 5,
+    marginBottom: 8,
+  },
   insightCard: {
     borderWidth: 1,
     borderColor: palette.line,
@@ -606,6 +612,22 @@ const styles = StyleSheet.create({
     padding: 10,
     minHeight: 72,
     backgroundColor: "#ffffff",
+  },
+  insightPrimaryCard: {
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    borderRadius: 14,
+    padding: 12,
+    minHeight: 88,
+    backgroundColor: "#f8fbff",
+  },
+  insightKicker: {
+    fontSize: 6.8,
+    color: palette.blue,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 5,
   },
   insightTitle: {
     fontSize: 9.5,
@@ -1383,13 +1405,26 @@ function PlatformMixPanel({ mix }: { mix?: PlatformMix }) {
   );
 }
 
-function InsightCard({ title, description }: { title: string; description: string }) {
+function InsightCard({
+  title,
+  description,
+  index,
+  primary = false,
+}: {
+  title: string;
+  description: string;
+  index: number;
+  primary?: boolean;
+}) {
   return (
-    <View style={styles.insightCell} wrap={false}>
-      <View style={styles.insightCard}>
+    <View style={primary ? styles.insightPrimaryCell : styles.insightCell} wrap={false}>
+      <View style={primary ? styles.insightPrimaryCard : styles.insightCard}>
+        <Text style={styles.insightKicker}>
+          {primary ? "Signal principal" : `Angle ${index + 1}`}
+        </Text>
         <Text style={styles.insightTitle}>{sanitizeText(title)}</Text>
         <Text style={styles.insightDescription}>
-          {truncateText(sanitizeText(description), 150)}
+          {truncateText(sanitizeText(description), primary ? 220 : 150)}
         </Text>
       </View>
     </View>
@@ -1684,6 +1719,8 @@ export function PdfDocument(props: PdfDocumentProps) {
                   key={`${insight.title}-${index}`}
                   title={insight.title}
                   description={insight.description}
+                  index={index}
+                  primary={index === 0}
                 />
               ))
             ) : (
