@@ -8,7 +8,6 @@ import { RefreshButton } from "@/components/dashboard/refresh-button";
 import { ExportButtons } from "@/components/dashboard/export-buttons";
 import { KpiSection } from "@/components/dashboard/kpi-section";
 import { ChartsSection } from "@/components/dashboard/charts-section";
-import { PlatformTable } from "@/components/dashboard/platform-table";
 import { TopPosts } from "@/components/dashboard/top-posts";
 import { CollaborationCard } from "@/components/dashboard/collaboration-card";
 import { SyncStatus } from "@/components/dashboard/sync-status";
@@ -30,7 +29,6 @@ import { StrategyDashboardCard } from "@/components/strategy/strategy-dashboard-
 import { DataQualityCard } from "@/components/dashboard/data-quality-card";
 import { OpportunityCard } from "@/components/dashboard/opportunity-card";
 import { PlatformDiagnosisCard } from "@/components/dashboard/platform-diagnosis-card";
-import { TrendTrajectoryCard } from "@/components/dashboard/trend-trajectory-card";
 import { PlatformMixCard } from "@/components/dashboard/platform-mix-card";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
@@ -41,7 +39,6 @@ import { fetchClientStrategySnapshot } from "@/lib/client-strategy";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
 import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
-import { buildTrendTrajectory } from "@/lib/trend-trajectory";
 import { buildPlatformMix } from "@/lib/platform-mix";
 
 export const metadata: Metadata = {
@@ -236,13 +233,6 @@ export default async function ClientDashboardPage({
     value: aggregatedFlows.get(date)?.reach ?? 0,
     previousValue: withPrev(date, "reach")
   }));
-  const trendTrajectory = buildTrendTrajectory([
-    { id: "followers", label: "Abonnés", points: trendFollowers, mode: "stock" },
-    { id: "views", label: "Vues", points: trendViews },
-    { id: "engagements", label: "Engagements", points: trendEngagements },
-    { id: "reach", label: "Portée", points: trendReach },
-  ]);
-
   // Build aggregated metrics array for the daily table
   const aggregatedMetricsArray = sortedDates.map((date) => ({
     date,
@@ -666,8 +656,6 @@ export default async function ClientDashboardPage({
       {/* ─── Trends ─── */}
       <div className="section-divider" />
 
-      <TrendTrajectoryCard items={trendTrajectory} />
-
       <ChartsSection
         trendFollowers={trendFollowers}
         trendViews={trendViews}
@@ -689,12 +677,6 @@ export default async function ClientDashboardPage({
 
       <section id="dashboard-platforms" className="scroll-mt-6 space-y-6">
         <PlatformMixCard mix={platformMix} />
-        <PlatformTable
-          perPlatform={data.perPlatform}
-          showViews={showViews}
-          showReach={showReach}
-          showEngagements={showEngagements}
-        />
       </section>
 
       {/* ─── Operations ─── */}

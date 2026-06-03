@@ -16,7 +16,6 @@ import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
 import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
 import { buildContentPortfolio } from "@/lib/content-portfolio";
-import { buildTrendTrajectoryFromDailyMetrics } from "@/lib/trend-trajectory";
 import { buildPlatformMix } from "@/lib/platform-mix";
 import { sendReportEmail } from "@/lib/email";
 import { createTenantNotification } from "@/lib/notifications";
@@ -331,7 +330,6 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
     metrics: post.metrics,
   })));
   const platformDiagnosis = buildPlatformDiagnosis(perPlatform);
-  const trendTrajectory = buildTrendTrajectoryFromDailyMetrics(metrics);
   const platformMix = buildPlatformMix(perPlatform);
 
   const contentDna = analyzeContentDna({
@@ -401,7 +399,6 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
     opportunities,
     platformDiagnosis,
     contentPortfolio,
-    trendTrajectory,
     platformMix,
     dataQuality,
     contentDna:

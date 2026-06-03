@@ -4,8 +4,8 @@ import type { DashboardDataQuality } from "./dashboard-data-quality";
 import type { DashboardOpportunity } from "./dashboard-opportunities";
 import type { PlatformDiagnosis, PlatformDiagnosisItem } from "./platform-diagnosis";
 import type { ContentPortfolio } from "./content-portfolio";
-import type { TrendTrajectoryItem } from "./trend-trajectory";
 import type { PlatformMix } from "./platform-mix";
+import { buildProductionReadiness } from "./production-readiness";
 
 const PAGE_PADDING_X = 34;
 const PAGE_PADDING_TOP = 76;
@@ -401,77 +401,6 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
     paddingRight: 4,
   },
-  trajectoryPanel: {
-    borderWidth: 1,
-    borderColor: "#c7d2fe",
-    borderRadius: 14,
-    padding: 12,
-    backgroundColor: "#f8f7ff",
-    marginBottom: 10,
-  },
-  trajectoryGrid: {
-    flexDirection: "row",
-    marginLeft: -4,
-    marginRight: -4,
-  },
-  trajectoryCell: {
-    width: "25%",
-    paddingLeft: 4,
-    paddingRight: 4,
-  },
-  trajectoryCard: {
-    borderWidth: 1,
-    borderColor: "#ddd6fe",
-    borderRadius: 12,
-    padding: 9,
-    backgroundColor: "#ffffff",
-    minHeight: 96,
-  },
-  trajectoryTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 5,
-  },
-  trajectoryLabel: {
-    fontSize: 7,
-    color: palette.violet,
-    fontFamily: "Helvetica-Bold",
-    textTransform: "uppercase",
-    letterSpacing: 0.9,
-  },
-  trajectoryChange: {
-    fontSize: 7,
-    color: palette.teal,
-    fontFamily: "Helvetica-Bold",
-  },
-  trajectoryValue: {
-    fontSize: 14,
-    color: palette.ink,
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 6,
-  },
-  trajectoryBars: {
-    height: 28,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    marginLeft: -1,
-    marginRight: -1,
-    marginBottom: 6,
-  },
-  trajectoryBar: {
-    flexGrow: 1,
-    marginLeft: 1,
-    marginRight: 1,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
-    backgroundColor: palette.violet,
-  },
-  trajectorySummary: {
-    fontSize: 6.8,
-    lineHeight: 1.25,
-    color: palette.muted,
-  },
   platformMixPanel: {
     borderWidth: 1,
     borderColor: "#bae6fd",
@@ -689,76 +618,6 @@ const styles = StyleSheet.create({
     lineHeight: 1.35,
     color: palette.muted,
   },
-  table: {
-    borderWidth: 1,
-    borderColor: palette.line,
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#ffffff",
-  },
-  tableHeader: {
-    flexDirection: "row",
-    backgroundColor: palette.surface,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.line,
-  },
-  tableHeaderText: {
-    fontSize: 7,
-    textTransform: "uppercase",
-    letterSpacing: 1.1,
-    color: palette.muted,
-    fontFamily: "Helvetica-Bold",
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: palette.lineSoft,
-  },
-  tableRowAlt: {
-    backgroundColor: palette.surface,
-  },
-  tableRowLast: {
-    borderBottomWidth: 0,
-  },
-  tablePlatform: {
-    width: "20%",
-    paddingRight: 8,
-  },
-  tableMetric: {
-    width: "13%",
-    paddingRight: 8,
-  },
-  tablePosts: {
-    width: "10%",
-    paddingRight: 8,
-  },
-  tableEngagements: {
-    width: "14%",
-    paddingRight: 8,
-  },
-  tableRate: {
-    width: "17%",
-  },
-  tableMain: {
-    fontSize: 8.6,
-    color: palette.ink,
-    fontFamily: "Helvetica-Bold",
-  },
-  tableSub: {
-    fontSize: 7.2,
-    color: palette.muted,
-    marginTop: 2,
-  },
-  platformName: {
-    fontSize: 8.2,
-    color: palette.ink,
-    fontFamily: "Helvetica-Bold",
-    textTransform: "capitalize",
-  },
   postGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -957,6 +816,52 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     minHeight: 108,
   },
+  productionHero: {
+    borderWidth: 1,
+    borderColor: "#ccfbf1",
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#f0fdfa",
+    marginBottom: 10,
+  },
+  productionGrid: {
+    flexDirection: "row",
+    marginLeft: -4,
+    marginRight: -4,
+  },
+  productionCell: {
+    width: "33.3333%",
+    paddingLeft: 4,
+    paddingRight: 4,
+  },
+  productionMetric: {
+    borderWidth: 1,
+    borderColor: "#ccfbf1",
+    borderRadius: 12,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 66,
+  },
+  productionLabel: {
+    fontSize: 6.8,
+    color: palette.teal,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.9,
+    marginBottom: 5,
+  },
+  productionValue: {
+    fontSize: 12,
+    color: palette.ink,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 4,
+  },
+  productionSummary: {
+    fontSize: 7.4,
+    lineHeight: 1.3,
+    color: palette.muted,
+    marginBottom: 8,
+  },
   supportTitle: {
     fontSize: 9.5,
     fontFamily: "Helvetica-Bold",
@@ -1085,7 +990,6 @@ export type PdfDocumentProps = {
   opportunities?: DashboardOpportunity[];
   platformDiagnosis?: PlatformDiagnosis;
   contentPortfolio?: ContentPortfolio;
-  trendTrajectory?: TrendTrajectoryItem[];
   platformMix?: PlatformMix;
   dataQuality?: DashboardDataQuality;
   watermark?: string;
@@ -1137,16 +1041,6 @@ function truncateText(value: string, maxLength: number): string {
     return value;
   }
   return `${value.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
-}
-
-function computeEngagementRate(engagements: number, views: number, reach: number): string {
-  if (views > 0) {
-    return `${formatNumber((engagements / views) * 100, 1)}%`;
-  }
-  if (reach > 0) {
-    return `${formatNumber((engagements / reach) * 100, 1)}%`;
-  }
-  return "-";
 }
 
 function DeltaPill({ delta }: { delta: number }) {
@@ -1438,66 +1332,6 @@ function ContentPortfolioPanel({ portfolio }: { portfolio?: ContentPortfolio }) 
   );
 }
 
-function TrendTrajectoryPanel({ items }: { items?: TrendTrajectoryItem[] }) {
-  const visibleItems = (items ?? []).slice(0, 4);
-  if (visibleItems.length === 0) return null;
-
-  return (
-    <View style={styles.trajectoryPanel} wrap={false}>
-      <Text style={styles.panelEyebrow}>Trajectoire du mois</Text>
-      <Text style={styles.sectionLead}>
-        Lecture visuelle du rythme de fin de période, en complément des volumes cumulés.
-      </Text>
-      <View style={styles.trajectoryGrid}>
-        {visibleItems.map((item) => (
-          <View key={item.id} style={styles.trajectoryCell}>
-            <View style={styles.trajectoryCard}>
-              <View style={styles.trajectoryTopRow}>
-                <Text style={styles.trajectoryLabel}>{sanitizeText(item.label)}</Text>
-                <Text
-                  style={[
-                    styles.trajectoryChange,
-                    item.direction === "down"
-                      ? { color: palette.red }
-                      : item.direction === "flat"
-                        ? { color: palette.muted }
-                        : {},
-                  ]}
-                >
-                  {sanitizeText(item.changeLabel)}
-                </Text>
-              </View>
-              <Text style={styles.trajectoryValue}>{sanitizeText(item.valueLabel)}</Text>
-              <View style={styles.trajectoryBars}>
-                {item.bars.map((height, index) => (
-                  <View
-                    key={`${item.id}-${index}`}
-                    style={[
-                      styles.trajectoryBar,
-                      {
-                        height: `${Math.max(8, Math.min(100, height))}%`,
-                        backgroundColor:
-                          item.direction === "down"
-                            ? palette.red
-                            : item.direction === "flat"
-                              ? palette.muted
-                              : palette.violet,
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-              <Text style={styles.trajectorySummary}>
-                {truncateText(sanitizeText(item.summary), 68)}
-              </Text>
-            </View>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 function PlatformMixPanel({ mix }: { mix?: PlatformMix }) {
   const visibleItems = (mix?.items ?? []).slice(0, 4);
   if (visibleItems.length === 0) return null;
@@ -1558,81 +1392,6 @@ function InsightCard({ title, description }: { title: string; description: strin
           {truncateText(sanitizeText(description), 150)}
         </Text>
       </View>
-    </View>
-  );
-}
-
-function PlatformTable({ platforms }: { platforms: PlatformSummary[] }) {
-  if (platforms.length === 0) {
-    return (
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyStateText}>
-          Aucune donnée de plateforme n'est disponible sur la période sélectionnée.
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.table}>
-      <View style={styles.tableHeader}>
-        <Text style={[styles.tableHeaderText, styles.tablePlatform]}>Plateforme</Text>
-        <Text style={[styles.tableHeaderText, styles.tableMetric]}>Abonnés</Text>
-        <Text style={[styles.tableHeaderText, styles.tablePosts]}>Posts</Text>
-        <Text style={[styles.tableHeaderText, styles.tableEngagements]}>Engagements</Text>
-        <Text style={[styles.tableHeaderText, styles.tableMetric]}>Portée</Text>
-        <Text style={[styles.tableHeaderText, styles.tableMetric]}>Vues</Text>
-        <Text style={[styles.tableHeaderText, styles.tableRate]}>Taux eng.</Text>
-      </View>
-      {platforms.map((platform, index) => {
-        const rate = computeEngagementRate(
-          platform.totals.engagements,
-          platform.totals.views,
-          platform.totals.reach
-        );
-        const rowStyles =
-          index === platforms.length - 1
-            ? index % 2 === 1
-              ? [styles.tableRow, styles.tableRowAlt, styles.tableRowLast]
-              : [styles.tableRow, styles.tableRowLast]
-            : index % 2 === 1
-              ? [styles.tableRow, styles.tableRowAlt]
-              : [styles.tableRow];
-        return (
-          <View
-            key={`${platform.platform}-${index}`}
-            style={rowStyles}
-            wrap={false}
-          >
-            <View style={styles.tablePlatform}>
-              <Text style={styles.platformName}>{sanitizeText(platform.platform)}</Text>
-            </View>
-            <View style={styles.tableMetric}>
-              <Text style={styles.tableMain}>{formatNumber(platform.totals.followers)}</Text>
-              <Text style={styles.tableSub}>{formatDelta(platform.delta.followers)}</Text>
-            </View>
-            <View style={styles.tablePosts}>
-              <Text style={styles.tableMain}>{formatNumber(platform.totals.posts_count)}</Text>
-              <Text style={styles.tableSub}>{formatDelta(platform.delta.posts_count)}</Text>
-            </View>
-            <View style={styles.tableEngagements}>
-              <Text style={styles.tableMain}>{formatNumber(platform.totals.engagements)}</Text>
-              <Text style={styles.tableSub}>{formatDelta(platform.delta.engagements)}</Text>
-            </View>
-            <View style={styles.tableMetric}>
-              <Text style={styles.tableMain}>{formatNumber(platform.totals.reach)}</Text>
-              <Text style={styles.tableSub}>{formatDelta(platform.delta.reach)}</Text>
-            </View>
-            <View style={styles.tableMetric}>
-              <Text style={styles.tableMain}>{formatNumber(platform.totals.views)}</Text>
-              <Text style={styles.tableSub}>{formatDelta(platform.delta.views)}</Text>
-            </View>
-            <View style={styles.tableRate}>
-              <Text style={styles.tableMain}>{rate}</Text>
-            </View>
-          </View>
-        );
-      })}
     </View>
   );
 }
@@ -1730,6 +1489,14 @@ function CollaborationPanel(props: {
   shoots: ShootSummary[];
   documents: DocumentSummary[];
 }) {
+  const readiness = buildProductionReadiness({
+    shootDaysRemaining: props.shootDays,
+    shoots: props.shoots.map((shoot) => ({
+      shoot_date: shoot.date,
+      location: shoot.location,
+    })),
+    documents: props.documents,
+  });
   const shoots = props.shoots.map((shoot) => ({
     date: sanitizeText(shoot.date),
     location: sanitizeText(shoot.location || "Lieu à définir"),
@@ -1740,6 +1507,35 @@ function CollaborationPanel(props: {
   }));
 
   return (
+    <>
+    <View style={styles.productionHero} wrap={false}>
+      <Text style={styles.panelEyebrow}>Continuité créative</Text>
+      <Text style={styles.productionSummary}>
+        {truncateText(sanitizeText(readiness.summary), 150)}
+      </Text>
+      <View style={styles.productionGrid}>
+        <View style={styles.productionCell}>
+          <View style={styles.productionMetric}>
+            <Text style={styles.productionLabel}>Statut</Text>
+            <Text style={styles.productionValue}>{sanitizeText(readiness.statusLabel)}</Text>
+          </View>
+        </View>
+        <View style={styles.productionCell}>
+          <View style={styles.productionMetric}>
+            <Text style={styles.productionLabel}>Prochain jalon</Text>
+            <Text style={styles.productionValue}>{sanitizeText(readiness.nextShootLabel)}</Text>
+            <Text style={styles.diagnosisDetail}>{sanitizeText(readiness.nextShootLocation)}</Text>
+          </View>
+        </View>
+        <View style={styles.productionCell}>
+          <View style={styles.productionMetric}>
+            <Text style={styles.productionLabel}>Ressources</Text>
+            <Text style={styles.productionValue}>{formatNumber(readiness.documentCount)}</Text>
+            <Text style={styles.diagnosisDetail}>documents partagés</Text>
+          </View>
+        </View>
+      </View>
+    </View>
     <View style={styles.supportGrid}>
       <View style={styles.supportCell} wrap={false}>
         <View style={styles.supportCard}>
@@ -1777,6 +1573,7 @@ function CollaborationPanel(props: {
         </View>
       </View>
     </View>
+    </>
   );
 }
 
@@ -1901,16 +1698,11 @@ export function PdfDocument(props: PdfDocumentProps) {
 
         <View style={styles.section}>
           <Text style={styles.sectionEyebrow}>Canaux</Text>
-          <Text style={styles.sectionTitle}>Performance par plateforme</Text>
+          <Text style={styles.sectionTitle}>Mix de canaux</Text>
           <Text style={styles.sectionLead}>
-            Détail des volumes, de la visibilité et du rendement par canal sur la période exportée.
+            Contribution de chaque canal à la visibilité, à l'engagement et au rendement éditorial.
           </Text>
           <PlatformMixPanel mix={props.platformMix} />
-          <PlatformTable platforms={props.platforms} />
-        </View>
-
-        <View style={styles.section}>
-          <TrendTrajectoryPanel items={props.trendTrajectory} />
         </View>
 
         <View style={styles.section}>

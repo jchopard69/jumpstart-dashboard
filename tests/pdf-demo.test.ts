@@ -72,17 +72,6 @@ test("PdfDocument renders with demo watermark", async () => {
         averageEngagementRate: 7.7,
         qualityLabel: "Fort",
       },
-      trendTrajectory: [
-        {
-          id: "views",
-          label: "Vues",
-          valueLabel: "58 k",
-          changeLabel: "+8,1%",
-          direction: "up",
-          summary: "Traction en hausse en fin de période",
-          bars: [18, 32, 45, 61, 74, 88],
-        },
-      ],
       platformMix: {
         leader: "instagram",
         concentrationLabel: "Mix assumé",
