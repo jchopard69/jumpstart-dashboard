@@ -14,6 +14,7 @@ import { analyzeContentDna } from "@/lib/content-dna";
 import { buildPdfPostSummaries } from "@/lib/pdf-posts";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
+import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
 import { sendReportEmail } from "@/lib/email";
 import { createTenantNotification } from "@/lib/notifications";
 import type { Platform } from "@/lib/types";
@@ -326,6 +327,7 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
     posted_at: post.posted_at,
     metrics: post.metrics,
   })));
+  const platformDiagnosis = buildPlatformDiagnosis(perPlatform);
 
   const contentDna = analyzeContentDna({
     posts: postsList.map((post) => ({
@@ -387,6 +389,7 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
       description: insight.description,
     })),
     opportunities,
+    platformDiagnosis,
     dataQuality,
     contentDna:
       contentDna.patterns.length > 0

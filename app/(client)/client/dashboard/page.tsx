@@ -29,6 +29,7 @@ import { BestTimeHeatmap } from "@/components/dashboard/best-time-heatmap";
 import { StrategyDashboardCard } from "@/components/strategy/strategy-dashboard-card";
 import { DataQualityCard } from "@/components/dashboard/data-quality-card";
 import { OpportunityCard } from "@/components/dashboard/opportunity-card";
+import { PlatformDiagnosisCard } from "@/components/dashboard/platform-diagnosis-card";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
 import { getSupportContactHref } from "@/lib/support";
@@ -37,6 +38,7 @@ import { cookies } from "next/headers";
 import { fetchClientStrategySnapshot } from "@/lib/client-strategy";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
+import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -387,6 +389,7 @@ export default async function ClientDashboardPage({
     metrics: post.metrics,
     url: post.url,
   })));
+  const platformDiagnosis = buildPlatformDiagnosis(data.perPlatform);
 
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
@@ -618,6 +621,8 @@ export default async function ClientDashboardPage({
           showEngagements={showEngagements}
         />
       </section>
+
+      <PlatformDiagnosisCard diagnosis={platformDiagnosis} />
 
       {/* ─── Strategic Analysis ─── */}
       <div className="section-divider" />

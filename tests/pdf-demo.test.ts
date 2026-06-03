@@ -42,6 +42,29 @@ test("PdfDocument renders with demo watermark", async () => {
           confidence: "Haute",
         },
       ],
+      platformDiagnosis: {
+        primary: {
+          platform: "instagram",
+          label: "Canal moteur",
+          value: "Instagram",
+          detail: "82% des engagements, taux 7,7%.",
+          tone: "strong",
+        },
+        watch: {
+          platform: "tiktok",
+          label: "Canal à surveiller",
+          value: "TikTok",
+          detail: "Portée indisponible : lecture de visibilité à consolider.",
+          tone: "watch",
+        },
+        balance: {
+          platform: "instagram",
+          label: "Mix de canaux",
+          value: "Dominante claire",
+          detail: "Instagram représente 58% de la visibilité totale.",
+          tone: "balance",
+        },
+      },
       contentDna: [
         {
           label: "Reels",

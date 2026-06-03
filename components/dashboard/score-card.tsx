@@ -185,11 +185,12 @@ export function ScoreCard({ score, takeaways, executiveSummary, dataCoverage, po
       : "Score fiable pour la tendance, avec quelques points de données à contrôler avant une lecture client définitive."
     : null;
   return (
-    <Card className="card-surface p-6 fade-in-up overflow-hidden relative">
+    <Card className="signature-panel p-6 fade-in-up overflow-hidden relative rounded-2xl">
       <div className="jumpstart-accent-line absolute inset-x-0 top-0 h-[3px]" />
 
-      <div className="flex items-center gap-2 mb-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/15 bg-primary/5">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/15 bg-white/80 text-primary shadow-sm">
           <svg className="h-4.5 w-4.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
           </svg>
@@ -198,11 +199,13 @@ export function ScoreCard({ score, takeaways, executiveSummary, dataCoverage, po
           <h2 className="section-title">Synthèse exécutive</h2>
           <p className="text-xs text-muted-foreground">Vue d'ensemble de votre performance digitale.</p>
         </div>
+        </div>
+        <span className="signature-kicker">Lecture client</span>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Score ring */}
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-white/70 bg-white/70 p-4 shadow-sm">
           <p className="section-label">JumpStart Score</p>
           <ScoreRing score={score.global} grade={score.grade} />
           {confidenceLabel && confidenceColor && (
@@ -223,7 +226,7 @@ export function ScoreCard({ score, takeaways, executiveSummary, dataCoverage, po
         </div>
 
         {/* Sub-scores */}
-        <div className="flex-1 space-y-3 min-w-0">
+        <div className="flex-1 space-y-3 min-w-0 rounded-2xl border border-white/70 bg-white/55 p-4">
           <p className="section-label mb-3">Composantes</p>
           {score.subScores.map((sub) => (
             <SubScoreBar
@@ -236,7 +239,7 @@ export function ScoreCard({ score, takeaways, executiveSummary, dataCoverage, po
         </div>
 
         {/* Takeaways + Methodology */}
-        <div className="flex-1 min-w-0 space-y-4">
+        <div className="flex-1 min-w-0 space-y-4 rounded-2xl border border-white/70 bg-white/55 p-4">
           <div>
             <p className="section-label mb-3">À retenir</p>
             <ul className="space-y-2.5">

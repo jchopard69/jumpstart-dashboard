@@ -93,6 +93,14 @@ body {
     linear-gradient(180deg, rgba(252, 252, 255, 1), rgba(244, 245, 251, 1));
 }
 
+.jumpstart-canvas {
+  background:
+    linear-gradient(rgba(109, 77, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(109, 77, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 253, 0.98) 52%, rgba(240, 253, 248, 0.9));
+  background-size: 44px 44px, 44px 44px, auto;
+}
+
 .jumpstart-sidebar {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background:
@@ -218,8 +226,39 @@ body {
 }
 
 .card-surface:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   border-color: var(--border-strong);
+}
+
+.signature-panel {
+  border: 1px solid rgba(109, 77, 255, 0.2);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.96) 48%, rgba(240, 253, 248, 0.92));
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 26px 64px rgba(42, 35, 96, 0.1);
+}
+
+.signature-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(109, 77, 255, 0.16);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.35rem 0.6rem;
+  color: rgb(79, 55, 198);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.signature-kicker::before {
+  content: "";
+  height: 0.45rem;
+  width: 0.45rem;
+  border-radius: 999px;
+  background: #20d6a2;
+  box-shadow: 0 0 0 3px rgba(32, 214, 162, 0.14);
 }
 
 .card-surface-flat {

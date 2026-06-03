@@ -75,7 +75,7 @@ export default async function ClientLayout({ children }: { children: React.React
 
   return (
     <Toaster>
-      <div className="min-h-screen bg-aurora">
+      <div className="min-h-screen jumpstart-canvas">
         <a href="#client-main-content" className="skip-link">
           Aller au contenu principal
         </a>

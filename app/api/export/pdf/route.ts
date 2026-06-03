@@ -15,6 +15,7 @@ import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
 import { buildPdfPostSummaries } from "@/lib/pdf-posts";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
+import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
 import {
   getDemoPdfWatermarkText,
   shouldUseDemoPdfWatermark,
@@ -211,6 +212,7 @@ export async function GET(request: Request) {
     metrics: post.metrics,
     url: post.url,
   })));
+  const platformDiagnosis = buildPlatformDiagnosis(data.perPlatform);
 
   const contentDna = analyzeContentDna({
     posts: data.posts.map((post) => ({
@@ -256,6 +258,7 @@ export async function GET(request: Request) {
       description: insight.description,
     })),
     opportunities,
+    platformDiagnosis,
     dataQuality,
     contentDna:
       contentDna.patterns.length > 0

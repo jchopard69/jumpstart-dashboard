@@ -2,6 +2,7 @@ import React from "react";
 import { Document, Image, Link, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { DashboardDataQuality } from "./dashboard-data-quality";
 import type { DashboardOpportunity } from "./dashboard-opportunities";
+import type { PlatformDiagnosis, PlatformDiagnosisItem } from "./platform-diagnosis";
 
 const PAGE_PADDING_X = 34;
 const PAGE_PADDING_TOP = 76;
@@ -333,6 +334,51 @@ const styles = StyleSheet.create({
     color: palette.teal,
     textTransform: "uppercase",
     letterSpacing: 0.7,
+  },
+  diagnosisPanel: {
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#f8fbff",
+    marginTop: 10,
+  },
+  diagnosisGrid: {
+    flexDirection: "row",
+    marginLeft: -4,
+    marginRight: -4,
+  },
+  diagnosisCell: {
+    width: "33.3333%",
+    paddingLeft: 4,
+    paddingRight: 4,
+  },
+  diagnosisCard: {
+    borderWidth: 1,
+    borderColor: "#dbeafe",
+    borderRadius: 12,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 70,
+  },
+  diagnosisLabel: {
+    fontSize: 6.8,
+    color: palette.blue,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 5,
+  },
+  diagnosisValue: {
+    fontSize: 10.2,
+    color: palette.ink,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 5,
+  },
+  diagnosisDetail: {
+    fontSize: 7.2,
+    lineHeight: 1.3,
+    color: palette.muted,
   },
   qualityScore: {
     fontSize: 22,
@@ -879,6 +925,7 @@ export type PdfDocumentProps = {
   insights?: Array<{ title: string; description: string }>;
   contentDna?: ContentDnaPattern[];
   opportunities?: DashboardOpportunity[];
+  platformDiagnosis?: PlatformDiagnosis;
   dataQuality?: DashboardDataQuality;
   watermark?: string;
 };
@@ -1167,6 +1214,37 @@ function OpportunitiesPanel({ opportunities }: { opportunities?: DashboardOpport
               </Text>
             </View>
           </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function PlatformDiagnosisTile({ item }: { item: PlatformDiagnosisItem }) {
+  return (
+    <View style={styles.diagnosisCell} wrap={false}>
+      <View style={styles.diagnosisCard}>
+        <Text style={styles.diagnosisLabel}>{sanitizeText(item.label)}</Text>
+        <Text style={styles.diagnosisValue}>{sanitizeText(item.value)}</Text>
+        <Text style={styles.diagnosisDetail}>{truncateText(sanitizeText(item.detail), 116)}</Text>
+      </View>
+    </View>
+  );
+}
+
+function PlatformDiagnosisPanel({ diagnosis }: { diagnosis?: PlatformDiagnosis }) {
+  const items = diagnosis ? [diagnosis.primary, diagnosis.watch, diagnosis.balance].filter(Boolean) as PlatformDiagnosisItem[] : [];
+  if (items.length === 0) return null;
+
+  return (
+    <View style={styles.diagnosisPanel} wrap={false}>
+      <Text style={styles.panelEyebrow}>Diagnostic canaux</Text>
+      <Text style={styles.sectionLead}>
+        Lecture rapide du canal moteur, du point à surveiller et de la concentration du mix.
+      </Text>
+      <View style={styles.diagnosisGrid}>
+        {items.map((item) => (
+          <PlatformDiagnosisTile key={`${item.label}-${item.platform}`} item={item} />
         ))}
       </View>
     </View>
@@ -1471,6 +1549,7 @@ export function PdfDocument(props: PdfDocumentProps) {
         ) : null}
 
         <OpportunitiesPanel opportunities={props.opportunities} />
+        <PlatformDiagnosisPanel diagnosis={props.platformDiagnosis} />
 
         <View style={styles.section}>
           <Text style={styles.sectionEyebrow}>Performance</Text>
