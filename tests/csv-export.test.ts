@@ -38,8 +38,6 @@ test("buildMetricCsvRows keeps existing metric columns and appends export contex
     "Couverture période (%)",
     "Statut donnée",
     "Recommandation automatique",
-    "Priorité V2",
-    "Brief automatisable",
     "Dernière synchronisation",
   ]);
   assert.equal(rows[0].Compte, "JumpStart Instagram");
@@ -48,8 +46,8 @@ test("buildMetricCsvRows keeps existing metric columns and appends export contex
   assert.equal(rows[0]["Taux d'engagement (%)"], 5.6);
   assert.equal(rows[0]["Statut donnée"], "Couverture partielle");
   assert.equal(rows[0]["Recommandation automatique"], "Capitaliser sur ce créneau ou format");
-  assert.equal(rows[0]["Priorité V2"], "Brief à produire");
-  assert.match(String(rows[0]["Brief automatisable"]), /hook, preuve, CTA/);
+  assert.equal("Priorité V2" in rows[0], false);
+  assert.equal("Brief automatisable" in rows[0], false);
 });
 
 test("buildMetricCsvRows flags rows that need data repair", () => {
@@ -73,8 +71,8 @@ test("buildMetricCsvRows flags rows that need data repair", () => {
   assert.equal(rows[0]["Couverture période (%)"], 25);
   assert.equal(rows[0]["Statut donnée"], "Données à fiabiliser");
   assert.equal(rows[0]["Recommandation automatique"], "Vérifier la synchronisation avant analyse");
-  assert.equal(rows[0]["Priorité V2"], "Fiabilisation data");
-  assert.match(String(rows[0]["Brief automatisable"]), /synchronisation tiktok/);
+  assert.equal("Priorité V2" in rows[0], false);
+  assert.equal("Brief automatisable" in rows[0], false);
 });
 
 test("toCsv escapes commas and quotes", () => {

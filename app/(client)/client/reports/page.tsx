@@ -75,9 +75,9 @@ export default async function ReportsPage({
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="surface-panel p-5">
           <p className="section-label">Dans le PDF</p>
-          <h2 className="mt-2 text-base font-semibold">Plan d'actions + opportunités</h2>
+          <h2 className="mt-2 text-base font-semibold">Opportunités + lecture claire</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Chaque rapport embarque les priorités client, la qualité des données et les opportunités automatiques à activer.
+            Chaque rapport met en avant les signaux utiles, la qualité des données et les opportunités réellement exploitables.
           </p>
         </div>
         <div className="surface-panel p-5">

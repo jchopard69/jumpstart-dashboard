@@ -75,7 +75,7 @@ export function buildAudienceOpportunities(
       id: "audience-core-angle",
       title: `Adapter le calendrier au segment ${formatSegment(primaryAge.value)}`,
       action: "Prioriser 2 formats récurrents qui parlent directement à ce noyau d'audience.",
-      automation: "Le dashboard peut générer automatiquement des angles de briefs selon le segment dominant.",
+      automation: "Le dashboard peut prioriser les angles de contenu selon le segment dominant.",
       evidence: `${formatPercent(primaryAge.percentage)} de l'audience identifiée`,
       confidence: confidenceFor(primaryAge.percentage, 35),
     });

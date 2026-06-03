@@ -1,11 +1,11 @@
-import { ArrowDownRight, BarChart3, ClipboardCheck, FileText, LineChart, Settings2 } from "lucide-react";
+import { ArrowDownRight, BarChart3, FileText, LineChart, Settings2, Sparkles } from "lucide-react";
 
 const sections = [
   {
-    href: "#dashboard-priorities",
-    label: "Priorités",
-    detail: "Actions, opportunités, stratégie",
-    icon: ClipboardCheck,
+    href: "#dashboard-opportunities",
+    label: "Opportunités",
+    detail: "Leviers détectés à activer",
+    icon: Sparkles,
   },
   {
     href: "#dashboard-kpis",

@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { analyzeContentDna } from "../lib/content-dna.ts";
 
-test("content DNA generates automated briefs from winning patterns", () => {
+test("content DNA surfaces winning patterns without automated briefs", () => {
   const dna = analyzeContentDna({
     posts: [
       {
@@ -39,13 +39,13 @@ test("content DNA generates automated briefs from winning patterns", () => {
     ],
   });
 
-  assert.equal(dna.briefs.length, 3);
-  assert.equal(dna.briefs[0].format, "Reels");
-  assert.equal(dna.briefs[0].timing, "18h–22h");
-  assert.match(dna.briefs[0].automation, /brief/i);
+  assert.equal(dna.topFormat, "Reels");
+  assert.equal(dna.bestTimeWindow, "18h–22h");
+  assert.equal(dna.patterns.length, 2);
+  assert.equal("briefs" in dna, false);
 });
 
-test("content DNA does not generate briefs without enough signal", () => {
+test("content DNA stays focused when there is not enough signal", () => {
   const dna = analyzeContentDna({
     posts: [
       { media_type: "image", metrics: { engagements: 10 } },
@@ -53,5 +53,6 @@ test("content DNA does not generate briefs without enough signal", () => {
     ],
   });
 
-  assert.deepEqual(dna.briefs, []);
+  assert.deepEqual(dna.patterns, []);
+  assert.equal("briefs" in dna, false);
 });

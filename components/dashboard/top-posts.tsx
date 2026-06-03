@@ -149,7 +149,7 @@ function buildModeInsight(posts: PostData[], mode: TopPostsSortMode): { signal: 
       : "taux non disponible";
     return {
       signal: `${title} génère ${formatMetric(engagements)} engagements (${rateLabel}).`,
-      nextStep: "Réutiliser son angle éditorial pour préparer un brief de contenu interactif ou conversationnel.",
+      nextStep: "Réutiliser son angle éditorial dans un contenu plus interactif ou conversationnel.",
     };
   }
 

@@ -13,12 +13,8 @@ import {
 import { analyzeContentDna } from "@/lib/content-dna";
 import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
 import { buildPdfPostSummaries } from "@/lib/pdf-posts";
-import { buildDashboardActionPlan } from "@/lib/dashboard-action-plan";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
-import { buildClientNextActions } from "@/lib/client-next-actions";
-import { fetchClientStrategySnapshot } from "@/lib/client-strategy";
-import { fetchTenantGoals } from "@/lib/goals";
 import {
   getDemoPdfWatermarkText,
   shouldUseDemoPdfWatermark,
@@ -200,34 +196,12 @@ export async function GET(request: Request) {
   const pdfInsights = generateStrategicInsights(insightsInput);
   const pdfTakeaways = generateKeyTakeaways(insightsInput);
   const pdfSummary = generateExecutiveSummary(insightsInput);
-  const [tenantGoals, strategySnapshot] = await Promise.all([
-    fetchTenantGoals(tenantId),
-    fetchClientStrategySnapshot({
-      tenantId,
-      admin: profile.role === "agency_admin" && Boolean(requestedTenantId),
-      includeDraftBriefs: profile.role === "agency_admin",
-    }),
-  ]);
   const dataQuality = computeDashboardDataQuality({
     range: data.range,
     accounts,
     metrics: data.metrics,
     perPlatform: data.perPlatform,
     lastSync: data.lastSync,
-  });
-  const actionPlan = buildDashboardActionPlan({
-    totals,
-    prevTotals: {
-      followers: prevTotals.followers,
-      views: prevTotals.views,
-      reach: prevTotals.reach,
-      engagements: prevTotals.engagements,
-      posts_count: prevTotals.postsCount,
-    },
-    platforms: data.perPlatform,
-    periodDays,
-    goals: tenantGoals,
-    dataQuality,
   });
   const opportunities = buildDashboardOpportunities(data.posts.map((post) => ({
     platform: post.platform,
@@ -237,12 +211,6 @@ export async function GET(request: Request) {
     metrics: post.metrics,
     url: post.url,
   })));
-  const clientNextActions = buildClientNextActions({
-    actionPlan,
-    opportunities,
-    strategy: strategySnapshot,
-    tenantId: profile.role === "agency_admin" ? tenantId : null,
-  });
 
   const contentDna = analyzeContentDna({
     posts: data.posts.map((post) => ({
@@ -287,9 +255,7 @@ export async function GET(request: Request) {
       title: insight.title,
       description: insight.description,
     })),
-    actionPlan,
     opportunities,
-    clientNextActions,
     dataQuality,
     contentDna:
       contentDna.patterns.length > 0
@@ -298,17 +264,6 @@ export async function GET(request: Request) {
             insight: pattern.insight,
             detail: pattern.detail,
             strength: pattern.strength,
-          }))
-        : undefined,
-    contentBriefs:
-      contentDna.briefs.length > 0
-        ? contentDna.briefs.map((brief) => ({
-            title: brief.title,
-            angle: brief.angle,
-            format: brief.format,
-            timing: brief.timing,
-            captionGuidance: brief.captionGuidance,
-            automation: brief.automation,
           }))
         : undefined,
     watermark,

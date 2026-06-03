@@ -28,8 +28,6 @@ import { ScoreTrend } from "@/components/dashboard/score-trend";
 import { BestTimeHeatmap } from "@/components/dashboard/best-time-heatmap";
 import { StrategyDashboardCard } from "@/components/strategy/strategy-dashboard-card";
 import { DataQualityCard } from "@/components/dashboard/data-quality-card";
-import { ActionPlanCard } from "@/components/dashboard/action-plan-card";
-import { ClientNextActionsCard } from "@/components/dashboard/client-next-actions-card";
 import { OpportunityCard } from "@/components/dashboard/opportunity-card";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
@@ -38,9 +36,7 @@ import { toIsoDate } from "@/lib/date";
 import { cookies } from "next/headers";
 import { fetchClientStrategySnapshot } from "@/lib/client-strategy";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
-import { buildDashboardActionPlan } from "@/lib/dashboard-action-plan";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
-import { buildClientNextActions } from "@/lib/client-next-actions";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -383,20 +379,6 @@ export default async function ClientDashboardPage({
     perPlatform: data.perPlatform,
     lastSync: data.lastSync,
   });
-  const actionPlan = buildDashboardActionPlan({
-    totals: data.totals ?? { followers: 0, views: 0, reach: 0, engagements: 0, posts_count: 0 },
-    prevTotals: {
-      followers: prevTotals.followers,
-      views: prevTotals.views,
-      reach: prevTotals.reach,
-      engagements: prevTotals.engagements,
-      posts_count: prevTotals.postsCount,
-    },
-    platforms: data.perPlatform,
-    periodDays,
-    goals,
-    dataQuality,
-  });
   const opportunities = buildDashboardOpportunities(data.posts.map((post) => ({
     platform: post.platform,
     media_type: (post as any).media_type,
@@ -405,12 +387,6 @@ export default async function ClientDashboardPage({
     metrics: post.metrics,
     url: post.url,
   })));
-  const clientNextActions = buildClientNextActions({
-    actionPlan,
-    opportunities,
-    strategy: strategySnapshot,
-    tenantId: profile.role === "agency_admin" ? effectiveTenantId : null,
-  });
 
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
@@ -617,12 +593,8 @@ export default async function ClientDashboardPage({
         postsAnalyzed={data.posts.length}
       />
 
-      <section id="dashboard-priorities" className="scroll-mt-6 space-y-6">
-        <ActionPlanCard actions={actionPlan} />
-
+      <section id="dashboard-opportunities" className="scroll-mt-6 space-y-6">
         <OpportunityCard opportunities={opportunities} />
-
-        <ClientNextActionsCard actions={clientNextActions} />
 
         <StrategyDashboardCard
           snapshot={strategySnapshot}

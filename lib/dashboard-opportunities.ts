@@ -64,7 +64,7 @@ export function buildDashboardOpportunities(posts: PostInput[]): DashboardOpport
     opportunities.push({
       id: "replicate-engagement-winner",
       title: `Répliquer le format gagnant ${platformLabel(byEngagement.post.platform as string)}`,
-      automation: "Créer automatiquement 3 variations de brief à partir du post le plus engageant.",
+      automation: "Prioriser ce format dans la prochaine production et tester une variation courte avec le même angle.",
       impact: "Accélérer la production des contenus qui génèrent déjà de l'interaction.",
       evidence: `${formatMetric(byEngagement.engagements)} engagements sur ${formatMetric(byEngagement.visibility)} vues/portée`,
       confidence: byEngagement.visibility > 0 ? "Haute" : "Moyenne",
@@ -76,7 +76,7 @@ export function buildDashboardOpportunities(posts: PostInput[]): DashboardOpport
     opportunities.push({
       id: "amplify-visibility-winner",
       title: `Amplifier le contenu le plus visible`,
-      automation: "Proposer une déclinaison sponsorisée et un repost multi-plateforme.",
+      automation: "Étudier un repost, une sponsorisation légère ou une déclinaison multi-plateforme du contenu.",
       impact: "Transformer un signal organique fort en campagne plus scalable.",
       evidence: `${formatMetric(byVisibility.visibility)} vues/portée détectées`,
       confidence: byVisibility.engagements > 0 ? "Haute" : "Moyenne",
@@ -88,7 +88,7 @@ export function buildDashboardOpportunities(posts: PostInput[]): DashboardOpport
     opportunities.push({
       id: "boost-high-rate",
       title: "Exploiter un contenu à fort rendement",
-      automation: "Déclencher une suggestion de carrousel, short ou post LinkedIn à partir de ce message.",
+      automation: "Conserver l'angle et le rythme du message, puis l'étendre sur un format plus visible.",
       impact: "Identifier les contenus moins visibles mais très efficaces auprès de l'audience.",
       evidence: `${formatRate(byRate.rate)} de taux d'engagement`,
       confidence: "Moyenne",

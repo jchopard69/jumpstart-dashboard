@@ -1,9 +1,7 @@
 import React from "react";
 import { Document, Image, Link, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { DashboardActionItem } from "./dashboard-action-plan";
 import type { DashboardDataQuality } from "./dashboard-data-quality";
 import type { DashboardOpportunity } from "./dashboard-opportunities";
-import type { ClientNextAction } from "./client-next-actions";
 
 const PAGE_PADDING_X = 34;
 const PAGE_PADDING_TOP = 76;
@@ -267,25 +265,6 @@ const styles = StyleSheet.create({
     lineHeight: 1.35,
     color: palette.ink,
   },
-  operationalGrid: {
-    flexDirection: "row",
-    marginLeft: -5,
-    marginRight: -5,
-    marginTop: 10,
-  },
-  operationalCell: {
-    width: "50%",
-    paddingLeft: 5,
-    paddingRight: 5,
-  },
-  actionPanel: {
-    borderWidth: 1,
-    borderColor: palette.line,
-    borderRadius: 14,
-    padding: 12,
-    backgroundColor: "#ffffff",
-    minHeight: 132,
-  },
   qualityPanel: {
     borderWidth: 1,
     borderColor: "#bfdbff",
@@ -343,107 +322,6 @@ const styles = StyleSheet.create({
     color: palette.amber,
     textTransform: "uppercase",
     letterSpacing: 0.7,
-  },
-  nextActionsPanel: {
-    borderWidth: 1,
-    borderColor: "#c7d2fe",
-    borderRadius: 14,
-    padding: 12,
-    backgroundColor: "#eef2ff",
-    marginTop: 10,
-  },
-  nextActionsGrid: {
-    flexDirection: "row",
-    marginLeft: -4,
-    marginRight: -4,
-  },
-  nextActionCell: {
-    width: "33.3333%",
-    paddingLeft: 4,
-    paddingRight: 4,
-  },
-  nextActionCard: {
-    borderWidth: 1,
-    borderColor: "#c7d2fe",
-    borderRadius: 12,
-    padding: 9,
-    backgroundColor: "#ffffff",
-    minHeight: 92,
-  },
-  nextActionLabel: {
-    fontSize: 6.7,
-    color: palette.blue,
-    textTransform: "uppercase",
-    letterSpacing: 0.7,
-    marginBottom: 4,
-  },
-  nextActionTitle: {
-    fontSize: 8.5,
-    fontFamily: "Helvetica-Bold",
-    color: palette.ink,
-    marginBottom: 4,
-  },
-  nextActionDetail: {
-    fontSize: 7.1,
-    lineHeight: 1.3,
-    color: palette.muted,
-    marginBottom: 5,
-  },
-  nextActionProof: {
-    fontSize: 7,
-    color: palette.teal,
-    fontFamily: "Helvetica-Bold",
-  },
-  actionItem: {
-    borderTopWidth: 1,
-    borderTopColor: palette.lineSoft,
-    paddingTop: 7,
-    marginTop: 7,
-  },
-  actionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 3,
-  },
-  actionTitle: {
-    fontSize: 8.7,
-    fontFamily: "Helvetica-Bold",
-    color: palette.ink,
-    width: "68%",
-  },
-  actionMeta: {
-    fontSize: 6.8,
-    color: palette.blue,
-    backgroundColor: palette.blueSoft,
-    borderRadius: 999,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  actionRationale: {
-    fontSize: 7.4,
-    lineHeight: 1.3,
-    color: palette.muted,
-  },
-  actionOwner: {
-    marginTop: 3,
-    fontSize: 7.1,
-    color: palette.blue,
-    fontFamily: "Helvetica-Bold",
-  },
-  actionAutomation: {
-    marginTop: 3,
-    fontSize: 7.1,
-    lineHeight: 1.25,
-    color: palette.ink,
-  },
-  actionMetric: {
-    marginTop: 3,
-    fontSize: 7.2,
-    color: palette.teal,
-    fontFamily: "Helvetica-Bold",
   },
   qualityScore: {
     fontSize: 22,
@@ -822,42 +700,6 @@ const styles = StyleSheet.create({
     color: palette.muted,
     marginBottom: 6,
   },
-  briefGrid: {
-    flexDirection: "row",
-    marginLeft: -4,
-    marginRight: -4,
-  },
-  briefCell: {
-    width: "33.3333%",
-    paddingLeft: 4,
-    paddingRight: 4,
-  },
-  briefCard: {
-    borderWidth: 1,
-    borderColor: "#ddd6fe",
-    borderRadius: 12,
-    padding: 9,
-    backgroundColor: "#faf5ff",
-    minHeight: 104,
-  },
-  briefTitle: {
-    fontSize: 8.5,
-    fontFamily: "Helvetica-Bold",
-    color: palette.ink,
-    marginBottom: 4,
-  },
-  briefText: {
-    fontSize: 7.1,
-    lineHeight: 1.28,
-    color: palette.muted,
-    marginBottom: 4,
-  },
-  briefMeta: {
-    fontSize: 6.7,
-    lineHeight: 1.25,
-    color: palette.blue,
-    marginBottom: 3,
-  },
   strengthRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1002,15 +844,6 @@ type ContentDnaPattern = {
   strength: number;
 };
 
-type ContentDnaBrief = {
-  title: string;
-  angle: string;
-  format: string;
-  timing: string;
-  captionGuidance: string;
-  automation: string;
-};
-
 export type PdfDocumentProps = {
   tenantName: string;
   rangeLabel: string;
@@ -1032,10 +865,7 @@ export type PdfDocumentProps = {
   executiveSummary?: string;
   insights?: Array<{ title: string; description: string }>;
   contentDna?: ContentDnaPattern[];
-  contentBriefs?: ContentDnaBrief[];
-  actionPlan?: DashboardActionItem[];
   opportunities?: DashboardOpportunity[];
-  clientNextActions?: ClientNextAction[];
   dataQuality?: DashboardDataQuality;
   watermark?: string;
 };
@@ -1267,44 +1097,6 @@ function TakeawaysPanel({ keyTakeaways }: { keyTakeaways?: string[] }) {
   );
 }
 
-function ActionPlanPanel({ actionPlan }: { actionPlan?: DashboardActionItem[] }) {
-  const actions = (actionPlan ?? []).slice(0, 3);
-
-  return (
-    <View style={styles.actionPanel} wrap={false}>
-      <Text style={styles.panelEyebrow}>Plan d'actions</Text>
-      {actions.length > 0 ? (
-        actions.map((action) => (
-          <View key={action.id} style={styles.actionItem}>
-            <View style={styles.actionHeader}>
-              <Text style={styles.actionTitle}>{truncateText(sanitizeText(action.title), 58)}</Text>
-              <Text style={styles.actionMeta}>{sanitizeText(action.horizon)}</Text>
-            </View>
-            <Text style={styles.actionRationale}>
-              {truncateText(sanitizeText(action.rationale), 116)}
-            </Text>
-            <Text style={styles.actionOwner}>
-              Responsable recommandé : {sanitizeText(action.owner ?? "Partage")}
-            </Text>
-            {action.automation ? (
-              <Text style={styles.actionAutomation}>
-                {truncateText(sanitizeText(action.automation), 108)}
-              </Text>
-            ) : null}
-            {action.metric ? (
-              <Text style={styles.actionMetric}>{truncateText(sanitizeText(action.metric), 52)}</Text>
-            ) : null}
-          </View>
-        ))
-      ) : (
-        <Text style={styles.actionRationale}>
-          Aucun chantier prioritaire n'a été identifié automatiquement sur cette période.
-        </Text>
-      )}
-    </View>
-  );
-}
-
 function DataQualityPanel({ dataQuality }: { dataQuality?: DashboardDataQuality }) {
   if (!dataQuality) {
     return null;
@@ -1356,35 +1148,6 @@ function OpportunitiesPanel({ opportunities }: { opportunities?: DashboardOpport
               </Text>
               <Text style={styles.opportunityConfidence}>
                 Confiance {sanitizeText(opportunity.confidence)}
-              </Text>
-            </View>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function ClientNextActionsPanel({ actions }: { actions?: ClientNextAction[] }) {
-  const visibleActions = (actions ?? []).slice(0, 3);
-  if (!visibleActions.length) return null;
-
-  return (
-    <View style={styles.nextActionsPanel} wrap={false}>
-      <Text style={styles.panelEyebrow}>Prochaines décisions client</Text>
-      <View style={styles.nextActionsGrid}>
-        {visibleActions.map((action) => (
-          <View key={action.id} style={styles.nextActionCell}>
-            <View style={styles.nextActionCard}>
-              <Text style={styles.nextActionLabel}>{truncateText(sanitizeText(action.label), 28)}</Text>
-              <Text style={styles.nextActionTitle}>
-                {truncateText(sanitizeText(action.title), 56)}
-              </Text>
-              <Text style={styles.nextActionDetail}>
-                {truncateText(sanitizeText(action.detail), 106)}
-              </Text>
-              <Text style={styles.nextActionProof}>
-                {truncateText(sanitizeText(action.proof), 48)}
               </Text>
             </View>
           </View>
@@ -1569,39 +1332,6 @@ function DnaCard({ pattern }: { pattern: ContentDnaPattern }) {
   );
 }
 
-function ContentBriefsPanel({ briefs }: { briefs?: ContentDnaBrief[] }) {
-  const visibleBriefs = (briefs ?? []).slice(0, 3);
-  if (!visibleBriefs.length) return null;
-
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionEyebrow}>Production automatisée</Text>
-      <Text style={styles.sectionTitle}>Briefs éditoriaux générés</Text>
-      <Text style={styles.sectionLead}>
-        Suite concrète proposée à partir de l'ADN créatif détecté sur la période.
-      </Text>
-      <View style={styles.briefGrid}>
-        {visibleBriefs.map((brief, index) => (
-          <View key={`${brief.title}-${index}`} style={styles.briefCell} wrap={false}>
-            <View style={styles.briefCard}>
-              <Text style={styles.briefTitle}>{truncateText(sanitizeText(brief.title), 52)}</Text>
-              <Text style={styles.briefText}>{truncateText(sanitizeText(brief.angle), 92)}</Text>
-              <Text style={styles.briefMeta}>
-                Format: {truncateText(sanitizeText(brief.format), 24)}
-              </Text>
-              <Text style={styles.briefMeta}>
-                Créneau: {truncateText(sanitizeText(brief.timing), 22)}
-              </Text>
-              <Text style={styles.briefText}>
-                {truncateText(sanitizeText(brief.automation), 92)}
-              </Text>
-            </View>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
 
 function CollaborationPanel(props: {
   shootDays: number;
@@ -1717,20 +1447,13 @@ export function PdfDocument(props: PdfDocumentProps) {
           </View>
         </View>
 
-        {props.actionPlan?.length || props.dataQuality ? (
-          <View style={styles.operationalGrid}>
-            <View style={styles.operationalCell}>
-              <ActionPlanPanel actionPlan={props.actionPlan} />
-            </View>
-            <View style={styles.operationalCell}>
-              <DataQualityPanel dataQuality={props.dataQuality} />
-            </View>
+        {props.dataQuality ? (
+          <View style={styles.section} wrap={false}>
+            <DataQualityPanel dataQuality={props.dataQuality} />
           </View>
         ) : null}
 
         <OpportunitiesPanel opportunities={props.opportunities} />
-
-        <ClientNextActionsPanel actions={props.clientNextActions} />
 
         <View style={styles.section}>
           <Text style={styles.sectionEyebrow}>Performance</Text>
@@ -1829,8 +1552,6 @@ export function PdfDocument(props: PdfDocumentProps) {
             </View>
           </View>
         ) : null}
-
-        <ContentBriefsPanel briefs={props.contentBriefs} />
 
         <View style={styles.section}>
           <Text style={styles.sectionEyebrow}>Pilotage</Text>

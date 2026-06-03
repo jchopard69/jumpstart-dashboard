@@ -152,44 +152,6 @@ export function ContentDnaCard({ dna }: ContentDnaCardProps) {
           );
         })}
       </div>
-
-      {dna.briefs.length > 0 && (
-        <div className="mt-5 border-t border-border/50 pt-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Briefs automatisés</h3>
-              <p className="text-xs text-muted-foreground">
-                Prochaines pistes générées à partir de l&apos;ADN créatif détecté.
-              </p>
-            </div>
-            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
-              V2
-            </span>
-          </div>
-
-          <div className="space-y-2.5">
-            {dna.briefs.map((brief, index) => (
-              <div key={brief.id} className="rounded-xl bg-muted/35 p-3">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-primary shadow-sm">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">{brief.title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{brief.angle}</p>
-                    <div className="mt-2 grid gap-1.5 text-[11px] text-foreground/70 sm:grid-cols-3">
-                      <span>Format : {brief.format}</span>
-                      <span>Créneau : {brief.timing}</span>
-                      <span>Caption : {brief.captionGuidance}</span>
-                    </div>
-                    <p className="mt-2 text-xs leading-relaxed text-foreground/80">{brief.automation}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </Card>
   );
 }
