@@ -76,10 +76,7 @@ export default async function ClientLayout({ children }: { children: React.React
   return (
     <Toaster>
       <div className="min-h-screen bg-aurora">
-        <a
-          href="#client-main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-foreground focus:shadow-lg"
-        >
+        <a href="#client-main-content" className="skip-link">
           Aller au contenu principal
         </a>
         <div className="relative">

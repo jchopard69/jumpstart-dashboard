@@ -62,6 +62,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <Toaster>
       <div className="min-h-screen bg-aurora">
+        <a href="#admin-main-content" className="skip-link">
+          Aller au contenu principal
+        </a>
         <div className="relative">
           <div className="relative flex min-h-screen">
             <aside className="sticky top-0 hidden h-screen w-72 flex-col gap-6 px-6 py-8 xl:flex">
@@ -78,7 +81,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                     </span>
                   </div>
                   <p className="mt-3 section-label">Centre de controle</p>
-                  <nav className="mt-6 flex flex-col gap-2 text-sm">
+                  <nav className="mt-6 flex flex-col gap-2 text-sm" aria-label="Navigation admin">
                     <AdminNavLink href="/admin">Vue d&apos;ensemble</AdminNavLink>
                     <AdminNavLink href="/admin/clients">Clients</AdminNavLink>
                     <AdminNavLink href="/admin/users">Utilisateurs</AdminNavLink>
@@ -109,7 +112,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                       Admin
                     </span>
                   </div>
-                  <nav className="flex items-center gap-2">
+                  <nav className="flex items-center gap-2" aria-label="Navigation admin mobile">
                     <AdminNavLink href="/admin">Vue d&apos;ensemble</AdminNavLink>
                     <AdminNavLink href="/admin/clients">Clients</AdminNavLink>
                     <AdminNavLink href="/admin/users">Utilisateurs</AdminNavLink>
@@ -127,7 +130,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 </div>
               </header>
 
-              <main className="mx-auto max-w-[1200px] px-6 py-10">{children}</main>
+              <main id="admin-main-content" className="mx-auto max-w-[1200px] px-6 py-10" tabIndex={-1}>
+                {children}
+              </main>
             </div>
           </div>
         </div>

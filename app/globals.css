@@ -58,6 +58,28 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 50;
+  transform: translateY(-150%);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 0.625rem 1rem;
+  color: hsl(var(--foreground));
+  font-size: 0.875rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-lg);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+}
+
 /* ─── Backgrounds ─── */
 .gradient-hero {
   background:
