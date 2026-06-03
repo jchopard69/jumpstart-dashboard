@@ -22,6 +22,7 @@ export type ContentIdeasResult = {
     outputTokens?: number;
     totalTokens?: number;
     model?: string;
+    estimatedCostUsd?: number;
   };
 };
 
@@ -50,7 +51,46 @@ type OpenAIUsage = {
   total_tokens?: number;
 };
 
-const DEFAULT_MODEL = "gpt-5-mini";
+const DEFAULT_MODEL = "gpt-5.4-mini";
+
+type ModelPricing = {
+  inputPerMillionUsd: number;
+  outputPerMillionUsd: number;
+};
+
+const MODEL_PRICING: Record<string, ModelPricing> = {
+  "gpt-5.4-mini": {
+    inputPerMillionUsd: 0.75,
+    outputPerMillionUsd: 4.5,
+  },
+  "gpt-5.4-nano": {
+    inputPerMillionUsd: 0.2,
+    outputPerMillionUsd: 1.25,
+  },
+  "gpt-5-mini": {
+    inputPerMillionUsd: 0.25,
+    outputPerMillionUsd: 2,
+  },
+  "gpt-5-nano": {
+    inputPerMillionUsd: 0.05,
+    outputPerMillionUsd: 0.4,
+  },
+};
+
+export function estimateContentIdeasCostUsd({
+  model,
+  inputTokens,
+  outputTokens,
+}: {
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+}) {
+  const pricing = MODEL_PRICING[model ?? DEFAULT_MODEL] ?? MODEL_PRICING[DEFAULT_MODEL];
+  const inputCost = ((inputTokens ?? 0) / 1_000_000) * pricing.inputPerMillionUsd;
+  const outputCost = ((outputTokens ?? 0) / 1_000_000) * pricing.outputPerMillionUsd;
+  return Number((inputCost + outputCost).toFixed(6));
+}
 
 function formatPost(post: PostData) {
   const visibility = getPostVisibility(post.metrics, post.media_type);
@@ -195,6 +235,11 @@ export async function generateContentIdeas({
       outputTokens: usage?.output_tokens,
       totalTokens: usage?.total_tokens,
       model,
+      estimatedCostUsd: estimateContentIdeasCostUsd({
+        model,
+        inputTokens: usage?.input_tokens,
+        outputTokens: usage?.output_tokens,
+      }),
     },
   };
 }

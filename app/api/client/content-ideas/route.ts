@@ -3,7 +3,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveActiveTenantId } from "@/lib/auth";
 import { fetchDashboardAccounts, fetchDashboardData } from "@/lib/queries";
 import { generateContentIdeas } from "@/lib/content-ideas-ai";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { Platform } from "@/lib/types";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function readPositiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 export async function POST(request: Request) {
   try {
@@ -34,6 +42,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Accès tenant indisponible." }, { status: 403 });
     }
 
+    const quotaMax = readPositiveInt(process.env.OPENAI_CONTENT_IDEAS_DAILY_LIMIT, 25);
+    const quota = checkRateLimit(`content-ideas:${tenantId}:${user.id}`, {
+      max: quotaMax,
+      windowMs: DAY_MS,
+    });
+
+    if (!quota.allowed) {
+      const retryHours = Math.max(1, Math.ceil(quota.retryAfterMs / (60 * 60 * 1000)));
+      return NextResponse.json(
+        {
+          code: "content_ideas_quota_exceeded",
+          message: `Quota IA atteint pour aujourd'hui. Réessayez dans environ ${retryHours} h.`,
+          quota: {
+            limit: quotaMax,
+            remaining: 0,
+            retryAfterMs: quota.retryAfterMs,
+          },
+        },
+        { status: 429 }
+      );
+    }
+
     const accounts = await fetchDashboardAccounts({ profile, tenantId });
     const platformList = Array.from(new Set(accounts.map((account) => account.platform)));
     const data = await fetchDashboardData({
@@ -53,7 +83,14 @@ export async function POST(request: Request) {
       count: 6,
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      ...result,
+      quota: {
+        limit: quotaMax,
+        remaining: quota.remaining,
+        retryAfterMs: 0,
+      },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";
     if (message.includes("OPENAI_API_KEY")) {

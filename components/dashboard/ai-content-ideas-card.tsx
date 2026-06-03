@@ -22,6 +22,13 @@ type Usage = {
   outputTokens?: number;
   totalTokens?: number;
   model?: string;
+  estimatedCostUsd?: number;
+};
+
+type Quota = {
+  limit?: number;
+  remaining?: number;
+  retryAfterMs?: number;
 };
 
 export function AiContentIdeasCard() {
@@ -29,6 +36,7 @@ export function AiContentIdeasCard() {
   const [prompt, setPrompt] = useState("Propose des idées de posts pour les 2 prochaines semaines.");
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [quota, setQuota] = useState<Quota | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -47,11 +55,13 @@ export function AiContentIdeasCard() {
       if (!response.ok) {
         setIdeas([]);
         setUsage(null);
+        setQuota(payload.quota ?? null);
         setError(payload.message ?? "Impossible de générer des idées pour le moment.");
         return;
       }
       setIdeas(Array.isArray(payload.ideas) ? payload.ideas : []);
       setUsage(payload.usage ?? null);
+      setQuota(payload.quota ?? null);
     });
   };
 
@@ -73,11 +83,18 @@ export function AiContentIdeasCard() {
               </p>
             </div>
           </div>
-          {usage?.totalTokens ? (
-            <span className="rounded-full border border-primary/15 bg-white/70 px-3 py-1 text-xs font-semibold text-primary">
-              {usage.totalTokens.toLocaleString("fr-FR")} tokens
-            </span>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {usage?.totalTokens ? (
+              <span className="rounded-full border border-primary/15 bg-white/70 px-3 py-1 text-xs font-semibold text-primary">
+                {usage.totalTokens.toLocaleString("fr-FR")} tokens
+              </span>
+            ) : null}
+            {typeof quota?.remaining === "number" ? (
+              <span className="rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-xs font-semibold text-emerald-700">
+                {quota.remaining}/{quota.limit ?? "-"} générations restantes
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -134,6 +151,13 @@ export function AiContentIdeasCard() {
             Modèle : {usage.model}
             {usage.inputTokens || usage.outputTokens
               ? ` - entrée ${usage.inputTokens ?? "-"} / sortie ${usage.outputTokens ?? "-"} tokens`
+              : ""}
+            {typeof usage.estimatedCostUsd === "number"
+              ? ` - coût estimé ${usage.estimatedCostUsd.toLocaleString("fr-FR", {
+                  style: "currency",
+                  currency: "USD",
+                  maximumFractionDigits: 4,
+                })}`
               : ""}
           </p>
         ) : null}
