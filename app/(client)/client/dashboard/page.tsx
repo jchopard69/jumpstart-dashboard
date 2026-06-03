@@ -28,6 +28,7 @@ import { BestTimeHeatmap } from "@/components/dashboard/best-time-heatmap";
 import { StrategyDashboardCard } from "@/components/strategy/strategy-dashboard-card";
 import { DataQualityCard } from "@/components/dashboard/data-quality-card";
 import { ActionPlanCard } from "@/components/dashboard/action-plan-card";
+import { ClientNextActionsCard } from "@/components/dashboard/client-next-actions-card";
 import { OpportunityCard } from "@/components/dashboard/opportunity-card";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
@@ -38,6 +39,7 @@ import { fetchClientStrategySnapshot } from "@/lib/client-strategy";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardActionPlan } from "@/lib/dashboard-action-plan";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
+import { buildClientNextActions } from "@/lib/client-next-actions";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -402,6 +404,12 @@ export default async function ClientDashboardPage({
     metrics: post.metrics,
     url: post.url,
   })));
+  const clientNextActions = buildClientNextActions({
+    actionPlan,
+    opportunities,
+    strategy: strategySnapshot,
+    tenantId: profile.role === "agency_admin" ? effectiveTenantId : null,
+  });
 
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
@@ -609,26 +617,30 @@ export default async function ClientDashboardPage({
 
       <OpportunityCard opportunities={opportunities} />
 
+      <ClientNextActionsCard actions={clientNextActions} />
+
       <StrategyDashboardCard
         snapshot={strategySnapshot}
         tenantId={profile.role === "agency_admin" ? effectiveTenantId : undefined}
       />
 
-      <KpiSection
-        totals={data.totals}
-        delta={data.delta}
-        goals={goals}
-        metrics={data.metrics}
-        comparisonLabel={comparisonLabel}
-        showViews={showViews}
-        showReach={showReach}
-        showEngagements={showEngagements}
-      />
+      <section id="dashboard-kpis">
+        <KpiSection
+          totals={data.totals}
+          delta={data.delta}
+          goals={goals}
+          metrics={data.metrics}
+          comparisonLabel={comparisonLabel}
+          showViews={showViews}
+          showReach={showReach}
+          showEngagements={showEngagements}
+        />
+      </section>
 
       {/* ─── Strategic Analysis ─── */}
       <div className="section-divider" />
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <section id="dashboard-insights" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <InsightCard insights={strategicInsights.map(i => ({
           type: i.type as any,
           title: i.title,
@@ -657,7 +669,7 @@ export default async function ClientDashboardPage({
       {/* ─── Content Strategy: Top Posts + Best Time ─── */}
       <div className="section-divider" />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div id="dashboard-content" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <TopPosts posts={data.posts} />
         {bestTimeData && <BestTimeHeatmap data={bestTimeData} />}
       </div>
@@ -672,7 +684,7 @@ export default async function ClientDashboardPage({
       {/* ─── Operations ─── */}
       <div className="section-divider" />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div id="dashboard-operations" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-6">
           <DataQualityCard quality={dataQuality} />
           <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
