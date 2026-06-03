@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShootCalendar } from "@/components/os/shoot-calendar";
 import { NotesEditor } from "@/components/os/notes-editor";
+import { CollaborationNextActionsCard } from "@/components/os/collaboration-next-actions-card";
+import { buildCollaborationNextActions } from "@/lib/collaboration-actions";
 
 export const metadata: Metadata = {
   title: "Ma collaboration"
@@ -98,6 +100,11 @@ export default async function CollaborationPage({
         month: "short",
       })
     : "À planifier";
+  const collaborationActions = buildCollaborationNextActions({
+    collaboration: collaboration ?? null,
+    shoots: shoots ?? [],
+    documents: documents ?? [],
+  });
 
   async function updateNotes(formData: FormData) {
     "use server";
@@ -192,19 +199,25 @@ export default async function CollaborationPage({
         </div>
       </section>
 
+      <CollaborationNextActionsCard actions={collaborationActions} />
+
       {/* Shoots + Notes */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ShootCalendar shoots={shoots ?? []} canEdit={canEdit} addShootAction={addShoot} />
-        <NotesEditor
-          notes={collaboration?.notes ?? null}
-          updatedAt={collaboration?.updated_at ?? null}
-          canEdit={canEdit}
-          updateNotesAction={updateNotes}
-        />
+        <div id="collaboration-shoots" className="scroll-mt-6">
+          <ShootCalendar shoots={shoots ?? []} canEdit={canEdit} addShootAction={addShoot} />
+        </div>
+        <div id="collaboration-notes" className="scroll-mt-6">
+          <NotesEditor
+            notes={collaboration?.notes ?? null}
+            updatedAt={collaboration?.updated_at ?? null}
+            canEdit={canEdit}
+            updateNotesAction={updateNotes}
+          />
+        </div>
       </section>
 
       {/* Documents */}
-      <section>
+      <section id="collaboration-documents" className="scroll-mt-6">
         <Card className="card-surface p-6 fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
