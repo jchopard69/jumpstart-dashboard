@@ -5,6 +5,7 @@ import {
   getDemoContactHref,
   getDemoCredentials,
   getDemoExpiryDate,
+  isDemoAccessExpired,
   isDemoEnabled,
 } from "@/lib/demo";
 
@@ -34,7 +35,7 @@ export default function DemoPage() {
       contactHref={getDemoContactHref()}
       demoEmail={demoEmail}
       expiresAtLabel={expiresAtLabel}
+      isExpired={isDemoAccessExpired()}
     />
   );
 }
-

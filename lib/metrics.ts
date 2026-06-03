@@ -61,11 +61,16 @@ export function getPostImpressions(metrics: MetricRecord): number {
   }
   return coerceMetric(
     normalized?.impressions ??
+    normalized?.impression_count ??
     normalized?.views ??
+    normalized?.view_count ??
     normalized?.reach ??
+    normalized?.reach_count ??
     normalized?.media_views ??
     normalized?.plays ??
+    normalized?.play_count ??
     normalized?.video_views ??
+    normalized?.video_view_count ??
     0
   );
 }
@@ -79,10 +84,11 @@ export function getPostEngagements(metrics: MetricRecord): number {
     return coerceMetric(normalized.engagements);
   }
   return (
-    coerceMetric(normalized?.likes ?? 0) +
-    coerceMetric(normalized?.comments ?? 0) +
-    coerceMetric(normalized?.shares ?? 0) +
-    coerceMetric(normalized?.saves ?? 0)
+    coerceMetric(normalized?.likes ?? normalized?.like_count ?? 0) +
+    coerceMetric(normalized?.comments ?? normalized?.comment_count ?? normalized?.comments_count ?? 0) +
+    coerceMetric(normalized?.shares ?? normalized?.share_count ?? 0) +
+    coerceMetric(normalized?.saves ?? normalized?.save_count ?? normalized?.favorite_count ?? 0) +
+    coerceMetric(normalized?.reposts ?? normalized?.repost_count ?? 0)
   );
 }
 
@@ -94,12 +100,15 @@ export function getPostVisibility(
   if (typeof normalized === "string") {
     return { label: "Impressions", value: coerceMetric(normalized) };
   }
-  const impressions = coerceMetric(normalized?.impressions ?? 0);
+  const impressions = coerceMetric(normalized?.impressions ?? normalized?.impression_count ?? 0);
   const views = coerceMetric(
     normalized?.views ??
+    normalized?.view_count ??
     normalized?.media_views ??
     normalized?.plays ??
+    normalized?.play_count ??
     normalized?.video_views ??
+    normalized?.video_view_count ??
     0
   );
   if (isReelMediaType(mediaType) && views > 0) {
@@ -107,6 +116,6 @@ export function getPostVisibility(
   }
   if (impressions > 0) return { label: "Impressions", value: impressions };
   if (views > 0) return { label: "Vues", value: views };
-  const reach = coerceMetric(normalized?.reach ?? 0);
+  const reach = coerceMetric(normalized?.reach ?? normalized?.reach_count ?? 0);
   return { label: "Portée", value: reach };
 }

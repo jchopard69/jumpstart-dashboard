@@ -8,14 +8,19 @@ type DemoEntryProps = {
   contactHref: string;
   demoEmail: string;
   expiresAtLabel: string | null;
+  isExpired: boolean;
 };
 
-export function DemoEntry({ contactHref, demoEmail, expiresAtLabel }: DemoEntryProps) {
+export function DemoEntry({ contactHref, demoEmail, expiresAtLabel, isExpired }: DemoEntryProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleStart = async () => {
+    if (isExpired) {
+      setError("L'accès démo a expiré. Demandez une démo personnalisée pour obtenir un nouvel accès.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -59,7 +64,9 @@ export function DemoEntry({ contactHref, demoEmail, expiresAtLabel }: DemoEntryP
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Mode</p>
               <p className="mt-1 text-sm font-semibold">Démo sécurisée</p>
               {expiresAtLabel && (
-                <p className="mt-2 text-xs text-muted-foreground">Expire le {expiresAtLabel}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {isExpired ? "Expirée le" : "Expire le"} {expiresAtLabel}
+                </p>
               )}
             </div>
           </div>
@@ -69,10 +76,12 @@ export function DemoEntry({ contactHref, demoEmail, expiresAtLabel }: DemoEntryP
           <div className="surface-panel p-6">
             <h2 className="section-title">Accès immédiat</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Cliquez pour entrer directement dans le workspace démo.
+              {isExpired
+                ? "L'accès automatique à ce workspace démo a expiré. Vous pouvez demander un nouvel accès personnalisé."
+                : "Cliquez pour entrer directement dans le workspace démo."}
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <Button onClick={handleStart} disabled={loading}>
+              <Button onClick={handleStart} disabled={loading || isExpired}>
                 {loading ? "Connexion..." : "Accéder à la démo"}
               </Button>
               <a href={contactHref} className="text-sm font-medium text-primary underline">

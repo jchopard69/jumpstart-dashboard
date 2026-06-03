@@ -28,6 +28,7 @@ import { BestTimeHeatmap } from "@/components/dashboard/best-time-heatmap";
 import { StrategyDashboardCard } from "@/components/strategy/strategy-dashboard-card";
 import { DataQualityCard } from "@/components/dashboard/data-quality-card";
 import { ActionPlanCard } from "@/components/dashboard/action-plan-card";
+import { OpportunityCard } from "@/components/dashboard/opportunity-card";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
 import { getSupportContactHref } from "@/lib/support";
@@ -36,6 +37,7 @@ import { cookies } from "next/headers";
 import { fetchClientStrategySnapshot } from "@/lib/client-strategy";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardActionPlan } from "@/lib/dashboard-action-plan";
+import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
 
 export const metadata: Metadata = {
   title: "Tableau de bord"
@@ -392,6 +394,14 @@ export default async function ClientDashboardPage({
     goals,
     dataQuality,
   });
+  const opportunities = buildDashboardOpportunities(data.posts.map((post) => ({
+    platform: post.platform,
+    media_type: (post as any).media_type,
+    caption: post.caption,
+    posted_at: post.posted_at,
+    metrics: post.metrics,
+    url: post.url,
+  })));
 
   // Detect if metrics are missing (account connected but no insights data)
   const hasFollowersOrPosts = (data.totals?.followers ?? 0) > 0 || (data.totals?.posts_count ?? 0) > 0;
@@ -596,6 +606,8 @@ export default async function ClientDashboardPage({
       />
 
       <ActionPlanCard actions={actionPlan} />
+
+      <OpportunityCard opportunities={opportunities} />
 
       <StrategyDashboardCard
         snapshot={strategySnapshot}

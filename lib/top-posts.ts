@@ -1,5 +1,4 @@
 import { getPostEngagements, getPostVisibility } from "./metrics";
-import { computeContentScore } from "./scoring";
 
 export type TopPostsSortMode = "performance" | "visibility" | "engagement";
 
@@ -51,30 +50,41 @@ export function selectDisplayTopPosts<T extends { metrics?: unknown; media_type?
     const bVis = getPostVisibility(b.metrics as any, b.media_type).value;
     const aEng = getPostEngagements(a.metrics as any);
     const bEng = getPostEngagements(b.metrics as any);
+    const aRate = aVis > 0 ? aEng / aVis : 0;
+    const bRate = bVis > 0 ? bEng / bVis : 0;
 
     if (sortMode === "visibility") {
-      return bVis - aVis;
+      return bVis - aVis || bEng - aEng || bRate - aRate || getPostTime(b) - getPostTime(a);
     }
 
     if (sortMode === "engagement") {
-      const aRate = aVis > 0 ? aEng / aVis : 0;
-      const bRate = bVis > 0 ? bEng / bVis : 0;
-      return bRate - aRate || bEng - aEng || bVis - aVis || getPostTime(b) - getPostTime(a);
+      return bEng - aEng || bRate - aRate || bVis - aVis || getPostTime(b) - getPostTime(a);
     }
 
-    // "performance" — sort by Content Score (engagement-weighted composite)
-    const aScore = computeContentScore(
-      { impressions: aVis, engagements: aEng, views: aVis },
-      cohort
-    ).score;
-    const bScore = computeContentScore(
-      { impressions: bVis, engagements: bEng, views: bVis },
-      cohort
-    ).score;
-    const aRate = aVis > 0 ? aEng / aVis : 0;
-    const bRate = bVis > 0 ? bEng / bVis : 0;
+    // Performance intentionally differs from the raw metric tabs:
+    // it rewards posts that combine strong visibility and strong engagement,
+    // instead of letting one large metric dominate the ranking.
+    const aScore = computeBalancedPerformanceRank(aVis, aEng, cohort);
+    const bScore = computeBalancedPerformanceRank(bVis, bEng, cohort);
     return bScore - aScore || bEng - aEng || bVis - aVis || bRate - aRate || getPostTime(b) - getPostTime(a);
   });
 
   return sorted.slice(0, limit);
+}
+
+function computeBalancedPerformanceRank(
+  visibility: number,
+  engagements: number,
+  cohort: { maxImpressions: number; maxEngagements: number; avgImpressions: number; avgEngagements: number }
+): number {
+  const maxVisibility = cohort.maxImpressions || 1;
+  const maxEngagements = cohort.maxEngagements || 1;
+  const visibilityNorm = visibility > 0 ? visibility / maxVisibility : 0;
+  const engagementNorm = engagements > 0 ? engagements / maxEngagements : 0;
+  const rate = visibility > 0 ? engagements / visibility : 0;
+  const avgRate = cohort.avgImpressions > 0 ? cohort.avgEngagements / cohort.avgImpressions : 0;
+  const rateNorm = avgRate > 0 ? Math.min(rate / avgRate, 2) / 2 : 0;
+
+  const balancedImpact = Math.sqrt(visibilityNorm * engagementNorm);
+  return balancedImpact * 70 + rateNorm * 30;
 }

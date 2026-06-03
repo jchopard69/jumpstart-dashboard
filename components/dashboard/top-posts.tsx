@@ -253,37 +253,71 @@ export function TopPosts({ posts }: TopPostsProps) {
 
                 {/* Metrics */}
                 <div className="shrink-0 text-right space-y-0.5">
-                  {visibility.value > 0 ? (
+                  {sortMode === "performance" ? (
                     <>
                       <p className="text-sm font-semibold tabular-nums">
-                        {formatMetric(visibility.value)}
-                        <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-                          {visibility.label.toLowerCase()}
-                        </span>
+                        {contentScore.score}
+                        <span className="ml-1 text-[10px] font-normal text-muted-foreground">score</span>
                       </p>
-                      {cohort.avgImpressions > 0 && (() => {
-                        const ratio = cohort.avgImpressions > 0
-                          ? Math.round(((visibility.value - cohort.avgImpressions) / cohort.avgImpressions) * 100)
-                          : 0;
-                        if (!isFinite(ratio) || Math.abs(ratio) < 5) return null;
-                        return (
-                          <p className={cn("text-[10px] tabular-nums font-medium", ratio > 0 ? "text-emerald-600" : "text-rose-500")}>
-                            {ratio > 0 ? "+" : ""}{ratio}% vs moy.
-                          </p>
-                        );
-                      })()}
+                      <p className="text-xs tabular-nums text-muted-foreground">
+                        {visibility.value > 0 ? `${formatMetric(visibility.value)} ${visibility.label.toLowerCase()}` : "-"}
+                        {engagements > 0 && (
+                          <span className="ml-1 text-[10px] text-muted-foreground/70">· {formatMetric(engagements)} eng.</span>
+                        )}
+                      </p>
+                    </>
+                  ) : sortMode === "engagement" ? (
+                    <>
+                      {engagements > 0 ? (
+                        <p className="text-sm font-semibold tabular-nums">
+                          {formatMetric(engagements)}
+                          <span className="ml-1 text-[10px] font-normal text-muted-foreground">engagements</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">-</p>
+                      )}
+                      <p className="text-xs tabular-nums text-muted-foreground">
+                        {engRateLabel ? `${engRateLabel} taux` : "Taux N/A"}
+                        {visibility.value > 0 && (
+                          <span className="ml-1 text-[10px] text-muted-foreground/70">· {formatMetric(visibility.value)} {visibility.label.toLowerCase()}</span>
+                        )}
+                      </p>
                     </>
                   ) : (
-                    <p className="text-xs text-muted-foreground">-</p>
-                  )}
-                  {engagements > 0 ? (
-                    <p className="text-xs tabular-nums text-muted-foreground">
-                      {formatMetric(engagements)} eng.
-                      {engRateLabel && (
-                        <span className="ml-1 text-[10px] text-muted-foreground/70">({engRateLabel})</span>
+                    <>
+                      {visibility.value > 0 ? (
+                        <>
+                          <p className="text-sm font-semibold tabular-nums">
+                            {formatMetric(visibility.value)}
+                            <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                              {visibility.label.toLowerCase()}
+                            </span>
+                          </p>
+                          {cohort.avgImpressions > 0 && (() => {
+                            const ratio = cohort.avgImpressions > 0
+                              ? Math.round(((visibility.value - cohort.avgImpressions) / cohort.avgImpressions) * 100)
+                              : 0;
+                            if (!isFinite(ratio) || Math.abs(ratio) < 5) return null;
+                            return (
+                              <p className={cn("text-[10px] tabular-nums font-medium", ratio > 0 ? "text-emerald-600" : "text-rose-500")}>
+                                {ratio > 0 ? "+" : ""}{ratio}% vs moy.
+                              </p>
+                            );
+                          })()}
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">-</p>
                       )}
-                    </p>
-                  ) : null}
+                      {engagements > 0 ? (
+                        <p className="text-xs tabular-nums text-muted-foreground">
+                          {formatMetric(engagements)} eng.
+                          {engRateLabel && (
+                            <span className="ml-1 text-[10px] text-muted-foreground/70">({engRateLabel})</span>
+                          )}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                 </div>
 
                 {/* External link indicator */}

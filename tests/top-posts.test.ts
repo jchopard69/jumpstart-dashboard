@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { selectDisplayTopPosts } from "../lib/top-posts.ts";
+import { getPostEngagements, getPostVisibility } from "../lib/metrics.ts";
 
 const posts = [
   {
@@ -31,26 +32,28 @@ test("top posts use distinct rankings for performance, visibility, and engagemen
 
   assert.equal(performance[0], "balanced-performance");
   assert.equal(visibility[0], "high-visibility");
-  assert.equal(engagement[0], "high-engagement-rate");
+  assert.equal(engagement[0], "balanced-performance");
+  assert.notDeepEqual(performance, visibility);
+  assert.notDeepEqual(visibility, engagement);
 });
 
-test("engagement ranking falls back to engagement volume when rates are tied", () => {
-  const tiedRatePosts = [
+test("engagement ranking uses engagement volume before engagement rate", () => {
+  const engagementPosts = [
     {
-      id: "small",
+      id: "high-rate-small-volume",
       posted_at: "2026-05-10T10:00:00.000Z",
       metrics: { impressions: 100, engagements: 10 },
     },
     {
-      id: "large",
+      id: "lower-rate-large-volume",
       posted_at: "2026-05-11T10:00:00.000Z",
       metrics: { impressions: 1_000, engagements: 100 },
     },
   ];
 
-  const engagement = selectDisplayTopPosts(tiedRatePosts, tiedRatePosts.length, "engagement").map((post) => post.id);
+  const engagement = selectDisplayTopPosts(engagementPosts, engagementPosts.length, "engagement").map((post) => post.id);
 
-  assert.deepEqual(engagement, ["large", "small"]);
+  assert.deepEqual(engagement, ["lower-rate-large-volume", "high-rate-small-volume"]);
 });
 
 test("visibility ranking excludes posts that only have engagement when visibility data exists", () => {
@@ -89,4 +92,47 @@ test("engagement ranking excludes posts that only have visibility when engagemen
   const engagement = selectDisplayTopPosts(mixedPosts, mixedPosts.length, "engagement").map((post) => post.id);
 
   assert.deepEqual(engagement, ["engaged"]);
+});
+
+test("post metric helpers support native TikTok and Instagram API field names", () => {
+  const tiktokMetrics = {
+    view_count: 24_000,
+    like_count: 1_800,
+    comment_count: 95,
+    share_count: 230,
+  };
+  const instagramMetrics = {
+    impression_count: 8_500,
+    comments_count: 42,
+    like_count: 640,
+    save_count: 88,
+  };
+
+  assert.deepEqual(getPostVisibility(tiktokMetrics, "video"), { label: "Vues", value: 24_000 });
+  assert.equal(getPostEngagements(tiktokMetrics), 2_125);
+  assert.deepEqual(getPostVisibility(instagramMetrics, "image"), { label: "Impressions", value: 8_500 });
+  assert.equal(getPostEngagements(instagramMetrics), 770);
+});
+
+test("tabs rank by their own metric when connector fields are not pre-normalized", () => {
+  const nativePosts = [
+    {
+      id: "viral-viewed",
+      posted_at: "2026-05-10T10:00:00.000Z",
+      media_type: "video",
+      metrics: { view_count: 80_000, like_count: 500, comment_count: 30, share_count: 20 },
+    },
+    {
+      id: "conversation-starter",
+      posted_at: "2026-05-11T10:00:00.000Z",
+      media_type: "image",
+      metrics: { impression_count: 12_000, like_count: 1_100, comments_count: 180, save_count: 95 },
+    },
+  ];
+
+  const visibility = selectDisplayTopPosts(nativePosts, nativePosts.length, "visibility").map((post) => post.id);
+  const engagement = selectDisplayTopPosts(nativePosts, nativePosts.length, "engagement").map((post) => post.id);
+
+  assert.deepEqual(visibility, ["viral-viewed", "conversation-starter"]);
+  assert.deepEqual(engagement, ["conversation-starter", "viral-viewed"]);
 });
