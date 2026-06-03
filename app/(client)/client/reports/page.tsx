@@ -62,7 +62,7 @@ export default async function ReportsPage({
             <p className="section-label">JumpStart Studio</p>
             <h1 className="page-heading">Rapports automatiques</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Programmez l'envoi email et téléchargez un rapport client prêt à partager.
+              Programmez l'envoi email, partagez le PDF stratégique et exportez les données avec recommandations.
             </p>
           </div>
           <ExportButtons query={exportParams.toString()} />
@@ -72,16 +72,16 @@ export default async function ReportsPage({
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="surface-panel p-5">
           <p className="section-label">Dans le PDF</p>
-          <h2 className="mt-2 text-base font-semibold">Plan d'actions</h2>
+          <h2 className="mt-2 text-base font-semibold">Plan d'actions + opportunités</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Les priorités client issues du score, des objectifs et des alertes data sont incluses dans chaque rapport.
+            Chaque rapport embarque les priorités client, la qualité des données et les opportunités automatiques à activer.
           </p>
         </div>
         <div className="surface-panel p-5">
-          <p className="section-label">Fiabilité</p>
-          <h2 className="mt-2 text-base font-semibold">Qualité des données</h2>
+          <p className="section-label">Dans le CSV</p>
+          <h2 className="mt-2 text-base font-semibold">Données actionnables</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Le rapport signale la couverture des données et les synchronisations à rafraîchir avant décision.
+            L'export ajoute le taux d'engagement, le statut de fiabilité et une recommandation automatique par ligne.
           </p>
         </div>
         <div className="surface-panel p-5">
