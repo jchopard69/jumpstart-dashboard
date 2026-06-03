@@ -9,7 +9,8 @@ import {
 
 export default function DashboardLoading() {
   return (
-    <div className="space-y-8 fade-in">
+    <div className="space-y-8 fade-in" role="status" aria-live="polite" aria-busy="true">
+      <p className="sr-only">Chargement du tableau de bord JumpStart.</p>
       {/* Header */}
       <section className="surface-panel p-8">
         <div className="flex flex-wrap items-center justify-between gap-6">

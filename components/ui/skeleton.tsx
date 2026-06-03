@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
+      aria-hidden="true"
       className={cn("animate-pulse rounded-xl bg-muted/60", className)}
       {...props}
     />
@@ -25,17 +26,19 @@ export function KpiCardSkeleton() {
 }
 
 export function TrendChartSkeleton() {
+  const barHeights = [42, 58, 36, 64, 72, 48, 68, 54, 82, 61, 46, 70];
+
   return (
     <div className="card-surface rounded-2xl border border-border/60 p-4">
       <div className="mb-2 flex items-center justify-between">
         <Skeleton className="h-4 w-24" />
       </div>
       <div className="h-48 flex items-end justify-between gap-1 px-4">
-        {Array.from({ length: 12 }).map((_, i) => (
+        {barHeights.map((height, i) => (
           <Skeleton
             key={i}
             className="w-full"
-            style={{ height: `${30 + Math.random() * 60}%` }}
+            style={{ height: `${height}%` }}
           />
         ))}
       </div>

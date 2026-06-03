@@ -2,7 +2,8 @@ import { Skeleton, CardSkeleton } from "@/components/ui/skeleton";
 
 export default function AdminOverviewLoading() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" role="status" aria-live="polite" aria-busy="true">
+      <p className="sr-only">Chargement du centre de contrôle JumpStart.</p>
       {/* Header */}
       <div className="surface-panel p-8">
         <Skeleton className="h-3 w-28 mb-3" />
