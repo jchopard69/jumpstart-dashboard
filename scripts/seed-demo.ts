@@ -40,7 +40,7 @@ async function run() {
   const supabaseUrl = required("NEXT_PUBLIC_SUPABASE_URL");
   const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
   const demoEmail = process.env.DEMO_USER_EMAIL?.trim() || "demo@jumpstart.studio";
-  const demoPassword = required("DEMO_USER_PASSWORD");
+  const demoPassword = process.env.DEMO_USER_PASSWORD?.trim() || null;
   const demoName = process.env.DEMO_USER_FULL_NAME?.trim() || "JumpStart Demo User";
   const tenantName = process.env.DEMO_TENANT_NAME?.trim() || "JumpStart Demo";
   const tenantSlug = process.env.DEMO_TENANT_SLUG?.trim() || "demo";
@@ -94,6 +94,9 @@ async function run() {
 
   let user = usersPage.users.find((item) => item.email?.toLowerCase() === demoEmail.toLowerCase());
   if (!user) {
+    if (!demoPassword) {
+      throw new Error("DEMO_USER_PASSWORD est requis pour créer l'utilisateur démo.");
+    }
     const { data: created, error: createUserError } = await supabase.auth.admin.createUser({
       email: demoEmail,
       password: demoPassword,
@@ -106,11 +109,14 @@ async function run() {
     user = created.user;
     console.log(`[seed:demo] Demo user created: ${user.id}`);
   } else {
-    const { data: updated, error: updateUserError } = await supabase.auth.admin.updateUserById(user.id, {
-      password: demoPassword,
+    const updatePayload: Parameters<typeof supabase.auth.admin.updateUserById>[1] = {
       email_confirm: true,
       user_metadata: { full_name: demoName },
-    });
+    };
+    if (demoPassword) {
+      updatePayload.password = demoPassword;
+    }
+    const { data: updated, error: updateUserError } = await supabase.auth.admin.updateUserById(user.id, updatePayload);
     if (updateUserError || !updated?.user) {
       throw updateUserError || new Error("Impossible de mettre à jour l'utilisateur démo.");
     }
