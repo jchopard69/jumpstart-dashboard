@@ -9,6 +9,7 @@ import { PLATFORM_ICONS, PLATFORM_LABELS, type Platform } from "@/lib/types";
 import { getPostEngagements, getPostVisibility } from "@/lib/metrics";
 import { computeContentScore } from "@/lib/scoring";
 import { selectDisplayTopPosts, type TopPostsSortMode } from "@/lib/top-posts";
+import { buildContentPortfolio } from "@/lib/content-portfolio";
 import { cn } from "@/lib/utils";
 import type { PostData } from "@/lib/types/dashboard";
 
@@ -159,6 +160,11 @@ function buildModeInsight(posts: PostData[], mode: TopPostsSortMode): { signal: 
   };
 }
 
+function formatPercent(value: number | null): string {
+  if (value == null) return "-";
+  return `${value.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+}
+
 export function TopPosts({ posts }: TopPostsProps) {
   const [expanded, setExpanded] = useState(false);
   const [sortMode, setSortMode] = useState<TopPostsSortMode>("performance");
@@ -181,11 +187,14 @@ export function TopPosts({ posts }: TopPostsProps) {
 
   const { title, subtitle, rule } = SORT_MODE_LABELS[sortMode];
   const modeInsight = buildModeInsight(displayPosts, sortMode);
+  const portfolio = buildContentPortfolio(posts);
 
   return (
-    <Card className="card-surface p-6 fade-in-up">
-      <div className="flex items-center justify-between mb-5">
+    <Card className="card-surface overflow-hidden p-0 fade-in-up">
+      <div className="border-b border-border/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,253,248,0.88))] p-6">
+      <div className="flex items-center justify-between">
         <div>
+          <p className="section-label text-primary">Portefeuille créatif</p>
           <h2 className="section-title">{title}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
         </div>
@@ -195,8 +204,26 @@ export function TopPosts({ posts }: TopPostsProps) {
           </span>
         )}
       </div>
+      {portfolio.postsAnalyzed > 0 && (
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-white/70 bg-white/75 px-3 py-2 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Format dominant</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">{portfolio.dominantFormat}</p>
+          </div>
+          <div className="rounded-xl border border-white/70 bg-white/75 px-3 py-2 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Canal contributeur</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">{portfolio.topPlatform}</p>
+          </div>
+          <div className="rounded-xl border border-white/70 bg-white/75 px-3 py-2 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Rendement moyen</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">{formatPercent(portfolio.averageEngagementRate)} · {portfolio.qualityLabel}</p>
+          </div>
+        </div>
+      )}
+      </div>
 
       {/* Sort mode tabs */}
+      <div className="p-6">
       <div className="flex gap-1 mb-4" role="tablist" aria-label="Classement des contenus phares">
         {(["performance", "visibility", "engagement"] as const).map((mode) => (
           <button
@@ -414,6 +441,7 @@ export function TopPosts({ posts }: TopPostsProps) {
           {expanded ? "Voir moins" : `Voir les ${displayPosts.length - INITIAL_COUNT} autres publications`}
         </button>
       )}
+      </div>
     </Card>
   );
 }

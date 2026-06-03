@@ -15,6 +15,7 @@ import { buildPdfPostSummaries } from "@/lib/pdf-posts";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
 import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
+import { buildContentPortfolio } from "@/lib/content-portfolio";
 import { sendReportEmail } from "@/lib/email";
 import { createTenantNotification } from "@/lib/notifications";
 import type { Platform } from "@/lib/types";
@@ -338,6 +339,11 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
       metrics: post.metrics as any,
     })),
   });
+  const contentPortfolio = buildContentPortfolio(postsList.map((post) => ({
+    platform: post.platform,
+    media_type: post.media_type,
+    metrics: post.metrics,
+  })));
 
   const displayTopPosts = await buildPdfPostSummaries(postsList, 10);
 
@@ -390,6 +396,7 @@ async function generateTenantPdfBuffer(tenantId: string): Promise<Buffer> {
     })),
     opportunities,
     platformDiagnosis,
+    contentPortfolio,
     dataQuality,
     contentDna:
       contentDna.patterns.length > 0

@@ -16,6 +16,7 @@ import { buildPdfPostSummaries } from "@/lib/pdf-posts";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
 import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
 import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
+import { buildContentPortfolio } from "@/lib/content-portfolio";
 import {
   getDemoPdfWatermarkText,
   shouldUseDemoPdfWatermark,
@@ -223,6 +224,11 @@ export async function GET(request: Request) {
       metrics: post.metrics as any,
     })),
   });
+  const contentPortfolio = buildContentPortfolio(data.posts.map((post) => ({
+    platform: post.platform,
+    media_type: post.media_type,
+    metrics: post.metrics,
+  })));
 
   const displayTopPosts = await buildPdfPostSummaries(data.posts, 10);
 
@@ -259,6 +265,7 @@ export async function GET(request: Request) {
     })),
     opportunities,
     platformDiagnosis,
+    contentPortfolio,
     dataQuality,
     contentDna:
       contentDna.patterns.length > 0

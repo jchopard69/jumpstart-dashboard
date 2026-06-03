@@ -65,6 +65,13 @@ test("PdfDocument renders with demo watermark", async () => {
           tone: "balance",
         },
       },
+      contentPortfolio: {
+        postsAnalyzed: 3,
+        dominantFormat: "Reels",
+        topPlatform: "Instagram",
+        averageEngagementRate: 7.7,
+        qualityLabel: "Fort",
+      },
       contentDna: [
         {
           label: "Reels",

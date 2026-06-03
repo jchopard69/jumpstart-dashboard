@@ -3,6 +3,7 @@ import { Document, Image, Link, Page, Text, View, StyleSheet } from "@react-pdf/
 import type { DashboardDataQuality } from "./dashboard-data-quality";
 import type { DashboardOpportunity } from "./dashboard-opportunities";
 import type { PlatformDiagnosis, PlatformDiagnosisItem } from "./platform-diagnosis";
+import type { ContentPortfolio } from "./content-portfolio";
 
 const PAGE_PADDING_X = 34;
 const PAGE_PADDING_TOP = 76;
@@ -379,6 +380,24 @@ const styles = StyleSheet.create({
     fontSize: 7.2,
     lineHeight: 1.3,
     color: palette.muted,
+  },
+  contentPortfolioPanel: {
+    borderWidth: 1,
+    borderColor: "#ccfbf1",
+    borderRadius: 14,
+    padding: 10,
+    backgroundColor: "#f0fdfa",
+    marginBottom: 8,
+  },
+  contentPortfolioGrid: {
+    flexDirection: "row",
+    marginLeft: -4,
+    marginRight: -4,
+  },
+  contentPortfolioCell: {
+    width: "33.3333%",
+    paddingLeft: 4,
+    paddingRight: 4,
   },
   qualityScore: {
     fontSize: 22,
@@ -926,6 +945,7 @@ export type PdfDocumentProps = {
   contentDna?: ContentDnaPattern[];
   opportunities?: DashboardOpportunity[];
   platformDiagnosis?: PlatformDiagnosis;
+  contentPortfolio?: ContentPortfolio;
   dataQuality?: DashboardDataQuality;
   watermark?: string;
 };
@@ -1246,6 +1266,32 @@ function PlatformDiagnosisPanel({ diagnosis }: { diagnosis?: PlatformDiagnosis }
         {items.map((item) => (
           <PlatformDiagnosisTile key={`${item.label}-${item.platform}`} item={item} />
         ))}
+      </View>
+    </View>
+  );
+}
+
+function ContentPortfolioPanel({ portfolio }: { portfolio?: ContentPortfolio }) {
+  if (!portfolio || portfolio.postsAnalyzed === 0) return null;
+
+  return (
+    <View style={styles.contentPortfolioPanel} wrap={false}>
+      <Text style={styles.panelEyebrow}>Portefeuille créatif</Text>
+      <View style={styles.contentPortfolioGrid}>
+        <View style={styles.contentPortfolioCell}>
+          <Text style={styles.diagnosisLabel}>Format dominant</Text>
+          <Text style={styles.diagnosisValue}>{sanitizeText(portfolio.dominantFormat ?? "-")}</Text>
+        </View>
+        <View style={styles.contentPortfolioCell}>
+          <Text style={styles.diagnosisLabel}>Canal contributeur</Text>
+          <Text style={styles.diagnosisValue}>{sanitizeText(portfolio.topPlatform ?? "-")}</Text>
+        </View>
+        <View style={styles.contentPortfolioCell}>
+          <Text style={styles.diagnosisLabel}>Rendement moyen</Text>
+          <Text style={styles.diagnosisValue}>
+            {portfolio.averageEngagementRate != null ? `${formatNumber(portfolio.averageEngagementRate, 1)}%` : "-"} - {sanitizeText(portfolio.qualityLabel)}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -1617,6 +1663,7 @@ export function PdfDocument(props: PdfDocumentProps) {
             Sélection des contenus les plus solides de la période, ordonnés par performance
             globale.
           </Text>
+          <ContentPortfolioPanel portfolio={props.contentPortfolio} />
           {props.posts.length > 0 ? (
             <View style={styles.postGrid}>
               {props.posts.map((post, index) => (
