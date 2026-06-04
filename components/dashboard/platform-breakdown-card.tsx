@@ -23,7 +23,9 @@ function formatEvolution(value?: number) {
 
 function evolutionClassName(value?: number) {
   if (value == null || value === 0) return "";
-  return value > 0 ? "text-emerald-700" : "text-rose-600";
+  return value > 0
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : "border-rose-200 bg-rose-50 text-rose-600";
 }
 
 function formatRate(value: number | null) {
@@ -103,14 +105,16 @@ export function PlatformBreakdownCard({ platforms }: PlatformBreakdownCardProps)
                     const evolution = formatEvolution(cell.delta);
                     return (
                       <td key={index} className="px-4 py-4 text-right tabular-nums">
-                        <span className={cell.unavailable ? "text-muted-foreground/60" : "font-semibold text-foreground"}>
-                          {cell.unavailable ? "N/A" : formatNumber(cell.value)}
-                        </span>
-                        {evolution && !cell.unavailable ? (
-                          <span className={`ml-2 text-[11px] font-semibold ${evolutionClassName(cell.delta)}`}>
-                            {evolution}
+                        <div className="flex flex-col items-end gap-1">
+                          <span className={cell.unavailable ? "text-muted-foreground/60" : "font-semibold text-foreground"}>
+                            {cell.unavailable ? "N/A" : formatNumber(cell.value)}
                           </span>
-                        ) : null}
+                          {evolution && !cell.unavailable ? (
+                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${evolutionClassName(cell.delta)}`}>
+                              Evol. {evolution}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                     );
                   })}
