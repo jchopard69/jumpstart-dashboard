@@ -53,9 +53,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const state = generateOAuthState(tenantId, requestUrl.origin);
-    const authUrl = generateYouTubeAuthUrl(tenantId, state);
-    console.log(`[youtube-oauth] Initiating OAuth for tenant: ${tenant.name} (${tenantId})`);
+    const redirectUri = new URL("/api/oauth/youtube/callback", requestUrl.origin).toString();
+    const state = generateOAuthState(tenantId, requestUrl.origin, redirectUri);
+    const authUrl = generateYouTubeAuthUrl(tenantId, state, redirectUri);
+    console.log(`[youtube-oauth] Initiating OAuth for tenant: ${tenant.name} (${tenantId})`, {
+      redirectUri,
+    });
     const response = NextResponse.redirect(authUrl);
     setOAuthCookies(response, "youtube", state);
     return response;

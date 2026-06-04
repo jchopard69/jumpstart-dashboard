@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 
 import {
   generateOAuthState,
+  generateYouTubeAuthUrl,
   handleYouTubeOAuthCallback,
   parseOAuthState,
 } from "../lib/social-platforms/youtube/auth";
@@ -19,13 +20,38 @@ describe("YouTube OAuth state", () => {
 
     const state = generateOAuthState(
       "tenant-123",
-      "https://dashboard.jumpstartstudio.fr"
+      "https://dashboard.jumpstartstudio.fr",
+      "https://dashboard.jumpstartstudio.fr/api/oauth/youtube/callback"
     );
     const parsed = parseOAuthState(state);
 
     assert.equal(parsed.tenantId, "tenant-123");
     assert.equal(parsed.returnToOrigin, "https://dashboard.jumpstartstudio.fr");
+    assert.equal(parsed.redirectUri, "https://dashboard.jumpstartstudio.fr/api/oauth/youtube/callback");
     assert.equal(parsed.signed, true);
+
+    if (previousClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = previousClientId;
+    if (previousClientSecret === undefined) delete process.env.GOOGLE_CLIENT_SECRET;
+    else process.env.GOOGLE_CLIENT_SECRET = previousClientSecret;
+    if (previousEncryptionSecret === undefined) delete process.env.ENCRYPTION_SECRET;
+    else process.env.ENCRYPTION_SECRET = previousEncryptionSecret;
+  });
+
+  test("auth URL can use the current request origin callback", () => {
+    const previousClientId = process.env.GOOGLE_CLIENT_ID;
+    const previousClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const previousEncryptionSecret = process.env.ENCRYPTION_SECRET;
+
+    process.env.GOOGLE_CLIENT_ID = "client-id";
+    process.env.GOOGLE_CLIENT_SECRET = "client-secret";
+    process.env.ENCRYPTION_SECRET = "encryption-secret";
+
+    const redirectUri = "https://dashboard.jumpstartstudio.fr/api/oauth/youtube/callback";
+    const state = generateOAuthState("tenant-123", "https://dashboard.jumpstartstudio.fr", redirectUri);
+    const authUrl = new URL(generateYouTubeAuthUrl("tenant-123", state, redirectUri));
+
+    assert.equal(authUrl.searchParams.get("redirect_uri"), redirectUri);
 
     if (previousClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
     else process.env.GOOGLE_CLIENT_ID = previousClientId;
@@ -48,7 +74,8 @@ describe("YouTube OAuth callback", () => {
 
     const state = generateOAuthState(
       "tenant-abc",
-      "https://dashboard.jumpstartstudio.fr"
+      "https://dashboard.jumpstartstudio.fr",
+      "https://dashboard.jumpstartstudio.fr/api/oauth/youtube/callback"
     );
 
     const originalFetch = global.fetch;
@@ -59,6 +86,11 @@ describe("YouTube OAuth callback", () => {
 
       if (url === "https://oauth2.googleapis.com/token") {
         assert.equal(init?.method, "POST");
+        const body = init?.body as URLSearchParams;
+        assert.equal(
+          body.get("redirect_uri"),
+          "https://dashboard.jumpstartstudio.fr/api/oauth/youtube/callback"
+        );
         return new Response(
           JSON.stringify({
             access_token: "access-token",

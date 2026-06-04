@@ -9,6 +9,7 @@ import crypto from 'crypto';
 type ParsedYouTubeState = {
   tenantId: string;
   returnToOrigin?: string;
+  redirectUri?: string;
   signed: boolean;
 };
 
@@ -33,12 +34,13 @@ function signaturesMatch(actualSig: string, expectedSig: string): boolean {
 /**
  * Generate OAuth state parameter
  */
-export function generateOAuthState(tenantId: string, returnToOrigin?: string): string {
+export function generateOAuthState(tenantId: string, returnToOrigin?: string, redirectUri?: string): string {
   const payload = {
     tenantId,
     ts: Date.now(),
     nonce: crypto.randomUUID(),
     returnToOrigin,
+    redirectUri,
   };
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig = signYouTubeStatePayload(encodedPayload);
@@ -76,6 +78,7 @@ export function parseOAuthState(state: string): ParsedYouTubeState {
     return {
       tenantId: rawPayload.tenantId,
       returnToOrigin: rawPayload.returnToOrigin,
+      redirectUri: rawPayload.redirectUri,
       signed,
     };
   } catch (error) {
@@ -86,7 +89,11 @@ export function parseOAuthState(state: string): ParsedYouTubeState {
 /**
  * Generate YouTube OAuth authorization URL
  */
-export function generateYouTubeAuthUrl(tenantId: string, stateOverride?: string): string {
+export function generateYouTubeAuthUrl(
+  tenantId: string,
+  stateOverride?: string,
+  redirectUriOverride?: string
+): string {
   const config = getYouTubeConfig();
 
   if (config.mode === 'api_key') {
@@ -97,7 +104,7 @@ export function generateYouTubeAuthUrl(tenantId: string, stateOverride?: string)
 
   const params = new URLSearchParams({
     client_id: config.clientId,
-    redirect_uri: config.redirectUri,
+    redirect_uri: redirectUriOverride ?? config.redirectUri,
     scope: config.scopes.join(' '),
     state: state,
     response_type: 'code',
@@ -112,7 +119,7 @@ export function generateYouTubeAuthUrl(tenantId: string, stateOverride?: string)
 /**
  * Exchange authorization code for tokens
  */
-export async function exchangeYouTubeCode(code: string): Promise<{
+export async function exchangeYouTubeCode(code: string, redirectUriOverride?: string): Promise<{
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
@@ -133,7 +140,7 @@ export async function exchangeYouTubeCode(code: string): Promise<{
       client_secret: config.clientSecret,
       code: code,
       grant_type: 'authorization_code',
-      redirect_uri: config.redirectUri,
+      redirect_uri: redirectUriOverride ?? config.redirectUri,
     }),
   });
 
@@ -227,11 +234,11 @@ export async function handleYouTubeOAuthCallback(
   code: string,
   state: string
 ): Promise<{ tenantId: string; returnToOrigin?: string; accounts: SocialAccount[] }> {
-  const { tenantId, returnToOrigin } = parseOAuthState(state);
+  const { tenantId, returnToOrigin, redirectUri } = parseOAuthState(state);
   console.log(`[youtube-auth] Processing OAuth callback for tenant: ${tenantId}`);
 
   // Exchange code for tokens
-  const tokenData = await exchangeYouTubeCode(code);
+  const tokenData = await exchangeYouTubeCode(code, redirectUri);
   console.log(`[youtube-auth] Token exchange successful, expires in ${tokenData.expiresIn}s`);
 
   // Fetch all accessible channels, including brand channels when exposed by Google/YouTube.
