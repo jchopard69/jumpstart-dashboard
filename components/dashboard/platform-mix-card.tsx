@@ -10,6 +10,10 @@ function formatPercent(value: number): string {
   return `${Math.round(value)}%`;
 }
 
+function formatNumber(value: number): string {
+  return value.toLocaleString("fr-FR");
+}
+
 export function PlatformMixCard({ mix }: PlatformMixCardProps) {
   const visibleItems = mix.items.slice(0, 4);
   if (visibleItems.length === 0) return null;
@@ -24,8 +28,8 @@ export function PlatformMixCard({ mix }: PlatformMixCardProps) {
               Où la présence sociale crée vraiment de la valeur
             </h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Chaque canal est lu par contribution réelle à la visibilité, à l'engagement et au
-              rendement éditorial.
+              Les pourcentages comparent chaque plateforme au total de la période : part du
+              volume de visibilité disponible et part des engagements.
             </p>
           </div>
           <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
@@ -63,21 +67,27 @@ export function PlatformMixCard({ mix }: PlatformMixCardProps) {
               <div className="mt-4 space-y-3">
                 <div>
                   <div className="mb-1 flex justify-between text-[11px] text-muted-foreground">
-                    <span>Visibilité</span>
+                    <span>Part visibilité</span>
                     <span className="tabular-nums">{formatPercent(item.visibilityShare)}</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted/30">
                     <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, item.visibilityShare)}%` }} />
                   </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {formatNumber(item.visibilityValue)} {item.visibilityMetricLabel}
+                  </p>
                 </div>
                 <div>
                   <div className="mb-1 flex justify-between text-[11px] text-muted-foreground">
-                    <span>Engagement</span>
+                    <span>Part engagements</span>
                     <span className="tabular-nums">{formatPercent(item.engagementShare)}</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted/30">
                     <div className="h-full rounded-full bg-secondary" style={{ width: `${Math.min(100, item.engagementShare)}%` }} />
                   </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {formatNumber(item.engagements)} engagements sur {formatNumber(item.postsCount)} posts
+                  </p>
                 </div>
               </div>
 

@@ -23,6 +23,10 @@ test("buildPlatformMix ranks channels by visibility and engagement contribution"
   assert.equal(mix.items[0].role, "Moteur relationnel");
   assert.equal(Math.round(mix.items[0].visibilityShare), 83);
   assert.equal(Math.round(mix.items[0].engagementShare), 92);
+  assert.equal(mix.items[0].visibilityValue, 5000);
+  assert.equal(mix.items[0].visibilityMetricLabel, "vues");
+  assert.equal(mix.items[0].engagements, 600);
+  assert.equal(mix.items[0].postsCount, 8);
 });
 
 test("buildPlatformMix labels balanced channel mixes", () => {

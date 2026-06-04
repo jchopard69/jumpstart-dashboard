@@ -5,9 +5,13 @@ type PlatformMixInput = Pick<PlatformData, "platform" | "totals">;
 
 export type PlatformMixItem = {
   platform: string;
+  visibilityValue: number;
+  visibilityMetricLabel: "vues" | "portée";
   visibilityShare: number;
+  engagements: number;
   engagementShare: number;
   engagementRate: number | null;
+  postsCount: number;
   postsShare: number;
   role: string;
   summary: string;
@@ -25,6 +29,10 @@ function formatPercent(value: number): string {
 
 function getVisibilityTotal(item: PlatformMixInput): number {
   return item.totals.views > 0 ? item.totals.views : item.totals.reach;
+}
+
+function getVisibilityMetricLabel(item: PlatformMixInput): "vues" | "portée" {
+  return item.totals.views > 0 ? "vues" : "portée";
 }
 
 function buildRole(item: PlatformMixItem): string {
@@ -45,6 +53,7 @@ export function buildPlatformMix(perPlatform: PlatformMixInput[]): PlatformMix {
       const visibilityShare = visibilityTotal > 0 ? (getVisibilityTotal(item) / visibilityTotal) * 100 : 0;
       const engagementShare = engagementTotal > 0 ? (item.totals.engagements / engagementTotal) * 100 : 0;
       const postsShare = postsTotal > 0 ? (item.totals.posts_count / postsTotal) * 100 : 0;
+      const visibilityValue = getVisibilityTotal(item);
       const engagementRate = computeEngagementRate(
         item.totals.engagements,
         item.totals.views,
@@ -52,15 +61,19 @@ export function buildPlatformMix(perPlatform: PlatformMixInput[]): PlatformMix {
       );
       const draft = {
         platform: item.platform,
+        visibilityValue,
+        visibilityMetricLabel: getVisibilityMetricLabel(item),
         visibilityShare,
+        engagements: item.totals.engagements,
         engagementShare,
         engagementRate,
+        postsCount: item.totals.posts_count,
         postsShare,
         role: "",
         summary: "",
       };
       const role = buildRole(draft);
-      const summary = `${formatPercent(visibilityShare)} de la visibilité, ${formatPercent(engagementShare)} de l'engagement.`;
+      const summary = `${formatPercent(visibilityShare)} du volume de visibilité disponible, ${formatPercent(engagementShare)} des engagements.`;
       return { ...draft, role, summary };
     })
     .sort((a, b) => {

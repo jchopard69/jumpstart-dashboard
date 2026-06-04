@@ -30,6 +30,7 @@ import { DataQualityCard } from "@/components/dashboard/data-quality-card";
 import { OpportunityCard } from "@/components/dashboard/opportunity-card";
 import { PlatformDiagnosisCard } from "@/components/dashboard/platform-diagnosis-card";
 import { PlatformMixCard } from "@/components/dashboard/platform-mix-card";
+import { PlatformBreakdownCard } from "@/components/dashboard/platform-breakdown-card";
 import { MomentHighlightsCard } from "@/components/dashboard/moment-highlights-card";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getDemoContactHref } from "@/lib/demo";
@@ -680,6 +681,7 @@ export default async function ClientDashboardPage({
       </div>
 
       <section id="dashboard-platforms" className="scroll-mt-6 space-y-6">
+        <PlatformBreakdownCard platforms={data.perPlatform} />
         <PlatformMixCard mix={platformMix} />
       </section>
 
