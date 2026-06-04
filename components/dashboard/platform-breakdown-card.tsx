@@ -11,10 +11,19 @@ function formatNumber(value: number) {
   return value.toLocaleString("fr-FR");
 }
 
-function formatDelta(value?: number) {
-  if (!value) return null;
+function formatEvolution(value?: number) {
+  if (value == null || !Number.isFinite(value) || value === 0) return null;
   const sign = value > 0 ? "+" : "";
-  return `${sign}${formatNumber(value)}`;
+  const fractionDigits = Math.abs(value) < 10 && !Number.isInteger(value) ? 1 : 0;
+  return `${sign}${value.toLocaleString("fr-FR", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}%`;
+}
+
+function evolutionClassName(value?: number) {
+  if (value == null || value === 0) return "";
+  return value > 0 ? "text-emerald-700" : "text-rose-600";
 }
 
 function formatRate(value: number | null) {
@@ -91,14 +100,16 @@ export function PlatformBreakdownCard({ platforms }: PlatformBreakdownCardProps)
                     </div>
                   </td>
                   {cells.map((cell, index) => {
-                    const delta = formatDelta(cell.delta);
+                    const evolution = formatEvolution(cell.delta);
                     return (
                       <td key={index} className="px-4 py-4 text-right tabular-nums">
                         <span className={cell.unavailable ? "text-muted-foreground/60" : "font-semibold text-foreground"}>
                           {cell.unavailable ? "N/A" : formatNumber(cell.value)}
                         </span>
-                        {delta && !cell.unavailable ? (
-                          <span className="ml-2 text-[11px] font-semibold text-emerald-700">{delta}</span>
+                        {evolution && !cell.unavailable ? (
+                          <span className={`ml-2 text-[11px] font-semibold ${evolutionClassName(cell.delta)}`}>
+                            {evolution}
+                          </span>
                         ) : null}
                       </td>
                     );

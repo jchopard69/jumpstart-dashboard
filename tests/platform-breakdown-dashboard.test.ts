@@ -11,7 +11,11 @@ test("dashboard exposes a readable per-platform breakdown before channel mix", (
   assert.match(breakdownCard, /Détail par plateforme/);
   assert.match(breakdownCard, /Abonnés/);
   assert.match(breakdownCard, /Taux d'eng\./);
+  assert.match(breakdownCard, /function formatEvolution/);
+  assert.match(breakdownCard, /text-rose-600/);
   assert.match(mixCard, /Les pourcentages comparent chaque plateforme au total de la période/);
   assert.match(mixCard, /Part visibilité/);
   assert.match(mixCard, /Part engagements/);
+  assert.doesNotMatch(mixCard, /rateLabel/);
+  assert.doesNotMatch(mixCard, /item\.engagementRate/);
 });

@@ -41,15 +41,9 @@ export function PlatformMixCard({ mix }: PlatformMixCardProps) {
       <div className="grid grid-cols-1 gap-3 p-4 lg:grid-cols-2 xl:grid-cols-4">
         {visibleItems.map((item) => {
           const platform = item.platform as Platform;
-          const rateLabel = item.engagementRate == null
-            ? "N/A"
-            : `${item.engagementRate.toLocaleString("fr-FR", {
-                minimumFractionDigits: 1,
-                maximumFractionDigits: 1,
-              })}%`;
           return (
             <article key={item.platform} className="rounded-xl border border-border/70 bg-background/85 p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="text-xl">{PLATFORM_ICONS[platform]}</span>
                   <div className="min-w-0">
@@ -59,9 +53,6 @@ export function PlatformMixCard({ mix }: PlatformMixCardProps) {
                     </p>
                   </div>
                 </div>
-                <span className="rounded-full bg-muted/50 px-2 py-1 text-[11px] font-semibold tabular-nums text-muted-foreground">
-                  {rateLabel}
-                </span>
               </div>
 
               <div className="mt-4 space-y-3">
