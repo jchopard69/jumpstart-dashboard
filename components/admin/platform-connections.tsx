@@ -101,7 +101,7 @@ interface Props {
 export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Props) {
   const searchParams = useSearchParams();
   const [notification, setNotification] = useState<{
-    type: "success" | "error";
+    type: "success" | "warning" | "error";
     message: string;
   } | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -138,12 +138,15 @@ export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Pr
     else if (searchParams.get("youtube_success")) {
       const count = Number(searchParams.get("youtube_channels") || "1");
       const channel = searchParams.get("youtube_channel") || "Chaîne YouTube";
+      const syncWarning = searchParams.get("youtube_sync_warning");
       setNotification({
-        type: "success",
+        type: syncWarning ? "warning" : "success",
         message:
-          count > 1
-            ? `YouTube connecté: ${count} chaînes ajoutées. Première chaîne: ${channel}`
-            : `YouTube connecté: ${channel}`,
+          syncWarning
+            ? `YouTube connecté, mais la première synchronisation n'a pas abouti: ${syncWarning}`
+            : count > 1
+              ? `YouTube connecté: ${count} chaînes ajoutées. Première chaîne: ${channel}`
+              : `YouTube connecté: ${channel}`,
       });
     } else if (searchParams.get("youtube_error")) {
       setNotification({
@@ -273,12 +276,14 @@ export function PlatformConnections({ tenantId, isDemo, accounts, onDelete }: Pr
           className={`rounded-lg p-4 ${
             notification.type === "success"
               ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+              : notification.type === "warning"
+                ? "bg-amber-50 border border-amber-200 text-amber-900"
               : "bg-rose-50 border border-rose-200 text-rose-800"
           }`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span>{notification.type === "success" ? "✅" : "❌"}</span>
+              <span>{notification.type === "success" ? "✅" : notification.type === "warning" ? "⚠️" : "❌"}</span>
               <p className="text-sm font-medium">{notification.message}</p>
             </div>
             <button

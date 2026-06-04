@@ -7,6 +7,7 @@ import { clearOAuthCookies, readOAuthCookies } from "@/lib/social-platforms/core
 import { upsertSocialAccount } from "@/lib/social-platforms/core/db-utils";
 import { requireAdminOAuthSession } from "@/lib/social-platforms/core/oauth-guard";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { runTenantSync } from "@/lib/sync";
 
 function getRedirectBase(request: NextRequest, returnToOrigin?: string) {
   return returnToOrigin ? new URL(returnToOrigin) : new URL(request.url);
@@ -91,6 +92,17 @@ export async function GET(request: NextRequest) {
       await upsertSocialAccount(tenantId, account);
     }
 
+    let syncWarning: string | null = null;
+    try {
+      await runTenantSync(tenantId, "youtube");
+    } catch (syncError) {
+      syncWarning = syncError instanceof Error ? syncError.message : "Synchronisation YouTube incomplète";
+      console.warn("[youtube-callback] OAuth succeeded but initial sync failed:", {
+        tenantId,
+        error: syncWarning,
+      });
+    }
+
     console.log(`[youtube-callback] OAuth complete for tenant ${tenantId}:`, {
       accounts: result.accounts.map((account) => ({
         id: account.platformUserId,
@@ -102,6 +114,9 @@ export async function GET(request: NextRequest) {
     redirectUrl.searchParams.set("youtube_success", "true");
     redirectUrl.searchParams.set("youtube_channel", result.accounts[0]?.accountName ?? "Chaîne YouTube");
     redirectUrl.searchParams.set("youtube_channels", String(result.accounts.length));
+    if (syncWarning) {
+      redirectUrl.searchParams.set("youtube_sync_warning", syncWarning.slice(0, 160));
+    }
 
     const response = NextResponse.redirect(redirectUrl);
     clearOAuthCookies(response, "youtube");
