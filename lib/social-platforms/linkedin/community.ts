@@ -704,7 +704,7 @@ async function fetchTimeBoundShareStats(
   throw lastError ?? new Error("LinkedIn share statistics failed");
 }
 
-async function fetchShareStatsByPost(
+export async function fetchShareStatsByPost(
   headers: Record<string, string>,
   organizationUrn: string,
   postUrns: string[]
@@ -740,21 +740,22 @@ async function fetchShareStatsByPost(
 
   for (let index = 0; index < ugcPostUrns.length; index += POST_STATS_BATCH_SIZE) {
     const chunk = ugcPostUrns.slice(index, index + POST_STATS_BATCH_SIZE);
-    const ugcParams = chunk
-      .map((urn, chunkIndex) => `ugcPosts[${chunkIndex}]=${encodeURIComponent(urn)}`)
-      .join("&");
-    const url =
-      `${API_REST_URL}/organizationalEntityShareStatistics` +
-      `?q=organizationalEntity&organizationalEntity=${encodeURIComponent(organizationUrn)}` +
-      `&${ugcParams}`;
+    // Rest.li 2.0 serializes finder lists as List(...), matching the shares query.
+    // Some versions still document indexed parameters; keep that as a narrow fallback.
+    const baseUrl = `${API_REST_URL}/organizationalEntityShareStatistics` +
+      `?q=organizationalEntity&organizationalEntity=${encodeURIComponent(organizationUrn)}`;
+    const url = `${baseUrl}&ugcPosts=${buildRestliList(chunk.map(urn => encodeURIComponent(urn)))}`;
 
     try {
-      const response = await apiRequest<ShareStatsResponse>(
-        "linkedin",
-        url,
-        { headers },
-        "linkedin_share_stats_by_ugc_post"
-      );
+      let response: ShareStatsResponse;
+      try {
+        response = await apiRequest<ShareStatsResponse>('linkedin', url, { headers }, 'linkedin_share_stats_by_ugc_post');
+      } catch (error) {
+        if (!(error instanceof SocialApiError) || error.statusCode !== 400 ||
+            !(JSON.stringify(error.rawError) ?? '').includes('QUERY_PARAM_NOT_ALLOWED')) throw error;
+        const indexed = chunk.map((urn, i) => `ugcPosts[${i}]=${encodeURIComponent(urn)}`).join('&');
+        response = await apiRequest<ShareStatsResponse>('linkedin', `${baseUrl}&${indexed}`, { headers }, 'linkedin_share_stats_by_ugc_post');
+      }
 
       for (const element of response.elements ?? []) {
         const urn = element.ugcPost;

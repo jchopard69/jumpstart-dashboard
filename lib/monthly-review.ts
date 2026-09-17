@@ -51,10 +51,26 @@ export function formatBenchmarks(posts: ReviewPost[]) {
   for (const p of posts) { const key = `${p.platform}:${p.format}`; groups.set(key, [...(groups.get(key) ?? []), p]); }
   return [...groups.values()].map(group => ({ platform: group[0].platform, format: group[0].format, count: group.length, measured: group.filter(p=>p.engagements!=null).length, median: median(group.flatMap(p=>p.engagements==null?[]:[p.engagements])) }));
 }
+/** Only actual view metrics participate in view rankings. */
+export function reviewPostViews(post: ReviewPost): number | null {
+  const measured = post.visibilityDetails?.find(item => item.label === 'Vues');
+  return measured?.value ?? (post.visibilityLabel === 'Vues' ? post.visibility : null);
+}
 export function filterReviewPosts(posts: ReviewPost[], query: string, platform: string, format: string, sort: string) {
   const normalize = (s: string) => s.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const matches = posts.filter(p => (platform === 'all' || p.platform === platform) && (format === 'all' || p.format === format) && normalize(p.caption).includes(normalize(query)));
-  return matches.sort((a,b) => sort === 'date' ? b.date.localeCompare(a.date) : ((b[(['comments','shares','saves'].includes(sort) ? sort : sort === 'visibility' ? 'visibility' : 'engagements') as 'engagements'] ?? -1) - (a[(['comments','shares','saves'].includes(sort) ? sort : sort === 'visibility' ? 'visibility' : 'engagements') as 'engagements'] ?? -1)) || b.date.localeCompare(a.date));
+  const value = (post: ReviewPost): number | null => {
+    if (sort === 'views' || sort === 'views_asc') return reviewPostViews(post);
+    if (sort === 'visibility') return post.visibility;
+    if (sort === 'comments' || sort === 'shares' || sort === 'saves') return post[sort];
+    return post.engagements;
+  };
+  return matches.sort((a,b) => {
+    if (sort === 'date') return b.date.localeCompare(a.date);
+    const av = value(a), bv = value(b);
+    if (av == null || bv == null) return av == null && bv == null ? b.date.localeCompare(a.date) : av == null ? 1 : -1;
+    return (sort === 'views_asc' ? av-bv : bv-av) || b.date.localeCompare(a.date);
+  });
 }
 export function comparisonIssue(posts: ReviewPost[]): string | null {
   if (posts.length < 2) return 'Sélectionnez au moins deux contenus.';
