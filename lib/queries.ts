@@ -367,7 +367,7 @@ export async function fetchDashboardData(params: {
 
   let postsQuery = supabase
     .from("social_posts")
-    .select("id,external_post_id,social_account_id,created_at,caption,thumbnail_url,posted_at,metrics,url,platform,media_type", { count: "exact" })
+    .select("id,external_post_id,social_account_id,created_at,caption,thumbnail_url,media_url,posted_at,metrics,url,platform,media_type", { count: "exact" })
     .eq("tenant_id", tenantId)
     .gte("posted_at", range.start.toISOString())
     .lte("posted_at", range.end.toISOString());

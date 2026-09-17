@@ -1,3 +1,4 @@
+import { postPreviewCandidates } from "./post-preview";
 import { PLATFORM_LABELS, type Platform } from './types';
 import { getPostVisibility, getPostEngagements, hasPostEngagementMeasurement } from './metrics';
 
@@ -5,7 +6,7 @@ export type ReviewMetric = 'views' | 'engagements' | 'followers' | 'posts_count'
 export const REVIEW_LABELS: Record<ReviewMetric, string> = { views: 'Vues', engagements: 'Interactions', followers: 'Abonnés', posts_count: 'Publications' };
 export type ReviewTotals = Record<ReviewMetric, number> & { reach: number; impressions?: number; watch_time?: number };
 export type ReviewChannel = { platform: Platform; totals: ReviewTotals; prevTotals?: ReviewTotals; available: { views: boolean; reach: boolean; engagements: boolean }; hasCurrent: boolean; hasPrevious: boolean; coverage: number; previousCoverage: number };
-export type ReviewPost = { id: string; platform: Platform; accountId: string; caption: string; date: string; format: string; thumbnail: string | null; url: string | null; visibility: number | null; visibilityLabel: string; engagements: number | null; likes: number | null; comments: number | null; shares: number | null; saves: number | null };
+export type ReviewPost = { id: string; platform: Platform; accountId: string; caption: string; date: string; format: string; thumbnail: string | null; previewCandidates?: string[]; url: string | null; visibility: number | null; visibilityLabel: string; engagements: number | null; likes: number | null; comments: number | null; shares: number | null; saves: number | null };
 export type ReviewRow = { date: string; platform?: string | null; social_account_id?: string | null; views: number | null; engagements: number | null; followers: number | null; reach: number | null };
 export type MetricChange = { current: number | null; previous: number | null; difference: number | null; percent: number | null };
 export const reviewNumber = (value: number | null | undefined) => value == null ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
@@ -31,12 +32,12 @@ export function readPostMetric(metrics: Record<string, unknown> | null | undefin
   }
   return null;
 }
-export function normalizeReviewPost(post: { id: string; platform?: string | null; social_account_id?: string | null; caption?: string | null; posted_at?: string | null; media_type?: string | null; thumbnail_url?: string | null; url?: string | null; metrics?: Record<string, unknown> | null }): ReviewPost {
+export function normalizeReviewPost(post: { id: string; platform?: string | null; social_account_id?: string | null; caption?: string | null; posted_at?: string | null; media_type?: string | null; thumbnail_url?: string | null; media_url?: string | null; url?: string | null; metrics?: Record<string, unknown> | null }): ReviewPost {
   const v = getPostVisibility(post.metrics, post.media_type);
   const rawFormat = (post.media_type ?? '').toLowerCase();
   const format = /reel/.test(rawFormat) ? 'Reel' : /video/.test(rawFormat) ? 'Vidéo' : /carousel|album/.test(rawFormat) ? 'Carrousel' : /image|photo/.test(rawFormat) ? 'Image' : /text/.test(rawFormat) ? 'Texte' : 'Autre';
   const safe = (url?: string | null) => url && /^https?:\/\//i.test(url) ? url : null;
-  return { id: post.id, platform: (post.platform ?? 'instagram') as Platform, accountId: post.social_account_id ?? '', caption: (post.caption ?? '').normalize('NFKC'), date: post.posted_at ?? '', format, thumbnail: safe(post.thumbnail_url), url: safe(post.url), visibility: v.value > 0 ? v.value : null, visibilityLabel: v.label, engagements: hasPostEngagementMeasurement(post.metrics) ? getPostEngagements(post.metrics) : null,
+  return { id: post.id, platform: (post.platform ?? 'instagram') as Platform, accountId: post.social_account_id ?? '', caption: (post.caption ?? '').normalize('NFKC'), date: post.posted_at ?? '', format, thumbnail: postPreviewCandidates(post)[0] ?? null, previewCandidates: postPreviewCandidates(post), url: safe(post.url), visibility: v.value > 0 ? v.value : null, visibilityLabel: v.label, engagements: hasPostEngagementMeasurement(post.metrics) ? getPostEngagements(post.metrics) : null,
     likes: readPostMetric(post.metrics, ['likes','like_count']), comments: readPostMetric(post.metrics, ['comments','comments_count','comment_count']), shares: readPostMetric(post.metrics, ['shares','share_count','reposts','repost_count']), saves: readPostMetric(post.metrics, ['saves','save_count','saved']) };
 }
 export function median(values: number[]): number | null {

@@ -1,3 +1,4 @@
+import { buildContentObservatory } from "../lib/content-observatory";
 import { buildStrategicReading } from "../lib/strategic-reading";
 import { normalizeReviewPost } from "../lib/monthly-review";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -35,6 +36,7 @@ const sumTotals = (previous = false) => summaries.reduce((sum, platform) => {
 const currentTotals = sumTotals();
 const previousTotals = sumTotals(true);
 const sample: PdfDocumentProps = {
+  contentObservatory: buildContentObservatory(posts.map((p,i)=>normalizeReviewPost({id:String(i),platform:p.platform,social_account_id:p.platform,media_type:p.media_type,posted_at:`2026-08-${String(i%5*6+4).padStart(2,"0")}T10:00:00Z`,metrics:p.metrics}))),
   tenantName: "Atelier Horizon — exemple fictif",
   strategicSignals:buildStrategicReading(posts.map((p,i)=>normalizeReviewPost({...p,id:String(i),social_account_id:p.platform,posted_at:"2026-08-01T08:00:00Z"}))),
   rangeLabel: "01/08/2026 - 31/08/2026",

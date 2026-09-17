@@ -626,3 +626,32 @@ body {
 .review-signal-grid summary { color:#7137ce;font-size:12px;font-weight:550; }
 .review-signal-grid .review-text-button { margin-top:15px; }
 @media(max-width:750px) { .review-signal-grid { grid-template-columns:1fr; }.review-signal-grid article { padding:20px; } }
+
+/* Content observatory: comparable cohorts and a navigable publication calendar. */
+.review-observatory-account { padding: 28px 0; border-bottom: 1px solid #e8e3ef; }
+.review-concentration { display: grid; grid-template-columns: 170px 1fr; gap: 12px 28px; padding: 24px; margin-bottom: 22px; background: #f5f0fc; border-radius: 16px; }
+.review-concentration strong { display: block; font-size: 40px; line-height: 1.2; color: #542895; }
+.review-concentration p { align-self: center; font-size: 14px; line-height: 1.7; }
+.review-concentration-track { grid-column: 1/-1; height: 7px; border-radius: 7px; background: #e4daef; overflow: hidden; }
+.review-concentration-track i { display: block; height: 100%; background: #7137ce; }
+.review-calendar-section { margin-top: 32px; }
+.review-calendar { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 6px; }
+.review-calendar-weekday { text-align: center; font-size: 12px; color: #71647f; padding: 10px 0; }
+.review-calendar button { min-height: 76px; border-radius: 10px; padding: 10px; background: #faf9fc; border: 1px solid #e9e5ef; text-align: left; }
+.review-calendar button span { display: block; font-size: 11px; color: #70677d; }
+.review-calendar button b { display: block; margin-top: 7px; font-size: 19px; }
+.review-calendar button.has-posts { background: #f1e7ff; color: #542895; border-color: #dfcbfa; }
+.review-calendar button[aria-pressed=true] { outline: 2px solid #7137ce; outline-offset: 1px; }
+.review-day-results { margin-top: 22px; padding: 22px; border: 1px solid #e9e5ef; border-radius: 14px; }
+.review-day-post { display: grid; text-align: left; width: 100%; padding: 16px 0; gap: 6px; border-bottom: 1px solid #e9e5ef; }
+.review-day-post span,.review-day-post small { font-size: 12px; color: #71647f; }
+.review-day-post strong { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+@media(max-width:640px) { .review-concentration { grid-template-columns: 1fr; padding: 18px; }.review-calendar { gap: 3px; }.review-calendar button { padding: 7px 3px; min-height: 66px; }.review-calendar button span { font-size: 9px; } }
+.review-preview-unavailable { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; width:100%; min-height:100px; height:100%; padding:10px; background:#f1edf6; color:#736384; border-radius:8px; text-align:center; font-size:11px; }
+.review-advice-action { margin:20px 0; padding:18px; background:#f6f1fc; border-radius:12px; }
+.review-advice-action h4,.review-signal-grid article>h4 { font-size:13px; font-weight:700; color:#542895; margin-bottom:10px; }
+.review-detail-content .review-thumbnail { width:100%; height:auto; max-height:360px; object-fit:contain; }
+.review-post-image { width:120px; height:140px; }
+.review-post-image .review-thumbnail { object-fit:contain; }
+.review-detail-content { display:flex; flex-direction:column; align-items:stretch; }
+@media(max-width:550px) { .review-post-image { width:78px;height:96px; }.review-post-copy { flex-basis:calc(100% - 95px); }.review-post-actions { padding-left:90px; } }

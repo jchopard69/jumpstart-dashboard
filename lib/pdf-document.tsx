@@ -1,3 +1,4 @@
+import type { ContentObservatory } from "./content-observatory";
 import type { StrategicSignal } from "./strategic-reading";
 import type { BestTimeData } from "./best-time";
 import React from "react";
@@ -80,6 +81,7 @@ type ContentDnaPattern = {
 export type PdfDocumentProps = {
   tenantName: string;
   strategicSignals?: StrategicSignal[];
+  contentObservatory?: ContentObservatory;
   bestTimes?: BestTimeData[];
   rangeLabel: string;
   prevRangeLabel: string;
@@ -225,7 +227,7 @@ function PostList({ posts, offset = 0 }: { posts: PostSummary[]; offset?: number
   if (!posts.length) return <Text style={styles.body}>Aucune publication exploitable dans le périmètre sélectionné.</Text>;
   return <>{posts.map((post, index) => <View style={styles.post} wrap={false} key={`${post.url}-${index}`}>
     {/* eslint-disable-next-line jsx-a11y/alt-text */}
-    {post.thumbnailUrl ? <Image style={styles.thumbnail} src={post.thumbnailUrl} /> : null}
+    {post.thumbnailUrl ? <Image style={styles.thumbnail} src={post.thumbnailUrl} /> : <View style={[styles.thumbnail,{backgroundColor:"#f3eff8",justifyContent:"center",padding:8}]}><Text style={styles.small}>Aperçu indisponible</Text></View>}
     <View style={{ flex: 1 }}><Text style={styles.kicker}>{offset + index + 1}. {clean(post.date)}</Text><Text style={styles.body}>{clean(post.caption.length > 420 ? post.caption.slice(0, 420) + "... (extrait)" : post.caption || "Publication sans légende")}</Text>
       <Text style={styles.small}>{post.visibility.value > 0 ? `${number(post.visibility.value)} ${post.visibility.label.toLowerCase()}` : "Visibilité non disponible"} · {number(post.engagements)} interactions · ratio {post.engagementRate == null || !Number.isFinite(post.engagementRate) ? "non disponible" : `${number(post.engagementRate, 1)}%`}</Text>
       {!!post.details?.length && <Text style={[styles.small,{marginTop:5}]}>{post.details.map(item=>`${clean(item.label)} : ${number(item.value)}`).join(" · ")}</Text>}
@@ -254,7 +256,7 @@ export function PdfDocument(props: PdfDocumentProps) {
       const signals=(props.strategicSignals??[]).filter(s=>s.platform===platform.platform);
       const timing=props.bestTimes?.find(data=>data.platforms.includes(platform.platform));
       const posts = props.posts.filter(post => post.platform === platform.platform);
-      const postsPerPage = posts.some(post => post.thumbnailUrl || post.caption.length > 240) ? 3 : 5;
+      const postsPerPage = 3;
       const postPages = Array.from({ length: Math.max(1, Math.ceil(posts.length / postsPerPage)) }, (_, page) => posts.slice(page * postsPerPage, (page + 1) * postsPerPage));
       const platformRows = (props.metrics ?? []).filter(row => row.platform === platform.platform);
       const dates = [...new Set(platformRows.map(row => row.date))].sort();
@@ -273,6 +275,14 @@ export function PdfDocument(props: PdfDocumentProps) {
           <View style={styles.note}><Text style={styles.small}>{quality ? `Couverture du canal : ${quality.coverage}%. ` : "Couverture non mesurée. "}{clean(getPlatformNotes(platform.platform))}</Text></View>
         </ReportPage>
         {(signals.length>0 || timing) && <ReportPage props={props}><Heading kicker={platformName(platform.platform)} title="Du bilan au prochain brief" subtitle="Constats mesurés et conseils à discuter avec votre équipe JumpStart."/>{signals.map(signal=><View key={signal.title} style={styles.experiment} wrap={false}><Text style={styles.h3}>{clean(signal.title)}</Text><Text style={styles.body}>{clean(signal.observation)}</Text><Text style={styles.small}>{clean(signal.interpretation)}</Text><Text style={[styles.body,{marginTop:8}]}>{clean(signal.action)}</Text><Text style={styles.small}>À mesurer : {clean(signal.measure)}</Text>{safeUrl(signal.url)&&<Link style={styles.link} src={signal.url!}>Consulter le contenu de référence</Link>}</View>)}{timing&&<View style={styles.summary} wrap={false}><Text style={styles.h3}>Quand publier · heure de Paris</Text><Text style={styles.body}>Créneau le plus performant observé : {clean(timing.bestDay)} {clean(timing.bestHour)}. {timing.bestSlotCount} publication(s) sur ce créneau, {timing.totalPostsAnalyzed} analysées. Mesure : {clean(timing.metricLabel.toLowerCase())} moyennes.</Text><Text style={styles.small}>Le sujet, le format, l’âge et la diffusion peuvent expliquer les écarts. Ce créneau constitue une piste, pas une garantie de performance.</Text></View>}</ReportPage>}
+        {(props.contentObservatory??[]).filter(a=>a.platform===platform.platform).map((account,accountIndex)=><ReportPage props={props} key={`formats-${account.key}`}>
+          <Heading kicker={platformName(platform.platform)} title="Formats & régularité" subtitle={`Compte ${accountIndex+1} · ${account.count} publications collectées · ${account.activeDays} jours avec publication.`}/>
+          {account.topShare!=null&&<View style={styles.summary}><Text style={styles.h3}>{Math.round(account.topShare)} % des interactions concentrées sur {account.topCount} contenu{account.topCount>1?'s':''}</Text><Text style={styles.body}>Les 20 % de contenus les plus performants (arrondis au supérieur), parmi {account.measured} publications avec interactions mesurées. Les publications sans mesure sont exclues.</Text></View>}
+          <Text style={styles.h3}>Résultat médian par publication</Text>
+          <Text style={styles.small}>La moitié des contenus fait mieux, l’autre moitié fait moins. Au moins 3 mesures sont requises ; « — » indique un échantillon insuffisant.</Text>
+          {account.formats.map(format=><View key={format.format} style={styles.experiment} wrap={false}><Text style={styles.h3}>{format.format} · {format.count} publications</Text>{([['engagements','Interactions'],['comments','Commentaires'],['shares','Partages'],['saves','Enregistrements']] as const).map(([key,label])=><Text key={key} style={styles.body}>{label} : {format[key].median==null?'—':number(format[key].median)} · {format[key].count}/{format.count} contenus mesurés</Text>)}</View>)}
+          <Text style={styles.small}>Même compte et même réseau. Cumuls à la collecte : l’âge, le sujet et une éventuelle promotion des contenus peuvent expliquer les écarts. Ces résultats servent à choisir les formats du prochain brief ; ils ne prouvent pas qu’un format cause une meilleure performance. Les jours sans contenu collecté ne prouvent pas l’absence de publication.</Text>
+        </ReportPage>)}
         {postPages.map((pagePosts, page) => <ReportPage props={props} key={`posts-${page}`}>
           <Heading kicker={platformName(platform.platform)} title="Les publications du mois" subtitle={`Publications collectées, classées par performance relative${postPages.length > 1 ? ` · ${page + 1}/${postPages.length}` : ""}.`} />
           <Text style={styles.small}>Les cumuls dépendent de l'âge des contenus. Les liens permettent de consulter les originaux ; les résultats peuvent avoir évolué depuis la collecte.</Text>

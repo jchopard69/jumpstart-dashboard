@@ -1,3 +1,4 @@
+import { postPreviewCandidates } from "./post-preview";
 import { readPostMetric } from "./monthly-review";
 import "server-only";
 
@@ -10,6 +11,7 @@ type PdfPostSource = {
   posted_at?: string | null;
   platform?: string | null;
   thumbnail_url?: string | null;
+  media_url?: string | null;
   url?: string | null;
   metrics?: unknown;
   media_type?: string | null;
@@ -40,14 +42,6 @@ function formatPostDate(value?: string | null): string {
   });
 }
 
-function inferMimeType(url: string): string {
-  const normalized = url.toLowerCase();
-  if (normalized.includes(".png")) return "image/png";
-  if (normalized.includes(".webp")) return "image/webp";
-  if (normalized.includes(".gif")) return "image/gif";
-  return "image/jpeg";
-}
-
 async function resolveThumbnailDataUrl(url?: string | null): Promise<string | null> {
   if (!url) return null;
   if (url.startsWith("data:image/")) {
@@ -62,21 +56,22 @@ async function resolveThumbnailDataUrl(url?: string | null): Promise<string | nu
       redirect: "follow",
       signal: AbortSignal.timeout(5000),
       cache: "no-store",
+      headers: { Accept: "image/jpeg, image/png" },
     });
     if (!response.ok) {
       return null;
     }
 
-    const contentTypeHeader = response.headers.get("content-type") ?? "";
-    const contentType = contentTypeHeader.startsWith("image/")
-      ? contentTypeHeader.split(";")[0]
-      : inferMimeType(url);
     const bytes = await response.arrayBuffer();
-    if (bytes.byteLength === 0) {
+    if (bytes.byteLength === 0 || bytes.byteLength > 8 * 1024 * 1024) {
       return null;
     }
 
-    return `data:${contentType};base64,${Buffer.from(bytes).toString("base64")}`;
+    const buffer = Buffer.from(bytes);
+    // React PDF supports JPEG and PNG. Reject other formats so a fallback can be tried.
+    const contentType=buffer[0]===0xff&&buffer[1]===0xd8?'image/jpeg':buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))?'image/png':null;
+    if(!contentType)return null;
+    return `data:${contentType};base64,${buffer.toString("base64")}`;
   } catch {
     return null;
   }
@@ -88,9 +83,18 @@ export async function buildPdfPostSummaries(
 ): Promise<PdfPostSummary[]> {
   const ranked = selectDisplayTopPosts(posts, posts.length);
   const selectedPosts = [...ranked, ...posts.filter(post => !ranked.includes(post))].slice(0, limit);
-  const thumbnails = await Promise.all(
-    selectedPosts.map((post,index) => index < 15 ? resolveThumbnailDataUrl(post.thumbnail_url) : Promise.resolve(null))
-  );
+  // Bound concurrent downloads, not the number of illustrated publications.
+  const thumbnails: (string|null)[] = Array(selectedPosts.length).fill(null);
+  let next = 0;
+  await Promise.all(Array.from({length:Math.min(8,selectedPosts.length)},async()=>{
+    while(next<selectedPosts.length) {
+      const index=next++;
+      for(const candidate of postPreviewCandidates(selectedPosts[index])) {
+        const image=await resolveThumbnailDataUrl(candidate);
+        if(image){thumbnails[index]=image;break;}
+      }
+    }
+  }));
 
   return selectedPosts.map((post, index) => {
     const visibility = getPostVisibility(post.metrics as any, post.media_type);

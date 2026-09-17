@@ -291,8 +291,8 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
               url: post.url ? String(post.url).slice(0, 500) : null,
               caption: post.caption ? String(post.caption).replace(/\u0000/g, '').slice(0, 500) : null,
               media_type: post.media_type ? String(post.media_type).slice(0, 50) : null,
-              thumbnail_url: post.thumbnail_url ? String(post.thumbnail_url).slice(0, 500) : null,
-              media_url: post.media_url ? String(post.media_url).slice(0, 500) : null,
+              thumbnail_url: post.thumbnail_url ? String(post.thumbnail_url) : null,
+              media_url: post.media_url ? String(post.media_url) : null,
               metrics: {
                 likes,
                 comments,

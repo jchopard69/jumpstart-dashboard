@@ -1,3 +1,4 @@
+import { buildContentObservatory } from "./content-observatory";
 import { buildStrategicReading } from "./strategic-reading";
 import { normalizeReviewPost } from "./monthly-review";
 import { analyzeBestTime } from "./best-time";
@@ -117,6 +118,7 @@ export async function prepareReport({ data, accounts, tenantName, watermark, acc
 
   const documentProps: PdfDocumentProps = {
     tenantName,
+    contentObservatory: buildContentObservatory(data.posts.map(normalizeReviewPost)),
     strategicSignals: buildStrategicReading(data.posts.map(normalizeReviewPost)),
     bestTimes: data.perPlatform.flatMap(p=>{const result=analyzeBestTime(data.posts,p.platform);return result?[result]:[];}),
     rangeLabel: `${data.range.start.toLocaleDateString("fr-FR")} - ${data.range.end.toLocaleDateString("fr-FR")}`,
