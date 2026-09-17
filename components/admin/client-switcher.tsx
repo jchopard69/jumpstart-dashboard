@@ -20,9 +20,10 @@ export type ClientInfo = {
 interface ClientSwitcherProps {
   clients: ClientInfo[];
   compact?: boolean;
+  currentTenantId?: string;
 }
 
-export function ClientSwitcher({ clients, compact }: ClientSwitcherProps) {
+export function ClientSwitcher({ clients, compact, currentTenantId }: ClientSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -115,12 +116,12 @@ export function ClientSwitcher({ clients, compact }: ClientSwitcherProps) {
         }`}
       >
         <Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        <span className="truncate">{compact ? "Clients" : "Accès rapide client"}</span>
+        <span className="truncate">{clients.find(client=>client.id===currentTenantId)?.name ?? (compact ? "Choisir un client" : "Accès rapide client")}</span>
         <ChevronDown className={`ml-auto h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-[360px] rounded-2xl border border-border/70 bg-white shadow-soft animate-in fade-in-0 zoom-in-95 duration-150">
+        <div className="client-switcher-menu absolute left-0 top-full z-50 mt-2 w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl border border-border/70 bg-white shadow-soft animate-in fade-in-0 zoom-in-95 duration-150">
           {/* Search */}
           <div className="flex items-center gap-2 border-b border-border/50 px-4 py-3">
             <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />

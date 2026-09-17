@@ -118,12 +118,12 @@ export default async function ClientLayout({ children }: { children: React.React
                   {isAdmin && clientsData.length > 0 && (
                     <div className="mt-6 border-t border-border/50 pt-5">
                       <p className="mb-2 section-label">Changer de client</p>
-                      <ClientSwitcher clients={clientsData} compact />
+                      <ClientSwitcher clients={clientsData} currentTenantId={currentTenantId ?? undefined} compact />
                     </div>
                   )}
                 </div>
                 <form action={signOut}>
-                  <Button variant="outline" className="w-full" type="submit">
+                  <Button variant="outline" className="sidebar-signout w-full" type="submit">
                     Déconnexion
                   </Button>
                 </form>
@@ -143,7 +143,7 @@ export default async function ClientLayout({ children }: { children: React.React
                       <TenantSwitcher tenants={tenants} currentTenantId={currentTenantId} />
                     )}
                     {isAdmin && clientsData.length > 0 && (
-                      <ClientSwitcher clients={clientsData} compact />
+                      <ClientSwitcher clients={clientsData} currentTenantId={currentTenantId ?? undefined} compact />
                     )}
                     <span className="rounded-full border border-primary/15 bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
                       Client

@@ -1,4 +1,4 @@
-import { median, type ReviewPost } from './monthly-review';
+import { median, reviewNumber, type ReviewPost } from './monthly-review';
 
 /** Publication dates are displayed in the same timezone as publishing advice. */
 export function publicationDay(value: string): string | null {
@@ -50,9 +50,9 @@ export function buildFormatAdvice(posts: ReviewPost[]) {
       const measured=account.formats.filter(f=>f[key].median!=null).sort((a,b)=>b[key].median!-a[key].median!);
       if(measured.length<2)continue;
       const best=measured[0],other=measured[1];
-      if(best[key].median!<=0 || best[key].median!<=other[key].median!*1.25)continue;
+      if(best[key].median!<(key==='engagements'?10:3) || best[key].median!<=other[key].median!*1.25)continue;
       const label={saves:'enregistrements',shares:'partages',comments:'commentaires',engagements:'interactions'}[key];
-      return [{key:account.key,platform:account.platform,title:`${best.format} : une piste pour le prochain brief`,proof:`Sur ce compte, la médiane est de ${best[key].median} ${label} pour ${best[key].count} contenus au format ${best.format.toLowerCase()}, contre ${other[key].median} pour ${other[key].count} contenus au format ${other.format.toLowerCase()}.`,action:`Lors du prochain point éditorial, choisissez un sujet déjà traité en ${other.format.toLowerCase()} et préparez une déclinaison en ${best.format.toLowerCase()}. Gardez le même objectif pour comparer les ${label} à ancienneté et diffusion similaires avant de modifier durablement la répartition des formats.`,postId:posts.filter(p=>p.accountId===account.accountId&&p.platform===account.platform&&p.format===best.format&&p[key]!=null).sort((a,b)=>b[key]!-a[key]!)[0]?.id}];
+      return [{key:account.key,platform:account.platform,title:`${best.format} : une piste pour le prochain brief`,proof:`Sur ce compte, la médiane est de ${reviewNumber(best[key].median)} ${label} pour ${best[key].count} contenus au format ${best.format.toLowerCase()}, contre ${reviewNumber(other[key].median)} pour ${other[key].count} contenus au format ${other.format.toLowerCase()}.`,action:`Lors du prochain point éditorial, choisissez un sujet déjà traité en ${other.format.toLowerCase()} et préparez une déclinaison en ${best.format.toLowerCase()}. Gardez le même objectif pour comparer les ${label} à ancienneté et diffusion similaires avant de modifier durablement la répartition des formats.`,postId:posts.filter(p=>p.accountId===account.accountId&&p.platform===account.platform&&p.format===best.format&&p[key]!=null).sort((a,b)=>b[key]!-a[key]!)[0]?.id}];
     }
     return [];
   });

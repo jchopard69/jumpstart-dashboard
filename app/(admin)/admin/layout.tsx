@@ -85,6 +85,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                     <AdminNavLink href="/admin">Vue d&apos;ensemble</AdminNavLink>
                     <AdminNavLink href="/admin/clients">Clients</AdminNavLink>
                     <AdminNavLink href="/admin/users">Utilisateurs</AdminNavLink>
+                    <AdminNavLink href="/admin/reports">Rapports</AdminNavLink>
                     <AdminNavLink href="/admin/health">Santé</AdminNavLink>
                     <AdminNavLink href="/admin/settings">Réglages</AdminNavLink>
                   </nav>
@@ -96,26 +97,27 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                   </div>
                 </div>
                 <form action={signOut}>
-                  <Button variant="outline" className="w-full" type="submit">
+                  <Button variant="outline" className="sidebar-signout w-full" type="submit">
                     Déconnexion
                   </Button>
                 </form>
               </div>
             </aside>
 
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <header className="sticky top-0 z-30 border-b border-border/70 bg-white/80 backdrop-blur xl:hidden">
-                <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+                <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
                   <div className="flex items-center gap-3">
                     <Image src="/jumpstart-logo.png" alt="JumpStart Studio" width={120} height={28} priority />
                     <span className="hidden sm:inline-flex rounded-full bg-purple-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-700">
                       Admin
                     </span>
                   </div>
-                  <nav className="flex items-center gap-2" aria-label="Navigation admin mobile">
+                  <nav className="order-last flex w-full items-center gap-2 overflow-x-auto pb-1" aria-label="Navigation admin mobile">
                     <AdminNavLink href="/admin">Vue d&apos;ensemble</AdminNavLink>
                     <AdminNavLink href="/admin/clients">Clients</AdminNavLink>
                     <AdminNavLink href="/admin/users">Utilisateurs</AdminNavLink>
+                    <AdminNavLink href="/admin/reports">Rapports</AdminNavLink>
                     <AdminNavLink href="/admin/health">Santé</AdminNavLink>
                     <AdminNavLink href="/admin/settings">Réglages</AdminNavLink>
                   </nav>

@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   cell: { flex: 1, paddingHorizontal: 6, textAlign: "right" },
   firstCell: { width: "27%", paddingHorizontal: 6 },
   post: { flexDirection: "row", gap: 14, borderBottom: `1 solid ${BORDER}`, paddingVertical: 14 },
-  thumbnail: { width: 86, height: 96, objectFit: "cover", borderRadius: 4 },
+  thumbnail: { width: 110, height: 124, objectFit: "cover", borderRadius: 4 },
   link: { color: ACCENT, fontSize: 9, marginTop: 7 },
   experiment: { paddingVertical: 10, borderBottom: `1 solid ${BORDER}` },
 });
@@ -256,7 +256,7 @@ export function PdfDocument(props: PdfDocumentProps) {
       const signals=(props.strategicSignals??[]).filter(s=>s.platform===platform.platform);
       const timing=props.bestTimes?.find(data=>data.platforms.includes(platform.platform));
       const posts = props.posts.filter(post => post.platform === platform.platform);
-      const postsPerPage = 3;
+      const postsPerPage = 2;
       const postPages = Array.from({ length: Math.max(1, Math.ceil(posts.length / postsPerPage)) }, (_, page) => posts.slice(page * postsPerPage, (page + 1) * postsPerPage));
       const platformRows = (props.metrics ?? []).filter(row => row.platform === platform.platform);
       const dates = [...new Set(platformRows.map(row => row.date))].sort();
@@ -274,7 +274,7 @@ export function PdfDocument(props: PdfDocumentProps) {
 
           <View style={styles.note}><Text style={styles.small}>{quality ? `Couverture du canal : ${quality.coverage}%. ` : "Couverture non mesurée. "}{clean(getPlatformNotes(platform.platform))}</Text></View>
         </ReportPage>
-        {(signals.length>0 || timing) && <ReportPage props={props}><Heading kicker={platformName(platform.platform)} title="Du bilan au prochain brief" subtitle="Constats mesurés et conseils à discuter avec votre équipe JumpStart."/>{signals.map(signal=><View key={signal.title} style={styles.experiment} wrap={false}><Text style={styles.h3}>{clean(signal.title)}</Text><Text style={styles.body}>{clean(signal.observation)}</Text><Text style={styles.small}>{clean(signal.interpretation)}</Text><Text style={[styles.body,{marginTop:8}]}>{clean(signal.action)}</Text><Text style={styles.small}>À mesurer : {clean(signal.measure)}</Text>{safeUrl(signal.url)&&<Link style={styles.link} src={signal.url!}>Consulter le contenu de référence</Link>}</View>)}{timing&&<View style={styles.summary} wrap={false}><Text style={styles.h3}>Quand publier · heure de Paris</Text><Text style={styles.body}>Créneau le plus performant observé : {clean(timing.bestDay)} {clean(timing.bestHour)}. {timing.bestSlotCount} publication(s) sur ce créneau, {timing.totalPostsAnalyzed} analysées. Mesure : {clean(timing.metricLabel.toLowerCase())} moyennes.</Text><Text style={styles.small}>Le sujet, le format, l’âge et la diffusion peuvent expliquer les écarts. Ce créneau constitue une piste, pas une garantie de performance.</Text></View>}</ReportPage>}
+        {(signals.length>0 || timing) && <ReportPage props={props}><Heading kicker={platformName(platform.platform)} title="Du bilan au prochain brief" subtitle="Constats mesurés et conseils à discuter avec votre équipe JumpStart."/>{signals.map(signal=><View key={signal.title} style={styles.experiment} wrap={false}><Text style={styles.h3}>{clean(signal.title)}</Text><Text style={styles.body}>{clean(signal.observation)}</Text><Text style={[styles.h3,{marginTop:10}]}>{clean(signal.format??"À produire")}</Text><Text style={styles.body}>{clean(signal.angle??signal.interpretation)}</Text>{signal.steps?signal.steps.map((step,index)=><Text key={index} style={styles.body}>{index+1}. {clean(step)}</Text>):<Text style={styles.body}>{clean(signal.action)}</Text>}<Text style={styles.small}>À mesurer : {clean(signal.measure)}</Text>{safeUrl(signal.url)&&<Link style={styles.link} src={signal.url!}>Consulter le contenu de référence</Link>}</View>)}{timing&&<View style={styles.summary} wrap={false}><Text style={styles.h3}>Quand publier · heure de Paris</Text><Text style={styles.body}>Créneau le plus performant observé : {clean(timing.bestDay)} {clean(timing.bestHour)}. {timing.bestSlotCount} publication(s) sur ce créneau, {timing.totalPostsAnalyzed} analysées. Mesure : {clean(timing.metricLabel.toLowerCase())} moyennes.</Text><Text style={styles.small}>Le sujet, le format, l’âge et la diffusion peuvent expliquer les écarts. Ce créneau constitue une piste, pas une garantie de performance.</Text></View>}</ReportPage>}
         {(props.contentObservatory??[]).filter(a=>a.platform===platform.platform).map((account,accountIndex)=><ReportPage props={props} key={`formats-${account.key}`}>
           <Heading kicker={platformName(platform.platform)} title="Formats & régularité" subtitle={`Compte ${accountIndex+1} · ${account.count} publications collectées · ${account.activeDays} jours avec publication.`}/>
           {account.topShare!=null&&<View style={styles.summary}><Text style={styles.h3}>{Math.round(account.topShare)} % des interactions concentrées sur {account.topCount} contenu{account.topCount>1?'s':''}</Text><Text style={styles.body}>Les 20 % de contenus les plus performants (arrondis au supérieur), parmi {account.measured} publications avec interactions mesurées. Les publications sans mesure sont exclues.</Text></View>}

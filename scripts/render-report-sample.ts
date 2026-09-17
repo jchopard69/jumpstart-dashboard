@@ -16,7 +16,7 @@ const metrics = platforms.flatMap((platform, account) => Array.from({ length: 31
 const posts = platforms.flatMap(platform => [3, 9, 15, 21, 27].map((day, i) => ({
   platform, media_type: "video", date: `${String(day + 1).padStart(2, "0")}/08/2026`,
   caption: ["Dans les coulisses du studio : une idée devient une création.", "Trois questions avant de démarrer un projet.", "Portrait d’équipe : une journée au studio.", "Du premier croquis au résultat final.", "Les rencontres de ce mois-ci."][i],
-  metrics: { views: 3000 + i * 200, engagements: 90 + i * 10 },
+  metrics: { views: 3000 + i * 200, engagements: i === 4 ? 240 : 90 + i * 10 },
 })));
 const change = (current: number, previous: number) => previous > 0 ? (current - previous) / previous * 100 : 0;
 const summaries = platforms.map(platform => {

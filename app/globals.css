@@ -655,3 +655,12 @@ body {
 .review-post-image .review-thumbnail { object-fit:contain; }
 .review-detail-content { display:flex; flex-direction:column; align-items:stretch; }
 @media(max-width:550px) { .review-post-image { width:78px;height:96px; }.review-post-copy { flex-basis:calc(100% - 95px); }.review-post-actions { padding-left:90px; } }
+/* Light controls inside the dark sidebar must define their own foreground. */
+.jumpstart-sidebar .sidebar-signout { color:#251c3d; background:#fff; border-color:#ddd3e9; }
+.jumpstart-sidebar .sidebar-signout:hover { color:#251c3d; background:#eee5fa; }
+.client-switcher-menu { color:#251c3d; background:#fff; }
+.client-switcher-menu input,.client-switcher-menu button { color:#251c3d; }
+.client-switcher-menu input::placeholder { color:#70677d; }
+.review-advice-steps { list-style:decimal; padding-left:20px; margin-top:16px; }
+.review-advice-steps li { padding-left:4px; margin:12px 0; line-height:1.7; }
+.review-advice-steps li::marker { color:#7137ce; font-weight:700; }
