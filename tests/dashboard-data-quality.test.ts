@@ -43,7 +43,7 @@ test("computeDashboardDataQuality reports platform coverage and stale sync actio
   assert.equal(quality.platformQuality.find((item) => item.platform === "tiktok")?.status, "partial");
   assert.deepEqual(
     quality.platformQuality.find((item) => item.platform === "tiktok")?.missingMetrics,
-    ["reach"]
+    []
   );
   assert.equal(quality.staleSync, true);
   assert.ok(quality.actions.some((action) => action.includes("synchronisation")));

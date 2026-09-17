@@ -241,7 +241,7 @@ export function ReportScheduleList({
               <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  Dernier envoi: {formatDate(schedule.last_sent_at)}
+                  Dernière acceptation par le service email : {formatDate(schedule.last_sent_at)}
                 </span>
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />

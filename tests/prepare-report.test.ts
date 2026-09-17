@@ -14,7 +14,7 @@ test("real report preparation does not turn an empty collection into a score or 
   } as unknown as Parameters<typeof prepareReport>[0]["data"];
   const report = await prepareReport({ data, accounts: [], tenantName: "Test" });
   assert.equal(report.score, undefined);
-  for (const label of ["Abonnés", "Vues", "Portée cumulée", "Interactions"]) {
+  for (const label of ["Abonnés", "Vues", "Interactions"]) {
     const metric = report.kpis.find(kpi => kpi.label === label)!;
     assert.equal(metric.value, null, label);
     assert.equal(metric.delta, null, label);

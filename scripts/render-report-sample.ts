@@ -62,3 +62,9 @@ const sample: PdfDocumentProps = {
 await mkdir("output/pdf", { recursive: true });
 await writeFile("output/pdf/rapport-mensuel-jumpstart-exemple.pdf", await renderToBuffer(PdfDocument(sample)));
 console.log("Exemple PDF créé avec des données explicitement fictives.");
+// Stress fixtures exercise page breaks independently of API/network availability.
+const longCaption = 'Une réalisation détaillée, ses contraintes, les étapes et les enseignements pour le client. '.repeat(12);
+const highVolume = {...sample, tenantName:'Exemple fictif — activité importante', strategicSignals:sample.strategicSignals?.map(signal=>({...signal, observation:signal.observation+' Les compteurs restent descriptifs.', steps:signal.steps?.map(step=>step+' Préparer les éléments avec l’équipe avant la production.')})), posts:Array.from({length:60},(_,i)=>({...sample.posts[i%sample.posts.length],caption:longCaption})),postsAnalyzed:60};
+await writeFile('output/pdf/rapport-verification-volume.pdf',await renderToBuffer(PdfDocument(highVolume)));
+const sparse = {...sample,dataQuality:{...sample.dataQuality!,overallCoverage:0,platformQuality:sample.dataQuality!.platformQuality.map(q=>({...q,coverage:0,coveredDays:0,status:'missing' as const}))},tenantName:'Exemple fictif — collecte incomplète',score:undefined,strategicSignals:[],contentObservatory:[],posts:[],postsAnalyzed:0,metrics:[],kpis:sample.kpis.map(k=>({...k,value:null,delta:null})),platforms:sample.platforms.map(p=>({...p,hasCurrentMetrics:false,hasPreviousMetrics:false,totals:{...p.totals,posts_count:0},prevTotals:{...(p.prevTotals??p.totals),posts_count:0}})),executiveSummary:'Données insuffisantes pour comparer les résultats. Aucun résultat ne peut être déduit de cette absence de collecte.'};
+await writeFile('output/pdf/rapport-verification-incomplet.pdf',await renderToBuffer(PdfDocument(sparse)));

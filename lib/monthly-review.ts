@@ -1,3 +1,4 @@
+import type { MeasuredFields } from "./measurement";
 import { postPreviewCandidates } from "./post-preview";
 import { PLATFORM_LABELS, type Platform } from './types';
 import { getPostVisibility, getPostEngagements, hasPostEngagementMeasurement } from './metrics';
@@ -5,7 +6,7 @@ import { getPostVisibility, getPostEngagements, hasPostEngagementMeasurement } f
 export type ReviewMetric = 'views' | 'engagements' | 'followers' | 'posts_count';
 export const REVIEW_LABELS: Record<ReviewMetric, string> = { views: 'Vues', engagements: 'Interactions', followers: 'Abonnés', posts_count: 'Publications' };
 export type ReviewTotals = Record<ReviewMetric, number> & { reach: number; impressions?: number; watch_time?: number };
-export type ReviewChannel = { platform: Platform; totals: ReviewTotals; prevTotals?: ReviewTotals; available: { views: boolean; reach: boolean; engagements: boolean }; hasCurrent: boolean; hasPrevious: boolean; coverage: number; previousCoverage: number };
+export type ReviewChannel = { platform: Platform; totals: ReviewTotals; prevTotals?: ReviewTotals; available: { views: boolean; reach: boolean; engagements: boolean }; measured?: MeasuredFields; previousMeasured?: MeasuredFields; hasCurrent: boolean; hasPrevious: boolean; coverage: number; previousCoverage: number };
 export type ReviewPost = { id: string; platform: Platform; accountId: string; caption: string; date: string; format: string; thumbnail: string | null; previewCandidates?: string[]; url: string | null; visibility: number | null; visibilityLabel: string; engagements: number | null; likes: number | null; comments: number | null; shares: number | null; saves: number | null };
 export type ReviewRow = { date: string; platform?: string | null; social_account_id?: string | null; views: number | null; engagements: number | null; followers: number | null; reach: number | null };
 export type MetricChange = { current: number | null; previous: number | null; difference: number | null; percent: number | null };
@@ -16,8 +17,8 @@ export function metricChange(current: number | null, previous: number | null): M
 }
 export function channelChange(channel: ReviewChannel, metric: ReviewMetric): MetricChange {
   const available = metric !== 'views' && metric !== 'engagements' || channel.available[metric];
-  return metricChange(available && (channel.hasCurrent || metric === 'posts_count') ? channel.totals[metric] : null,
-    available && channel.prevTotals && (channel.hasPrevious || metric === 'posts_count') ? channel.prevTotals[metric] : null);
+  return metricChange(available && (metric === 'posts_count' || (channel.hasCurrent && channel.measured?.[metric] !== false)) ? channel.totals[metric] : null,
+    available && channel.prevTotals && (metric === 'posts_count' || (channel.hasPrevious && channel.previousMeasured?.[metric] !== false)) ? channel.prevTotals[metric] : null);
 }
 export function buildDrivers(channels: ReviewChannel[], metric: ReviewMetric) {
   return channels.map(channel => ({ platform: channel.platform, label: PLATFORM_LABELS[channel.platform], coverage: channel.coverage, previousCoverage: channel.previousCoverage, ...channelChange(channel, metric) }))
@@ -53,11 +54,12 @@ export function formatBenchmarks(posts: ReviewPost[]) {
 export function filterReviewPosts(posts: ReviewPost[], query: string, platform: string, format: string, sort: string) {
   const normalize = (s: string) => s.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const matches = posts.filter(p => (platform === 'all' || p.platform === platform) && (format === 'all' || p.format === format) && normalize(p.caption).includes(normalize(query)));
-  return matches.sort((a,b) => sort === 'date' ? b.date.localeCompare(a.date) : ((b[sort === 'visibility' ? 'visibility' : 'engagements'] ?? -1) - (a[sort === 'visibility' ? 'visibility' : 'engagements'] ?? -1)) || b.date.localeCompare(a.date));
+  return matches.sort((a,b) => sort === 'date' ? b.date.localeCompare(a.date) : ((b[(['comments','shares','saves'].includes(sort) ? sort : sort === 'visibility' ? 'visibility' : 'engagements') as 'engagements'] ?? -1) - (a[(['comments','shares','saves'].includes(sort) ? sort : sort === 'visibility' ? 'visibility' : 'engagements') as 'engagements'] ?? -1)) || b.date.localeCompare(a.date));
 }
 export function comparisonIssue(posts: ReviewPost[]): string | null {
   if (posts.length < 2) return 'Sélectionnez au moins deux contenus.';
   if (new Set(posts.map(p=>p.platform)).size > 1) return 'Comparez des contenus d’un même réseau : les interactions ne sont pas définies de la même façon partout.';
+  if (posts.some(p=>!p.accountId)) return 'Le compte de ces contenus doit être identifié avant de les comparer.';
   if (new Set(posts.map(p=>p.accountId)).size > 1) return 'Comparez des contenus du même compte pour conserver le même périmètre d’audience.';
   return null;
 }

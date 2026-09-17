@@ -17,7 +17,9 @@ export async function sendReportEmail({
   pdfBuffer: Buffer;
   idempotencyKey?: string;
   period?: {from: string; to: string};
-}): Promise<{ success: boolean; error?: string }> {
+}): Promise<{ success: boolean; error?: string; messageId?: string }> {
+  // Leave headroom for base64 expansion and the email envelope under the provider limit.
+  if (pdfBuffer.byteLength > 20 * 1024 * 1024) return { success: false, error: 'Le PDF dépasse 20 Mo. Réduire le poids des aperçus avant de relancer cet envoi.' };
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.error("[email] RESEND_API_KEY is not configured");
@@ -54,15 +56,15 @@ export async function sendReportEmail({
           Bonjour,
         </p>
         <p style="margin:0 0 16px;color:#1e293b;font-size:15px;line-height:1.6;">
-          Votre rapport ${periodLabel} pour <strong>${escapedName}</strong> est en piece jointe de cet email.
+          Votre rapport ${periodLabel} pour <strong>${escapedName}</strong> est en pièce jointe de cet email.
         </p>
         <p style="margin:0 0 24px;color:#64748b;font-size:13px;line-height:1.5;">
-          Ce rapport contient une analyse de vos performances sur les reseaux sociaux,
+          Ce rapport contient une analyse de vos performances sur les réseaux sociaux,
           avec les statistiques détaillées par réseau, les contenus et le score JumpStart. ${period ? `Période : ${period.from} au ${period.to}.` : ""} ${frequency === "monthly" ? "Les résultats sont comparés au mois civil précédent." : ""}
         </p>
         <div style="border-top:1px solid #e2e8f0;padding-top:16px;">
           <p style="margin:0;color:#94a3b8;font-size:12px;">
-            Ce rapport a ete genere automatiquement le ${new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}.
+            Ce rapport a été généré automatiquement le ${new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}.
           </p>
         </div>
       </td>
@@ -79,7 +81,7 @@ export async function sendReportEmail({
 </html>`.trim();
 
   try {
-    const { error } = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to,
       subject,
@@ -97,7 +99,7 @@ export async function sendReportEmail({
       return { success: false, error: error.message };
     }
 
-    return { success: true };
+    return { success: true, messageId: data?.id };
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Erreur inconnue lors de l'envoi";

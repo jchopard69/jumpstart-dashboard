@@ -21,7 +21,7 @@ import { getReportRecipients } from "./report-recipients";
 // PDF generation for a tenant (service-level, no user session)
 // ---------------------------------------------------------------------------
 
-async function generateTenantPdfBuffer(tenantId: string, frequency: "weekly" | "monthly"): Promise<Buffer> {
+async function generateTenantPdfBuffer(tenantId: string, frequency: "weekly" | "monthly", scheduledAt: Date): Promise<Buffer> {
   const supabase = createSupabaseServiceClient();
   const { data: tenant, error } = await supabase.from("tenants").select("name,is_demo").eq("id", tenantId).single();
   if (error || !tenant) throw new Error("Impossible de charger le client du rapport.");
@@ -29,7 +29,7 @@ async function generateTenantPdfBuffer(tenantId: string, frequency: "weekly" | "
   // report preparation are used by manual exports; no connector or OAuth mutation.
   const profile = { tenant_id: tenantId, role: "agency_admin" };
   const accounts = await fetchDashboardAccounts({ profile, tenantId });
-  const period = getScheduledReportPeriod(frequency);
+  const period = getScheduledReportPeriod(frequency, scheduledAt);
   const data = await fetchDashboardData({
     profile, tenantId, preset: "custom", from: period.from, to: period.to,
     platforms: [...new Set(accounts.map(account => account.platform))],
@@ -45,14 +45,16 @@ async function generateTenantPdfBuffer(tenantId: string, frequency: "weekly" | "
 export async function processScheduledReports(): Promise<{
   sent: number;
   errors: number;
+  deferred?: number;
 }> {
+  const startedAt = Date.now();
   const supabase = createSupabaseServiceClient();
 
   const { data: schedules, error } = await supabase
     .from("report_schedules")
     .select("id,tenant_id,frequency,recipients,is_active,last_sent_at,next_send_at,processing_started_at")
     .eq("is_active", true)
-    .lte("next_send_at", new Date().toISOString());
+    .lte("next_send_at", new Date().toISOString()).order("next_send_at", { ascending: true });
 
   if (error) {
     console.error("[report-scheduler] Failed to query schedules:", error.message);
@@ -67,7 +69,13 @@ export async function processScheduledReports(): Promise<{
   let sent = 0;
   let errors = 0;
 
-  for (const schedule of schedules) {
+  let deferred = 0;
+  for (const [index, schedule] of schedules.entries()) {
+    // Do not claim another report near Vercel's 300s deadline. Unclaimed reports
+    // remain due and are picked up by the next daily run, oldest first.
+    if (Date.now() - startedAt > 210_000) { deferred = schedules.length - index; break; }
+    const scheduledAt = new Date(schedule.next_send_at);
+
     let emailSent = false;
     const lockStartedAt = new Date().toISOString();
     const staleLockBefore = new Date(
@@ -125,13 +133,13 @@ export async function processScheduledReports(): Promise<{
       if (!recipients.length) throw new Error("Aucun destinataire configuré ne dispose encore d’un accès à ce client.");
 
       // Generate PDF
-      const pdfBuffer = await generateTenantPdfBuffer(schedule.tenant_id, schedule.frequency);
+      const pdfBuffer = await generateTenantPdfBuffer(schedule.tenant_id, schedule.frequency, scheduledAt);
 
       // Send email
       const result = await sendReportEmail({
         to: recipients,
         idempotencyKey: `report-${schedule.id}-${schedule.next_send_at}`,
-        period: getScheduledReportPeriod(schedule.frequency),
+        period: getScheduledReportPeriod(schedule.frequency, scheduledAt),
         tenantName,
         frequency: schedule.frequency,
         pdfBuffer,
@@ -196,6 +204,7 @@ export async function processScheduledReports(): Promise<{
       console.log(
         `[report-scheduler] Sent report for schedule ${schedule.id}, next: ${nextSend}`
       );
+      await createTenantNotification({ tenantId: schedule.tenant_id, type: 'info', title: 'Rapport accepté par le service email', message: 'Resend a accepté le rapport. La livraison au serveur destinataire reste à vérifier dans Resend.', metadata: { schedule_id: schedule.id, message_id: result.messageId, period: getScheduledReportPeriod(schedule.frequency, scheduledAt) }, dedupeWindowMinutes: 0 });
       sent++;
     } catch (err) {
       if (emailSent && sentAtIso && nextSendAtIso) {
@@ -248,5 +257,5 @@ export async function processScheduledReports(): Promise<{
   }
 
   console.log(`[report-scheduler] Done: ${sent} sent, ${errors} errors`);
-  return { sent, errors };
+  return { sent, errors, deferred };
 }

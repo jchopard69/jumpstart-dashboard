@@ -3,6 +3,7 @@ import { getPostEngagements, getPostVisibility, hasPostEngagementMeasurement } f
 
 export type TimeSlot = { day: number; hour: number; avgVisibility: number; postCount: number; intensity: number };
 export type BestTimeData = {
+  accountId?: string; accountName?: string;
   slots: TimeSlot[]; bestDay: string; bestHour: string; totalPostsAnalyzed: number;
   platforms: string[]; metricLabel: string; timeZone: string; bestSlotCount: number;
 };
@@ -55,3 +56,14 @@ export function analyzeBestTime(posts: Array<{
   return {slots,bestDay:DAY_LABELS[best.day],bestHour:HOUR_LABELS[best.hour],totalPostsAnalyzed:measured.length,platforms,metricLabel,timeZone,bestSlotCount:best.postCount};
 }
 export { DAY_LABELS, HOUR_LABELS };
+
+/** Keep account audiences separate even when they use the same network. */
+export function analyzeAccountBestTimes(
+  posts: Array<Parameters<typeof analyzeBestTime>[0][number] & { social_account_id?: string | null }>,
+  accounts: Array<{id:string;platform:string;account_name?:string|null}>
+): BestTimeData[] {
+  return accounts.flatMap(account=>{
+    const result=analyzeBestTime(posts.filter(post=>post.social_account_id===account.id),account.platform);
+    return result?[{...result,accountId:account.id,accountName:account.account_name??account.platform}]:[];
+  });
+}

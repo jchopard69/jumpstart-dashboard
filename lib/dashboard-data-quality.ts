@@ -50,13 +50,8 @@ function getDaysInclusive(range?: { start: Date; end: Date }): number {
 }
 
 function hasMetricSignal(row: MetricLike): boolean {
-  return (
-    (row.followers ?? 0) > 0 ||
-    (row.views ?? 0) > 0 ||
-    (row.reach ?? 0) > 0 ||
-    (row.engagements ?? 0) > 0 ||
-    (row.posts_count ?? 0) > 0
-  );
+  return [row.followers, row.views, row.reach, row.engagements, row.posts_count]
+    .some(value => value != null && Number.isFinite(value) && value >= 0);
 }
 
 export function computeDashboardDataQuality(params: {
@@ -99,9 +94,9 @@ export function computeDashboardDataQuality(params: {
     const summary = params.perPlatform.find((item) => item.platform === platform);
     const missingMetrics: PlatformDataQuality["missingMetrics"] = [];
 
-    if (summary?.available?.views && (summary.totals.views ?? 0) === 0) missingMetrics.push("views");
-    if (summary?.available?.reach && (summary.totals.reach ?? 0) === 0) missingMetrics.push("reach");
-    if (summary?.available?.engagements && (summary.totals.engagements ?? 0) === 0) missingMetrics.push("engagements");
+    if (summary?.available?.views && !platformRows.some(row => row.views != null)) missingMetrics.push("views");
+    if (summary?.available?.reach && !platformRows.some(row => row.reach != null)) missingMetrics.push("reach");
+    if (summary?.available?.engagements && !platformRows.some(row => row.engagements != null)) missingMetrics.push("engagements");
 
     const status: PlatformDataQuality["status"] =
       coverage >= 80 && missingMetrics.length === 0

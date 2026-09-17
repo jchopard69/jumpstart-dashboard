@@ -1,3 +1,4 @@
+import { observedNumber, measuredFields } from "./measurement";
 import { readAllRows } from "@/lib/paginated-read";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { resolveActiveTenantId } from "@/lib/auth";
@@ -81,36 +82,36 @@ export async function fetchDashboardData(params: {
     date: String(row.date ?? ""),
     platform: (row.platform ?? null) as Platform | null,
     social_account_id: row.social_account_id ? String(row.social_account_id) : null,
-    followers: coerceMetric(row.followers),
-    impressions: coerceMetric(row.impressions),
+    followers: observedNumber(row.followers),
+    impressions: observedNumber(row.impressions),
     // Exclude the legacy TikTok views proxy from every aggregate and chart.
     // Keep the stored data and API connector untouched.
-    reach: row.platform === "tiktok" ? 0 : coerceMetric(row.reach),
-    engagements: coerceMetric(row.engagements),
-    views: coerceMetric(row.views),
-    watch_time: coerceMetric(row.watch_time),
-    posts_count: coerceMetric(row.posts_count)
+    reach: row.platform === "tiktok" ? null : observedNumber(row.reach),
+    engagements: observedNumber(row.engagements),
+    views: observedNumber(row.views),
+    watch_time: observedNumber(row.watch_time),
+    posts_count: observedNumber(row.posts_count)
   })) as Array<T & {
-    followers: number;
-    impressions: number;
-    reach: number;
-    engagements: number;
-    views: number;
-    watch_time: number;
-    posts_count: number;
+    followers: number | null;
+    impressions: number | null;
+    reach: number | null;
+    engagements: number | null;
+    views: number | null;
+    watch_time: number | null;
+    posts_count: number | null;
   }>;
 
   type NormalizedMetricRow = {
     date: string;
     platform?: Platform | null;
     social_account_id?: string | null;
-    followers: number;
-    impressions: number;
-    reach: number;
-    engagements: number;
-    views: number;
-    watch_time: number;
-    posts_count: number;
+    followers: number | null;
+    impressions: number | null;
+    reach: number | null;
+    engagements: number | null;
+    views: number | null;
+    watch_time: number | null;
+    posts_count: number | null;
   };
 
   const repairLinkedInFollowersOnRead = async (
@@ -556,7 +557,9 @@ export async function fetchDashboardData(params: {
       totals: { ...item.totals, posts_count: postsCurrent },
       prevTotals: { ...item.prevTotals, posts_count: postsPrev },
       delta: deltaPercent,
-      available
+      available,
+      measured: measuredFields(normalizedMetrics, item.platform),
+      previousMeasured: measuredFields(normalizedPrevMetrics, item.platform)
     };
   });
 

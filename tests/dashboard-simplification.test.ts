@@ -38,7 +38,7 @@ test("publishing windows stay in the dashboard while both exports share report p
   const scheduler = readFileSync("lib/report-scheduler.ts", "utf8");
   const preparation = readFileSync("lib/prepare-report.ts", "utf8");
 
-  assert.match(dashboard, /analyzeBestTime/);
+  assert.match(dashboard, /analyzeAccountBestTimes/);
   assert.match(dashboard, /bestTimes/);
   assert.match(pdf, /prepareReport/);
   assert.match(scheduler, /prepareReport/);

@@ -664,3 +664,21 @@ body {
 .review-advice-steps { list-style:decimal; padding-left:20px; margin-top:16px; }
 .review-advice-steps li { padding-left:4px; margin:12px 0; line-height:1.7; }
 .review-advice-steps li::marker { color:#7137ce; font-weight:700; }
+
+/* Monthly workspace: results before decoration, progressive editorial reading. */
+.review-header { padding:22px 26px 16px; }
+.review-header h1 { font-size:clamp(24px,2.5vw,32px); }
+.review-title-caption { font-size:13px; }
+.review-header .review-month-picker { margin-top:15px; }
+.review-reading { display:grid;grid-template-columns:110px minmax(0,1fr);column-gap:24px;row-gap:9px;padding:0 0 26px;margin-bottom:26px;border-bottom:1px solid #e4deeb; }
+.review-reading>.review-eyebrow { grid-row:1 / span 5;padding-top:3px; }
+.review-reading p { grid-column:2;font-size:14px;line-height:1.65;max-width:850px; }
+.review-reading .review-text-button { grid-column:2;justify-self:start;margin-top:3px; }
+.review-signal-grid { grid-template-columns:1fr;gap:0; }
+.review-signal-grid article { border:0;border-top:1px solid #e4deeb;border-radius:0;padding:28px 0;max-width:940px; }
+.review-signal-grid article h3 { font-size:22px;line-height:1.3;margin-top:8px; }
+.review-signal-grid p { font-size:14px;line-height:1.65; }
+.review-advice-action { margin-top:20px; }
+.review-advice-action h4 { margin-top:8px;font-size:17px; }
+.review-advice-steps { font-size:14px;line-height:1.65; }
+@media(max-width:550px) { .review-header { padding:17px 16px 13px; }.review-title-caption { display:none; }.review-reading { grid-template-columns:1fr;gap:10px; }.review-reading>.review-eyebrow,.review-reading p,.review-reading .review-text-button { grid-column:1;grid-row:auto; }.review-signal-grid article h3 { font-size:20px; } }

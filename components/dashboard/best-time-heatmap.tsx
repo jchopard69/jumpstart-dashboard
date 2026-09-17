@@ -38,7 +38,7 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
           <div>
             <h3 className="section-title">{data.platforms.map(p => PLATFORM_LABELS[p as Platform] ?? p).join(", ")}</h3>
             <p className="text-xs text-muted-foreground">
-              {data.totalPostsAnalyzed} publications mesurées · heure de Paris
+              {data.accountName && <span>{data.accountName} · </span>}{data.totalPostsAnalyzed} publications mesurées · heure de Paris
               {data.platforms.length > 0 && (
                 <span> · {data.platforms.map(p => PLATFORM_LABELS[p as Platform] ?? p).join(", ")}</span>
               )}

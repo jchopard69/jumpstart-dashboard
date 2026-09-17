@@ -24,10 +24,10 @@ export function buildStrategicReading(posts: ReviewPost[]): StrategicSignal[] {
         const proposal=editorialProposal(top);
         signals.push({platform,title:proposal.title,format:proposal.format,angle:proposal.angle,steps:proposal.steps,
           observation:`« ${proposal.reference} » a obtenu ${reviewNumber(top[key])} ${label}. C’est davantage que le résultat habituel des ${peers.length} contenus du même format sur ce compte (${reviewNumber(baseline)}, valeur médiane).`,
-          interpretation:`Ce sujet mérite une nouvelle déclinaison. Le résultat observé porte sur les ${label} ; il ne suffit pas à conclure que ce contenu a généré des ventes.`,
+          interpretation:`Ce contenu est une référence pour préparer une déclinaison, mais ces compteurs ne prouvent pas que le sujet explique son résultat. Sa date, son format et une éventuelle sponsorisation peuvent intervenir.`,
           action:`À partir de « ${proposal.reference} » : ${proposal.format}. ${proposal.angle} ${proposal.steps.join(' ')}`,
-          measure:`Après publication, relever les ${label} à 7 jours puis à 30 jours. Comparer à des contenus du même compte, en séparant les publications sponsorisées.`,
-          limitation:'Proposition de contenu à préparer avec JumpStart, à partir d’une publication mesurée. Le résultat futur n’est pas garanti.',postId:top.id,url:top.url});
+          measure:`Après publication, relever les ${label} à 7 jours puis à 30 jours. Comparer à des contenus du même compte, en séparant les publications sponsorisées si cette information est disponible ; sinon, ne pas attribuer l’écart à la seule création.`,
+          limitation:`${peers.length} contenus comparés sur le même compte et au même format. Compteurs cumulés à la collecte, sans correction de l’âge ni séparation organique/payante. Échantillon descriptif, pas une preuve causale.`,postId:top.id,url:top.url});
         used.add(top.id);break;
       }
     }
