@@ -184,7 +184,7 @@ export function ReportScheduleForm({
               >
                 Mensuel
                 <p className="text-[10px] font-normal mt-0.5">
-                  Le 3 du mois à 9 h, heure de Paris
+                  Le 3 du mois dans la matinée, heure de Paris
                 </p>
               </button>
             </div>
