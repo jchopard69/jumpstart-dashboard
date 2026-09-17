@@ -7,10 +7,10 @@ export default async function AdminOverviewPage() {
   requireAdmin(await getSessionProfile());
   const db=createSupabaseServiceClient();
   const [tenants,accounts,logs,schedules]=await Promise.all([
-    readAllRows((from,to)=>db.from('tenants').select('id,name').eq('is_active',true).eq('is_demo',false).order('name').range(from,to),'les clients'),
-    readAllRows((from,to)=>db.from('social_accounts').select('id,tenant_id,account_name,auth_status').order('id').range(from,to),'les connexions'),
-    readAllRows((from,to)=>db.from('sync_logs').select('id,tenant_id,status,started_at').gte('started_at',new Date(Date.now()-7*86400000).toISOString()).order('started_at',{ascending:false}).order('id').range(from,to),'les synchronisations'),
-    readAllRows((from,to)=>db.from('report_schedules').select('id,tenant_id,is_active,next_send_at,last_sent_at').order('id').range(from,to),'les rapports'),
+    readAllRows((from,to)=>db.from('tenants').select('id,name',{count:'exact'}).eq('is_active',true).eq('is_demo',false).order('name').range(from,to),'les clients'),
+    readAllRows((from,to)=>db.from('social_accounts').select('id,tenant_id,account_name,auth_status',{count:'exact'}).order('id').range(from,to),'les connexions'),
+    readAllRows((from,to)=>db.from('sync_logs').select('id,tenant_id,status,started_at',{count:'exact'}).gte('started_at',new Date(Date.now()-7*86400000).toISOString()).order('started_at',{ascending:false}).order('id').range(from,to),'les synchronisations'),
+    readAllRows((from,to)=>db.from('report_schedules').select('id,tenant_id,is_active,next_send_at,last_sent_at',{count:'exact'}).order('id').range(from,to),'les rapports'),
   ]);
   const rows=tenants.map(tenant=>{
     const connected=accounts.filter(a=>a.tenant_id===tenant.id);
