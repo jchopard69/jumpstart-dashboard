@@ -88,7 +88,7 @@ export async function GET(request: Request) {
     return new Response(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=rapport-${safeName}-${dateFrom}-${dateTo}.pdf`,
+        "Content-Disposition": `attachment; filename="rapport-${safeName}-${dateFrom}-${dateTo}.pdf"`,
       },
     });
   } catch (error) {
