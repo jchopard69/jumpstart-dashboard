@@ -5,7 +5,7 @@ import { readAllRows } from "../lib/paginated-read";
 import { buildDailySeries } from "../lib/daily-series";
 import { computeDashboardDataQuality } from "../lib/dashboard-data-quality";
 
-for (const [from, to, count] of [["2026-03-29", "2026-03-29", 1], ["2026-03-25", "2026-03-31", 7], ["2026-03-02", "2026-03-31", 30], ["2026-10-01", "2026-10-31", 31]] as const) {
+for (const [from, to, count] of [["2026-03-29", "2026-03-29", 1], ["2026-03-25", "2026-03-31", 7], ["2026-03-02", "2026-03-31", 30], ["2026-10-02", "2026-11-01", 31]] as const) {
   test(`comparison preserves ${count} calendar days across DST: ${from}`, () => {
     const priorTz = process.env.TZ;
     process.env.TZ = "Europe/Paris";
@@ -67,3 +67,5 @@ test("monthly reporting covers the completed calendar month, including leap year
   assert.deepEqual(getScheduledReportPeriod("monthly", new Date(2024, 2, 1, 12)), { from: "2024-02-01", to: "2024-02-29" });
   assert.deepEqual(getScheduledReportPeriod("weekly", new Date(2026, 8, 7, 12)), { from: "2026-08-31", to: "2026-09-06" });
 });
+
+test("a full calendar month compares with the entire previous month",()=>{ for(const [from,to,prevFrom,prevTo] of [["2026-03-01","2026-03-31","2026-02-01","2026-02-28"],["2024-03-01","2024-03-31","2024-02-01","2024-02-29"],["2026-01-01","2026-01-31","2025-12-01","2025-12-31"]]){const prior=buildPreviousRange(resolveDateRange("custom",from,to));assert.equal(toIsoDate(prior.start),prevFrom);assert.equal(toIsoDate(prior.end),prevTo);}});

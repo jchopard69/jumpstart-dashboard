@@ -5,8 +5,10 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/s
 import { ReportScheduleList } from "@/components/reports/report-schedule-list";
 import { canManageReportSchedules } from "@/lib/tenant-selection";
 import { ExportButtons } from "@/components/dashboard/export-buttons";
-import { ReportingHealthCard } from "@/components/reports/reporting-health-card";
-import { buildReportingHealth } from "@/lib/reporting-health";
+import { MonthlyPeriodPicker } from "@/components/review/monthly-period-picker";
+import { resolveDateRange, toIsoDate } from "@/lib/date";
+import Link from "next/link";
+
 
 export const metadata: Metadata = {
   title: "Rapports automatiques",
@@ -15,7 +17,7 @@ export const metadata: Metadata = {
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams?: { tenantId?: string };
+  searchParams?: { tenantId?: string; from?:string; to?:string };
 }) {
   const profile = await getSessionProfile();
   if (profile.role === "agency_admin") {
@@ -49,63 +51,14 @@ export default async function ReportsPage({
     .select("*")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
-  const reportingHealth = buildReportingHealth({ schedules: schedules ?? [] });
+  const range=resolveDateRange(searchParams?.from && searchParams?.to ? "custom":"last_month",searchParams?.from,searchParams?.to);
 
-  const exportParams = new URLSearchParams({ preset: "last_30_days" });
+  const exportParams = new URLSearchParams({ preset: "custom",from:toIsoDate(range.start),to:toIsoDate(range.end) });
   if (searchParams?.tenantId) {
     exportParams.set("tenantId", searchParams.tenantId);
   }
 
-  return (
-    <div className="space-y-8 fade-in">
-      {/* Header */}
-      <section className="surface-panel p-8">
-        <div className="flex flex-wrap items-center justify-between gap-6">
-          <div>
-            <p className="section-label">JumpStart Studio</p>
-            <h1 className="page-heading">Rapports automatiques</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Programmez l'envoi email, partagez le PDF stratégique et exportez les données avec recommandations.
-            </p>
-          </div>
-          <ExportButtons query={exportParams.toString()} />
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="surface-panel p-5">
-          <p className="section-label">Dans le PDF</p>
-          <h2 className="mt-2 text-base font-semibold">Opportunités + lecture claire</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Chaque rapport met en avant les signaux utiles, la qualité des données et les opportunités réellement exploitables.
-          </p>
-        </div>
-        <div className="surface-panel p-5">
-          <p className="section-label">Dans le CSV</p>
-          <h2 className="mt-2 text-base font-semibold">Données actionnables</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            L'export ajoute le taux d'engagement, le statut de fiabilité et une recommandation automatique par ligne.
-          </p>
-        </div>
-        <div className="surface-panel p-5">
-          <p className="section-label">Partage</p>
-          <h2 className="mt-2 text-base font-semibold">Rythme maîtrisé</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Les managers peuvent choisir un envoi hebdomadaire ou mensuel vers les bons destinataires.
-          </p>
-        </div>
-      </section>
-
-      <ReportingHealthCard health={reportingHealth} />
-
-      <ReportScheduleList
-        initialSchedules={schedules ?? []}
-        tenantId={tenantId}
-        isDemoTenant={isDemoTenant}
-        canManage={canManage}
-      />
-    </div>
-  );
+  return <div className="review-app"><header className="review-header"><div className="review-header-top"><div><p className="review-eyebrow">Reporting mensuel</p><h1>Vos rapports<span className="review-title-caption">Le bilan prêt à transmettre à votre direction.</span></h1></div><ExportButtons query={exportParams.toString()}/></div><MonthlyPeriodPicker from={toIsoDate(range.start)} to={toIsoDate(range.end)}/></header><div className="review-panel space-y-8"><section><h2>Envois automatiques</h2><p className="mt-2">Le rapport mensuel couvre le mois terminé et le compare au mois civil précédent. Envoi le 3 à 9 h, heure de Paris, aux destinataires configurés disposant encore d’un accès.</p>{profile.role==='agency_admin'&&<Link className="review-text-button mt-4" href="/admin/reports">Gérer l’activation pour les clients →</Link>}</section><ReportScheduleList initialSchedules={schedules??[]} tenantId={tenantId} isDemoTenant={isDemoTenant} canManage={canManage}/></div></div>;
 }
 
 export const dynamic = "force-dynamic";

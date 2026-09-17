@@ -1,6 +1,7 @@
+import { readPostMetric } from "./monthly-review";
 import "server-only";
 
-import { getPostEngagements, getPostVisibility } from "@/lib/metrics";
+import { getPostEngagements, getPostVisibility, hasPostEngagementMeasurement } from "@/lib/metrics";
 import { selectDisplayTopPosts } from "@/lib/top-posts";
 import { PLATFORM_LABELS, type Platform } from "@/lib/types";
 
@@ -25,7 +26,8 @@ export type PdfPostSummary = {
     label: "Impressions" | "Vues" | "Portée";
     value: number;
   };
-  engagements: number;
+  engagements: number | null;
+  details?: {label:string;value:number}[];
   engagementRate: number | null;
 };
 
@@ -84,14 +86,15 @@ export async function buildPdfPostSummaries(
   posts: PdfPostSource[],
   limit: number
 ): Promise<PdfPostSummary[]> {
-  const selectedPosts = selectDisplayTopPosts(posts, limit);
+  const ranked = selectDisplayTopPosts(posts, posts.length);
+  const selectedPosts = [...ranked, ...posts.filter(post => !ranked.includes(post))].slice(0, limit);
   const thumbnails = await Promise.all(
-    selectedPosts.map((post) => resolveThumbnailDataUrl(post.thumbnail_url))
+    selectedPosts.map((post,index) => index < 15 ? resolveThumbnailDataUrl(post.thumbnail_url) : Promise.resolve(null))
   );
 
   return selectedPosts.map((post, index) => {
     const visibility = getPostVisibility(post.metrics as any, post.media_type);
-    const engagements = getPostEngagements(post.metrics as any);
+    const engagements = hasPostEngagementMeasurement(post.metrics as any) ? getPostEngagements(post.metrics as any) : null;
     const platform = String(post.platform ?? "");
     const knownPlatform = platform as Platform;
     const platformLabel =
@@ -108,7 +111,8 @@ export async function buildPdfPostSummaries(
       url: post.url ?? null,
       visibility,
       engagements,
-      engagementRate: visibility.value > 0 ? (engagements / visibility.value) * 100 : null,
+      details: [{label:"J’aime",keys:["likes","like_count"]},{label:"Commentaires",keys:["comments","comments_count","comment_count"]},{label:"Partages",keys:["shares","share_count","reposts"]},{label:"Enregistrements",keys:["saves","saved","save_count"]}].flatMap(item=>{const value=readPostMetric(post.metrics as Record<string,unknown>,item.keys);return value==null?[]:[{label:item.label,value}];}),
+      engagementRate: visibility.value > 0 && engagements != null ? (engagements / visibility.value) * 100 : null,
     };
   });
 }

@@ -35,10 +35,10 @@ export async function POST(request: Request) {
     console.log(`[cron] Reports done in ${duration}ms: ${result.sent} sent, ${result.errors} errors`);
 
     return NextResponse.json({
-      ok: true,
+      ok: result.errors === 0,
       duration,
       ...result,
-    });
+    }, { status: result.errors ? 500 : 200 });
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error("[cron] Report sending failed:", error instanceof Error ? error.message : error);
@@ -55,3 +55,5 @@ export async function GET(request: Request) {
 }
 
 export const dynamic = "force-dynamic";
+
+export const maxDuration = 300;

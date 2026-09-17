@@ -43,7 +43,7 @@ export function ReportScheduleForm({
   const isEditing = !!schedule;
 
   const [frequency, setFrequency] = useState<"weekly" | "monthly">(
-    schedule?.frequency ?? "weekly"
+    schedule?.frequency ?? "monthly"
   );
   const [recipients, setRecipients] = useState<string[]>(
     schedule?.recipients ?? []
@@ -53,7 +53,7 @@ export function ReportScheduleForm({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setFrequency(schedule?.frequency ?? "weekly");
+    setFrequency(schedule?.frequency ?? "monthly");
     setRecipients(schedule?.recipients ?? []);
     setEmailInput("");
     setError(null);
@@ -184,7 +184,7 @@ export function ReportScheduleForm({
               >
                 Mensuel
                 <p className="text-[10px] font-normal mt-0.5">
-                  Le 1er du mois à 8h
+                  Le 3 du mois à 9 h, heure de Paris
                 </p>
               </button>
             </div>

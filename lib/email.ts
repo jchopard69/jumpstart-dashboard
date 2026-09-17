@@ -8,11 +8,15 @@ export async function sendReportEmail({
   tenantName,
   frequency,
   pdfBuffer,
+  idempotencyKey,
+  period,
 }: {
   to: string[];
   tenantName: string;
   frequency: "weekly" | "monthly";
   pdfBuffer: Buffer;
+  idempotencyKey?: string;
+  period?: {from: string; to: string};
 }): Promise<{ success: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -21,13 +25,14 @@ export async function sendReportEmail({
   }
 
   const resend = new Resend(apiKey);
-  const dateStr = new Date().toISOString().slice(0, 10);
+  const dateStr = period?.from.slice(0,7) ?? new Date().toISOString().slice(0, 10);
+  const escapedName = tenantName.replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;", "'":"&#39;"}[char]!));
   const safeName = tenantName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/-+$/, "");
 
-  const subject = `Rapport ${frequency === "weekly" ? "hebdomadaire" : "mensuel"} - ${tenantName}`;
+  const subject = `Rapport ${frequency === "weekly" ? "hebdomadaire" : "mensuel"} - ${tenantName} · ${dateStr}`;
   const periodLabel =
     frequency === "weekly" ? "hebdomadaire" : "mensuel";
 
@@ -49,11 +54,11 @@ export async function sendReportEmail({
           Bonjour,
         </p>
         <p style="margin:0 0 16px;color:#1e293b;font-size:15px;line-height:1.6;">
-          Votre rapport ${periodLabel} pour <strong>${tenantName}</strong> est en piece jointe de cet email.
+          Votre rapport ${periodLabel} pour <strong>${escapedName}</strong> est en piece jointe de cet email.
         </p>
         <p style="margin:0 0 24px;color:#64748b;font-size:13px;line-height:1.5;">
           Ce rapport contient une analyse de vos performances sur les reseaux sociaux,
-          incluant vos KPIs, votre score JumpStart et des recommandations strategiques.
+          avec les statistiques détaillées par réseau, les contenus et le score JumpStart. ${period ? `Période : ${period.from} au ${period.to}.` : ""} ${frequency === "monthly" ? "Les résultats sont comparés au mois civil précédent." : ""}
         </p>
         <div style="border-top:1px solid #e2e8f0;padding-top:16px;">
           <p style="margin:0;color:#94a3b8;font-size:12px;">
@@ -85,7 +90,7 @@ export async function sendReportEmail({
           content: pdfBuffer,
         },
       ],
-    });
+    }, idempotencyKey ? { idempotencyKey } : undefined);
 
     if (error) {
       console.error("[email] Resend API error:", error);

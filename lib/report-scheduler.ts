@@ -13,31 +13,9 @@ const REPORT_SCHEDULE_LOCK_TIMEOUT_MS = 30 * 60 * 1000;
 // computeNextSendAt
 // ---------------------------------------------------------------------------
 
-/**
- * Compute the next send date for a report schedule.
- * Weekly: next Monday at 08:00 UTC
- * Monthly: 1st of next month at 08:00 UTC
- */
-export function computeNextSendAt(
-  frequency: "weekly" | "monthly",
-  from?: Date
-): string {
-  const base = from ?? new Date();
-
-  if (frequency === "weekly") {
-    // Find next Monday
-    const d = new Date(base);
-    const dayOfWeek = d.getUTCDay(); // 0=Sunday, 1=Monday ...
-    const daysUntilMonday = dayOfWeek === 0 ? 1 : dayOfWeek === 1 ? 7 : 8 - dayOfWeek;
-    d.setUTCDate(d.getUTCDate() + daysUntilMonday);
-    d.setUTCHours(8, 0, 0, 0);
-    return d.toISOString();
-  }
-
-  // Monthly: 1st of next month at 08:00 UTC
-  const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 1, 8, 0, 0, 0));
-  return d.toISOString();
-}
+export { computeNextSendAt } from "./report-send-time";
+import { computeNextSendAt } from "./report-send-time";
+import { getReportRecipients } from "./report-recipients";
 
 // ---------------------------------------------------------------------------
 // PDF generation for a tenant (service-level, no user session)
@@ -78,7 +56,7 @@ export async function processScheduledReports(): Promise<{
 
   if (error) {
     console.error("[report-scheduler] Failed to query schedules:", error.message);
-    return { sent: 0, errors: 0 };
+    return { sent: 0, errors: 1 };
   }
 
   if (!schedules?.length) {
@@ -143,12 +121,17 @@ export async function processScheduledReports(): Promise<{
 
       const tenantName = tenant?.name ?? "Client";
 
+      const recipients = await getReportRecipients(schedule.tenant_id, schedule.recipients);
+      if (!recipients.length) throw new Error("Aucun destinataire configuré ne dispose encore d’un accès à ce client.");
+
       // Generate PDF
       const pdfBuffer = await generateTenantPdfBuffer(schedule.tenant_id, schedule.frequency);
 
       // Send email
       const result = await sendReportEmail({
-        to: schedule.recipients,
+        to: recipients,
+        idempotencyKey: `report-${schedule.id}-${schedule.next_send_at}`,
+        period: getScheduledReportPeriod(schedule.frequency),
         tenantName,
         frequency: schedule.frequency,
         pdfBuffer,

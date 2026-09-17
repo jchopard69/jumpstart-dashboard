@@ -82,8 +82,8 @@ export default async function ClientLayout({ children }: { children: React.React
         <div className="relative">
           <div className="relative flex min-h-screen">
             {/* Desktop Sidebar */}
-            <aside className="sticky top-0 hidden h-screen w-72 flex-col gap-6 px-6 py-8 xl:flex">
-              <div className="jumpstart-sidebar flex h-full flex-col justify-between p-6">
+            <aside className="sticky top-0 hidden h-screen w-64 flex-col gap-6 px-4 py-6 xl:flex">
+              <div className="jumpstart-sidebar flex h-full flex-col justify-between p-5">
                 <div>
                   <div className="flex items-center gap-3">
                     <div className="jumpstart-brand-mark" aria-hidden="true">J</div>
@@ -100,14 +100,14 @@ export default async function ClientLayout({ children }: { children: React.React
                       </span>
                     )}
                   </div>
-                  <p className="mt-3 section-label">Social Pulse</p>
+                  <p className="mt-3 section-label">Votre espace de pilotage</p>
                   {tenants.length > 1 && (
                     <div className="mt-4">
                       <TenantSwitcher tenants={tenants} currentTenantId={currentTenantId} />
                     </div>
                   )}
                   <nav className="mt-6 flex flex-col gap-2 text-sm" aria-label="Navigation client">
-                    <NavLink href="/client/dashboard">Tableau de bord</NavLink>
+                    <NavLink href="/client/dashboard">Bilan social media</NavLink>
                     <NavLink href="/client/strategy">Stratégie JumpStart</NavLink>
                     <NavLink href="/client/demographics">Audience</NavLink>
                     <NavLink href="/client/collaboration">Ma collaboration</NavLink>

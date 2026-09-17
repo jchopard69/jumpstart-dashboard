@@ -78,7 +78,7 @@ export function getPostImpressions(metrics: MetricRecord): number {
 export function hasPostEngagementMeasurement(metrics: MetricRecord): boolean {
   const normalized = normalizeMetricRecord(metrics);
   if (!normalized || typeof normalized !== "object") return false;
-  return ["engagements", "likes", "like_count", "comments", "comment_count", "comments_count", "shares", "share_count", "saves", "save_count", "favorite_count", "reposts", "repost_count"]
+  return ["engagements", "likes", "like_count", "comments", "comment_count", "comments_count", "shares", "share_count", "saves", "save_count", "saved", "favorite_count", "reposts", "repost_count"]
     .some(key => {
       const value = normalized[key];
       return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
@@ -97,7 +97,7 @@ export function getPostEngagements(metrics: MetricRecord): number {
     coerceMetric(normalized?.likes ?? normalized?.like_count ?? 0) +
     coerceMetric(normalized?.comments ?? normalized?.comment_count ?? normalized?.comments_count ?? 0) +
     coerceMetric(normalized?.shares ?? normalized?.share_count ?? 0) +
-    coerceMetric(normalized?.saves ?? normalized?.save_count ?? normalized?.favorite_count ?? 0) +
+    coerceMetric(normalized?.saves ?? normalized?.save_count ?? normalized?.saved ?? normalized?.favorite_count ?? 0) +
     coerceMetric(normalized?.reposts ?? normalized?.repost_count ?? 0)
   );
 }
@@ -110,22 +110,17 @@ export function getPostVisibility(
   if (typeof normalized === "string") {
     return { label: "Impressions", value: coerceMetric(normalized) };
   }
-  const impressions = coerceMetric(normalized?.impressions ?? normalized?.impression_count ?? 0);
-  const views = coerceMetric(
-    normalized?.views ??
-    normalized?.view_count ??
-    normalized?.media_views ??
-    normalized?.plays ??
-    normalized?.play_count ??
-    normalized?.video_views ??
-    normalized?.video_view_count ??
-    0
-  );
+  const positive = (keys: string[]) => {
+    for (const key of keys) { const value=coerceMetric(normalized?.[key]); if(value>0)return value; }
+    return 0;
+  };
+  const impressions = positive(["impressions","impression_count"]);
+  const views = positive(["views","view_count","media_views","plays","play_count","video_views","video_view_count"]);
   if (isReelMediaType(mediaType) && views > 0) {
     return { label: "Vues", value: views };
   }
   if (impressions > 0) return { label: "Impressions", value: impressions };
   if (views > 0) return { label: "Vues", value: views };
-  const reach = coerceMetric(normalized?.reach ?? normalized?.reach_count ?? 0);
+  const reach = positive(["reach","reach_count"]);
   return { label: "Portée", value: reach };
 }

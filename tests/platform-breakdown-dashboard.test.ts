@@ -7,7 +7,7 @@ test("dashboard exposes a readable per-platform breakdown before channel mix", (
   const breakdownCard = readFileSync("components/dashboard/platform-breakdown-card.tsx", "utf8");
   const mixCard = readFileSync("components/dashboard/platform-mix-card.tsx", "utf8");
 
-  assert.match(dashboardPage, /<PlatformBreakdownCard platforms=\{data\.perPlatform\} \/>/);
+  assert.match(dashboardPage, /channels=\{channels\}/);
   assert.match(breakdownCard, /Détail par plateforme/);
   assert.match(breakdownCard, /Abonnés/);
   assert.match(breakdownCard, /Taux d'eng\./);

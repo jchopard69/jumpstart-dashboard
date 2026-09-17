@@ -36,9 +36,9 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
             </svg>
           </div>
           <div>
-            <h2 className="section-title">Horaires observés · UTC</h2>
+            <h3 className="section-title">{data.platforms.map(p => PLATFORM_LABELS[p as Platform] ?? p).join(", ")}</h3>
             <p className="text-xs text-muted-foreground">
-              {data.totalPostsAnalyzed} publications · signal exploratoire
+              {data.totalPostsAnalyzed} publications mesurées · heure de Paris
               {data.platforms.length > 0 && (
                 <span> · {data.platforms.map(p => PLATFORM_LABELS[p as Platform] ?? p).join(", ")}</span>
               )}
@@ -56,9 +56,9 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
 
       {/* Grid */}
       <div className="overflow-x-auto">
-        <div className="min-w-[400px]">
+        <div className="min-w-[460px]">
           {/* Header */}
-          <div className="grid grid-cols-[60px_repeat(6,1fr)] gap-1 mb-1">
+          <div className="grid grid-cols-[60px_repeat(7,1fr)] gap-1 mb-1">
             <div />
             {HOUR_LABELS.map((label) => (
               <div key={label} className="text-center text-[10px] text-muted-foreground font-medium">
@@ -69,7 +69,7 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
 
           {/* Rows */}
           {DAY_LABELS.map((dayLabel, dayIndex) => (
-            <div key={dayLabel} className="grid grid-cols-[60px_repeat(6,1fr)] gap-1 mb-1">
+            <div key={dayLabel} className="grid grid-cols-[60px_repeat(7,1fr)] gap-1 mb-1">
               <div className="flex items-center text-xs font-medium text-muted-foreground">
                 {dayLabel}
               </div>
@@ -83,10 +83,12 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
                 return (
                   <div
                     key={hourIndex}
-                    className={`flex items-center justify-center rounded-lg h-10 ${color} transition-colors cursor-default`}
+                    tabIndex={postCount > 0 ? 0 : undefined}
+                    aria-label={`${dayLabel} ${HOUR_LABELS[hourIndex]} : ${postCount} publications, ${Math.round(slot?.avgVisibility ?? 0)} ${data.metricLabel.toLowerCase()} en moyenne`}
+                    className={`flex items-center justify-center rounded-lg h-10 ${color} transition-colors cursor-default focus:outline focus:outline-2 focus:outline-violet-600`}
                     title={
                       postCount > 0
-                        ? `${dayLabel} ${HOUR_LABELS[hourIndex]} — ${postCount} post${postCount > 1 ? "s" : ""}, ~${Math.round(slot?.avgVisibility ?? 0)} vues moy.`
+                        ? `${dayLabel} ${HOUR_LABELS[hourIndex]} — ${postCount} post${postCount > 1 ? "s" : ""}, ~${Math.round(slot?.avgVisibility ?? 0)} ${data.metricLabel.toLowerCase()} en moyenne`
                         : `${dayLabel} ${HOUR_LABELS[hourIndex]} — Aucun post`
                     }
                   >
@@ -106,7 +108,7 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
       {/* Legend */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-[11px] text-muted-foreground">
-          Chaque chiffre = nombre de posts publiés sur ce créneau. La couleur indique la visibilité moyenne obtenue (vues / portée).
+          Chaque chiffre indique le nombre de publications. Couleur : {data.metricLabel.toLowerCase()} moyennes par publication. Les créneaux vides ne sont pas évalués.
         </p>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground shrink-0">
           <span className="inline-block h-2.5 w-2.5 rounded bg-muted/40" />
@@ -118,25 +120,26 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
         </div>
       </div>
 
+      <p className="mt-3 text-xs text-muted-foreground">Lecture par réseau sur la période sélectionnée. Les sujets, formats, budgets et l’âge des contenus peuvent influencer les résultats : cet historique ne démontre pas l’effet de l’horaire.</p>
       {/* Best time summary */}
       <div className={`mt-3 flex items-center gap-2 rounded-xl px-4 py-2.5 ${
-        data.totalPostsAnalyzed < 10
+        data.totalPostsAnalyzed < 10 || data.bestSlotCount < 3
           ? "bg-amber-500/10"
           : "bg-emerald-500/10"
       }`}>
-        <svg className={`h-4 w-4 shrink-0 ${data.totalPostsAnalyzed < 10 ? "text-amber-600" : "text-emerald-600"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          {data.totalPostsAnalyzed < 10
+        <svg className={`h-4 w-4 shrink-0 ${data.totalPostsAnalyzed < 10 || data.bestSlotCount < 3 ? "text-amber-600" : "text-emerald-600"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          {data.totalPostsAnalyzed < 10 || data.bestSlotCount < 3
             ? <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
             : <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           }
         </svg>
         <div>
-          <p className={`text-sm ${data.totalPostsAnalyzed < 10 ? "text-amber-700" : "text-emerald-700"}`}>
-            Meilleur créneau : <span className="font-semibold">{data.bestDay}</span> entre <span className="font-semibold">{data.bestHour}</span>
+          <p className={`text-sm ${data.totalPostsAnalyzed < 10 || data.bestSlotCount < 3 ? "text-amber-700" : "text-emerald-700"}`}>
+            Créneau le plus performant observé : <span className="font-semibold">{data.bestDay}</span> entre <span className="font-semibold">{data.bestHour}</span>
           </p>
-          {data.totalPostsAnalyzed < 10 && (
+          {(data.totalPostsAnalyzed < 10 || data.bestSlotCount < 3) && (
             <p className="text-[11px] text-amber-600/80 mt-0.5">
-              Basé sur peu de publications ({data.totalPostsAnalyzed}). Fiabilité limitée — à confirmer avec plus de données.
+              Ce créneau ne compte que {data.bestSlotCount} publication(s), sur {data.totalPostsAnalyzed} analysées. À confirmer sur davantage de contenus.
             </p>
           )}
         </div>

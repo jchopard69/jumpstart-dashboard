@@ -7,11 +7,9 @@ import {
 } from "@/lib/auth";
 import { fetchDemographics } from "@/lib/demographics-queries";
 import { AgeChart } from "@/components/demographics/age-chart";
-import { AudienceOpportunitiesCard } from "@/components/demographics/audience-opportunities-card";
 import { GenderChart } from "@/components/demographics/gender-chart";
 import { LocationChart } from "@/components/demographics/location-chart";
 import { Badge } from "@/components/ui/badge";
-import { buildAudienceOpportunities } from "@/lib/audience-opportunities";
 import { PLATFORM_LABELS, type Platform } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -85,7 +83,6 @@ export default async function DemographicsPage({
   const primaryCity = topEntry(demographics.city);
   const primaryFunction = topEntry(demographics.function);
   const primaryIndustry = topEntry(demographics.industry);
-  const audienceOpportunities = buildAudienceOpportunities(demographics);
   const lastFetchedLabel = demographics.lastFetchedAt
     ? new Date(demographics.lastFetchedAt).toLocaleDateString("fr-FR", {
         day: "numeric",
@@ -171,15 +168,15 @@ export default async function DemographicsPage({
       ) : (
         <>
           <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="surface-panel p-5">
-              <p className="section-label">Segment dominant</p>
+            {primaryAge && <div className="surface-panel p-5">
+              <p className="section-label">Âge le plus représenté</p>
               <h2 className="mt-2 text-lg font-semibold">
                 {primaryAge ? `${formatSegmentValue(primaryAge.value)} · ${formatPercent(primaryAge.percentage)}` : "Âge non disponible"}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 Utilisez ce noyau d'audience pour cadrer le ton, les références et les formats éditoriaux.
               </p>
-            </div>
+            </div>}
             <div className="surface-panel p-5">
               <p className="section-label">Géographie</p>
               <h2 className="mt-2 text-lg font-semibold">
@@ -236,7 +233,6 @@ export default async function DemographicsPage({
             </section>
           )}
 
-          <AudienceOpportunitiesCard opportunities={audienceOpportunities} />
 
           <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {demographics.age.length > 0 && <AgeChart data={demographics.age} />}

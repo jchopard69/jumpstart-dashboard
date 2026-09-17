@@ -1,28 +1,18 @@
-import { notFound } from "next/navigation";
-import { ScoreCard } from "@/components/dashboard/score-card";
-import { KpiSection } from "@/components/dashboard/kpi-section";
-import { ChartsSection } from "@/components/dashboard/charts-section";
-import { PlatformBreakdownCard } from "@/components/dashboard/platform-breakdown-card";
-import { DashboardSectionNav } from "@/components/dashboard/dashboard-section-nav";
-import { EditorialRoadmap } from "@/components/dashboard/editorial-roadmap";
-import { computeJumpStartScore } from "@/lib/scoring";
-import { buildEditorialRoadmap } from "@/lib/editorial-roadmap";
+import { notFound } from 'next/navigation';
+import { MonthlyWorkspace } from '@/components/review/monthly-workspace';
+import { normalizeReviewPost } from '@/lib/monthly-review';
+import { analyzeBestTime } from '@/lib/best-time';
+import { computeJumpStartScore } from '@/lib/scoring';
+import type { Platform } from '@/lib/types';
 
-// Local visual fixture only. Production always returns 404 and never reads tenant data.
 export default function DesignPreview() {
-  if (process.env.NODE_ENV !== "development") notFound();
-  const totals = { followers: 15450, views: 187400, reach: 112300, engagements: 6340, posts_count: 18 };
-  const delta = { followers: 3.7, views: 18.3, reach: 11.2, engagements: 21.4, posts_count: 12.5 };
-  const score = computeJumpStartScore({ ...totals, postsCount: 18, prevFollowers: 14900, prevViews: 158400, prevReach: 101000, prevEngagements: 5200, prevPostsCount: 16, periodDays: 31 });
-  const points = Array.from({ length: 31 }, (_, day) => ({ date: `2026-08-${String(day + 1).padStart(2, "0")}`, value: 1600 + (day % 9) * 380 + day * 75, previousValue: 1200 + (day % 7) * 240 }));
-  return <div className="min-h-screen bg-[#f7f7fa] px-4 py-8 sm:px-8"><div className="report-workspace mx-auto max-w-[1100px] space-y-10">
-    <header className="space-y-5"><p className="section-label text-primary">JumpStart Studio · exemple fictif</p><div className="flex flex-wrap items-end justify-between gap-4"><div><h1 className="page-heading">Atelier Horizon</h1><p className="mt-2 text-sm text-muted-foreground">Bilan du 1 au 31 août 2026</p></div><span className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white">Aperçu local du design</span></div><DashboardSectionNav /></header>
-    <ScoreCard score={score} takeaways={["Audience en progression : +3,7%", "18 publications sur la période", "Interactions en hausse : +21,4%"]} executiveSummary="Votre audience et vos interactions progressent. Examinez les résultats par canal avant de choisir les contenus à décliner pour le prochain cycle." dataCoverage={96} postsAnalyzed={18} />
-    <section id="dashboard-kpis"><KpiSection totals={totals} delta={delta} showViews showReach showEngagements comparisonLabel="01/07/2026 - 31/07/2026" /></section>
-    <PlatformBreakdownCard platforms={[{ platform: "instagram", totals, delta, available: { views: true, reach: true, engagements: true } }]} />
-    <ChartsSection trendFollowers={points.map(point => ({ ...point, value: point.value + 10000 }))} trendViews={points} trendReach={points} trendEngagements={points.map(point => ({ ...point, value: point.value / 30 }))} showViews showReach showEngagements showComparison />
-    <EditorialRoadmap experiments={buildEditorialRoadmap([], 96)} />
-    <details className="dashboard-detail"><summary>Qualité des données et suivi de la collaboration</summary><p className="pt-4 text-sm">Données fictives utilisées uniquement pour la vérification visuelle des composants.</p></details>
-  </div></div>;
+  if (process.env.NODE_ENV !== 'development') notFound();
+  const platforms: Platform[]=['instagram','facebook','linkedin'];
+  const totals={followers:15450,views:187400,reach:112300,engagements:6340,posts_count:18};
+  const channels=platforms.map((platform,i)=>({platform,totals:{...totals,followers:4200+i*1300,views:72000-i*22000,engagements:3200-i*600},prevTotals:{...totals,followers:4050+i*1300,views:61000-i*23000,engagements:2900-i*500},available:{views:true,reach:platform!=='facebook',engagements:true},hasCurrent:true,hasPrevious:true,coverage:100,previousCoverage:100}));
+  const rows=Array.from({length:31},(_,i)=>({date:`2026-08-${String(i+1).padStart(2,'0')}`,views:1800+(i%7)*1500,engagements:120+(i%9)*43,followers:15200+i*9,reach:1800}));
+  const rawPosts=Array.from({length:24},(_,i)=>({id:`demo-${i}`,platform:platforms[i%3],social_account_id:platforms[i%3],caption:['Dans les coulisses de notre atelier : celles et ceux qui donnent vie à chaque projet.','Un nouveau regard sur notre savoir-faire. Découvrez les étapes de cette réalisation.','Rencontre avec notre équipe : un métier, une passion et un engagement quotidien.'][i%3],posted_at:`2026-08-${String(i+1).padStart(2,'0')}T${String(6+i%12).padStart(2,'0')}:00:00Z`,media_type:i%2?'VIDEO':'IMAGE',metrics:{views:1800+i*750,likes:85+i*10,comments:12+i,shares:6+i,saves:3+i,engagements:106+i*13}}));
+  const score=computeJumpStartScore({...totals,postsCount:18,prevFollowers:14900,prevViews:158400,prevReach:101000,prevEngagements:5200,prevPostsCount:16,periodDays:31});
+  return <main className="jumpstart-canvas min-h-screen p-4 md:p-10"><div className="mx-auto max-w-[1200px]"><MonthlyWorkspace period="1 — 31 août 2026" previousPeriod="1 — 31 juillet 2026" from="2026-08-01" to="2026-08-31" channels={channels} posts={rawPosts.map(normalizeReviewPost)} rows={rows} previousRows={rows.map(r=>({...r,date:r.date.replace('-08-','-07-'),engagements:r.engagements*.8}))} score={score} bestTimes={platforms.flatMap(p=>{const d=analyzeBestTime(rawPosts,p);return d?[d]:[];})} header={<header className="review-header"><div className="review-header-top"><div><p className="review-eyebrow">JumpStart Studio · données fictives</p><h1>Atelier Horizon<span className="review-title-caption">Votre bilan social media.</span></h1></div><button className="review-primary">Exporter le rapport PDF</button></div><div className="review-month-picker"><label>Août 2026</label><span>Comparé au mois précédent</span></div></header>} sources={<p>Données fictives de vérification visuelle, jamais publiées en production.</p>}/></div></main>;
 }
-export const dynamic = "force-dynamic";
+export const dynamic='force-dynamic';

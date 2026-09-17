@@ -32,7 +32,7 @@ export function getDashboardMetricAvailability(
     views: defaults.views || currentTotals.views > 0 || previousTotals.views > 0,
     // The TikTok connector historically stores video views in this column.
     // Those values are not a measurement of reach, even when nonzero.
-    reach: platform !== "tiktok" && (defaults.reach || currentTotals.reach > 0 || previousTotals.reach > 0),
+    reach: platform !== "tiktok" && platform !== "youtube" && (platform === "facebook" ? currentTotals.reach > 0 : (defaults.reach || currentTotals.reach > 0 || previousTotals.reach > 0)),
     engagements:
       defaults.engagements || currentTotals.engagements > 0 || previousTotals.engagements > 0,
   };

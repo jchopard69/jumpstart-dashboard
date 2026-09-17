@@ -8,8 +8,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShootCalendar } from "@/components/os/shoot-calendar";
 import { NotesEditor } from "@/components/os/notes-editor";
-import { CollaborationNextActionsCard } from "@/components/os/collaboration-next-actions-card";
-import { buildCollaborationNextActions } from "@/lib/collaboration-actions";
 
 export const metadata: Metadata = {
   title: "Ma collaboration"
@@ -100,11 +98,7 @@ export default async function CollaborationPage({
         month: "short",
       })
     : "À planifier";
-  const collaborationActions = buildCollaborationNextActions({
-    collaboration: collaboration ?? null,
-    shoots: shoots ?? [],
-    documents: documents ?? [],
-  });
+
 
   async function updateNotes(formData: FormData) {
     "use server";
@@ -199,7 +193,7 @@ export default async function CollaborationPage({
         </div>
       </section>
 
-      <CollaborationNextActionsCard actions={collaborationActions} />
+
 
       {/* Shoots + Notes */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">

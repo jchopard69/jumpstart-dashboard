@@ -81,7 +81,7 @@ export function ExportButtons({ query }: { query: string }) {
       >
         {loadingPdf ? <SpinnerIcon className="h-4 w-4" /> : <DocumentIcon className="h-4 w-4" />}
         {loadingPdf ? <span className="sr-only" role="status">Export PDF en cours.</span> : null}
-        <span className="hidden sm:inline">{loadingPdf ? "Export..." : "PDF"}</span>
+        <span className="hidden sm:inline">{loadingPdf ? "Préparation…" : "Rapport PDF"}</span>
       </Button>
       <Button
         variant="outline"

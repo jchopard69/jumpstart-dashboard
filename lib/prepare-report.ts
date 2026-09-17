@@ -1,10 +1,12 @@
+import { buildStrategicReading } from "./strategic-reading";
+import { normalizeReviewPost } from "./monthly-review";
+import { analyzeBestTime } from "./best-time";
 import { countCalendarDays } from "./date";
 import { computeEngagementRate } from "./metrics";
 import { computeJumpStartScore, type ScoreInput } from "./scoring";
 import { generateExecutiveSummary, type InsightsInput } from "./insights";
 import { buildPdfPostSummaries } from "./pdf-posts";
 import { computeDashboardDataQuality } from "./dashboard-data-quality";
-import { buildEditorialRoadmap } from "./editorial-roadmap";
 import type { PdfDocumentProps } from "./pdf-document";
 import type { Platform } from "./types";
 import type { fetchDashboardData, fetchDashboardAccounts } from "./queries";
@@ -110,11 +112,13 @@ export async function prepareReport({ data, accounts, tenantName, watermark, acc
     lastSync: data.lastSync,
   });
   const displayTopPosts = (await Promise.all(data.perPlatform.map(platform =>
-    buildPdfPostSummaries(data.posts.filter(post => post.platform === platform.platform), 5)
+    buildPdfPostSummaries(data.posts.filter(post => post.platform === platform.platform), data.posts.length)
   ))).flat();
 
   const documentProps: PdfDocumentProps = {
     tenantName,
+    strategicSignals: buildStrategicReading(data.posts.map(normalizeReviewPost)),
+    bestTimes: data.perPlatform.flatMap(p=>{const result=analyzeBestTime(data.posts,p.platform);return result?[result]:[];}),
     rangeLabel: `${data.range.start.toLocaleDateString("fr-FR")} - ${data.range.end.toLocaleDateString("fr-FR")}`,
     prevRangeLabel: `${data.prevRange.start.toLocaleDateString("fr-FR")} - ${data.prevRange.end.toLocaleDateString("fr-FR")}`,
     generatedAt: new Date().toLocaleString("fr-FR"),
@@ -144,7 +148,6 @@ export async function prepareReport({ data, accounts, tenantName, watermark, acc
     watermark,
     metrics: data.metrics,
     postsAnalyzed: data.posts.length,
-    editorialRoadmap: buildEditorialRoadmap(data.posts, dataQuality.overallCoverage),
   };
 
   return documentProps;

@@ -617,15 +617,16 @@ export async function fetchDashboardAccounts(params: {
 export function selectTopPosts<T extends {
   id?: string;
   external_post_id?: string | null;
+  social_account_id?: string | null;
   platform?: string | null;
   created_at?: string | null;
   metrics?: unknown;
   media_type?: string | null;
 }>(posts: T[], limit: number): T[] {
-  // Dedup by platform:external_post_id — keep the version with best metrics
+  // Match the database identity: the same external ID on two accounts is not a duplicate.
   const byKey = new Map<string, T>();
   for (const post of posts) {
-    const key = `${post.platform ?? ""}:${post.external_post_id ?? post.id ?? ""}`;
+    const key = `${post.platform ?? ""}:${post.social_account_id ?? ""}:${post.external_post_id ?? post.id ?? ""}`;
     const existing = byKey.get(key);
     if (!existing) {
       byKey.set(key, post);

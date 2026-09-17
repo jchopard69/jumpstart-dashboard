@@ -77,6 +77,13 @@ export function toUtcRange(range: { start: Date; end: Date }) {
 }
 
 export function buildPreviousRange(range: { start: Date; end: Date }) {
+  const completeMonth = range.start.getDate() === 1 && range.start.getMonth() === range.end.getMonth()
+    && range.start.getFullYear() === range.end.getFullYear()
+    && range.end.getDate() === new Date(range.end.getFullYear(), range.end.getMonth() + 1, 0).getDate();
+  if (completeMonth) return {
+    start: startOfDay(new Date(range.start.getFullYear(), range.start.getMonth() - 1, 1)),
+    end: endOfDay(new Date(range.start.getFullYear(), range.start.getMonth(), 0)),
+  };
   const diffDays = differenceInCalendarDays(range.end, range.start);
   const prevEnd = subDays(range.start, 1);
   const prevStart = subDays(prevEnd, diffDays);

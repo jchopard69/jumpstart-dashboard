@@ -2,14 +2,15 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 
-test("dashboard keeps the score and groups recommendations in a single editorial roadmap", () => {
+test("dashboard keeps the score and replaces generic plans with the monthly workspace", () => {
   const dashboard = readFileSync("app/(client)/client/dashboard/page.tsx", "utf8");
   const nav = readFileSync("components/dashboard/dashboard-section-nav.tsx", "utf8");
 
   assert.doesNotMatch(dashboard, /ActionPlanCard|ClientNextActionsCard|buildDashboardActionPlan|buildClientNextActions/);
   assert.doesNotMatch(dashboard, /dashboard-priorities/);
-  assert.match(dashboard, /<ScoreCard/);
-  assert.match(dashboard, /<EditorialRoadmap/);
+  assert.match(dashboard, /computeJumpStartScore/);
+  assert.doesNotMatch(dashboard, /<EditorialRoadmap/);
+  assert.match(dashboard, /<MonthlyWorkspace/);
   assert.doesNotMatch(dashboard, /<OpportunityCard|<PlatformDiagnosisCard/);
   assert.match(nav, /Prochaines semaines/);
   assert.doesNotMatch(nav, /Actions, opportunités, stratégie/);
@@ -31,14 +32,14 @@ test("pdf and csv exports stay focused on useful signals", () => {
   assert.doesNotMatch(csv, /Priorité V2|Brief automatisable|getAutomatableBrief|getV2Priority/);
 });
 
-test("Content DNA stays in the dashboard while both exports share report preparation", () => {
+test("publishing windows stay in the dashboard while both exports share report preparation", () => {
   const dashboard = readFileSync("app/(client)/client/dashboard/page.tsx", "utf8");
   const pdf = readFileSync("app/api/export/pdf/route.ts", "utf8");
   const scheduler = readFileSync("lib/report-scheduler.ts", "utf8");
   const preparation = readFileSync("lib/prepare-report.ts", "utf8");
 
-  assert.match(dashboard, /ContentDnaCard/);
-  assert.match(dashboard, /analyzeContentDna/);
+  assert.match(dashboard, /analyzeBestTime/);
+  assert.match(dashboard, /bestTimes/);
   assert.match(pdf, /prepareReport/);
   assert.match(scheduler, /prepareReport/);
   assert.doesNotMatch(preparation, /analyzeContentDna|buildPlatformDiagnosis|buildDashboardOpportunities/);

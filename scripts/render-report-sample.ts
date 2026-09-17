@@ -1,3 +1,5 @@
+import { buildStrategicReading } from "../lib/strategic-reading";
+import { normalizeReviewPost } from "../lib/monthly-review";
 import { mkdir, writeFile } from "node:fs/promises";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { PdfDocument, type PdfDocumentProps } from "../lib/pdf-document";
@@ -34,6 +36,7 @@ const currentTotals = sumTotals();
 const previousTotals = sumTotals(true);
 const sample: PdfDocumentProps = {
   tenantName: "Atelier Horizon — exemple fictif",
+  strategicSignals:buildStrategicReading(posts.map((p,i)=>normalizeReviewPost({...p,id:String(i),social_account_id:p.platform,posted_at:"2026-08-01T08:00:00Z"}))),
   rangeLabel: "01/08/2026 - 31/08/2026",
   prevRangeLabel: "01/07/2026 - 31/07/2026",
   generatedAt: "07/09/2026",
