@@ -38,6 +38,7 @@ export interface ConnectorSyncParams {
   tenantId: string;
   socialAccountId: string;
   externalAccountId: string;
+  postInsightsCheckedAt?: Record<string, number>;
   accessToken?: string | null | undefined;
   refreshToken?: string | null | undefined;
 }

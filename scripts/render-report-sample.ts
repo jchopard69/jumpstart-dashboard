@@ -53,6 +53,7 @@ const sample: PdfDocumentProps = {
   postsAnalyzed: posts.length,
   posts: [...posts].sort((a, b) => b.metrics.engagements / b.metrics.views - a.metrics.engagements / a.metrics.views).map(post => ({ platform: post.platform, date: post.date, caption: post.caption,
     visibility: { label: "Vues" as const, value: post.metrics.views }, engagements: post.metrics.engagements,
+    details: [{label:'Portée',value:Math.round(post.metrics.views * .7)},{label:'Spectateurs uniques',value:2400},{label:'J’aime',value:76},{label:'Commentaires',value:14},{label:'Partages',value:8},{label:'Enregistrements',value:12}],
     engagementRate: post.metrics.engagements / post.metrics.views * 100 })),
   metrics,
   shootDays: 2, shoots: [], documents: [],

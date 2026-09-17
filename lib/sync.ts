@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { mergeMetaPostMetrics } from "./social-platforms/meta/post-insights";
 import { coerceMetric } from "@/lib/metrics";
 import { decryptToken } from "@/lib/crypto";
 import { getConnector } from "@/lib/connectors";
@@ -94,12 +95,24 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
         ? decryptToken(account.refresh_token_encrypted, secret!)
         : null;
 
+      // Rotate insight reads across busy accounts instead of starving older posts.
+      const postInsightsCheckedAt: Record<string, number> = {};
+      if (account.platform === 'facebook' || account.platform === 'instagram') {
+        const { data: history, error: historyError } = await supabase.from('social_posts')
+          .select('external_post_id,metrics').eq('tenant_id', tenantId)
+          .eq('social_account_id', account.id).eq('platform', account.platform)
+          .gte('posted_at', new Date(Date.now() - 90 * 86400000).toISOString())
+          .order('posted_at', { ascending: false }).limit(1000);
+        if (historyError) throw new Error(`Post insight history unavailable: ${historyError.message}`);
+        for (const row of history ?? []) postInsightsCheckedAt[row.external_post_id] = Number((row.metrics as Record<string, unknown>)?._visibility_checked_at) || 0;
+      }
       const result = await connector.sync({
         tenantId,
         socialAccountId: account.id,
         externalAccountId: account.external_account_id,
         accessToken,
-        refreshToken
+        refreshToken,
+        postInsightsCheckedAt,
       });
 
       if (account.platform === "linkedin" && result.dailyMetrics.length) {
@@ -293,7 +306,9 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
               media_type: post.media_type ? String(post.media_type).slice(0, 50) : null,
               thumbnail_url: post.thumbnail_url ? String(post.thumbnail_url) : null,
               media_url: post.media_url ? String(post.media_url) : null,
-              metrics: {
+              metrics: account.platform === 'instagram' || account.platform === 'facebook'
+                ? mergeMetaPostMetrics(account.platform, incomingMetrics, existingMetrics)
+                : {
                 likes,
                 comments,
                 shares,

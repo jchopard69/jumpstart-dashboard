@@ -3,6 +3,8 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/s
 import { runTenantSync } from "@/lib/sync";
 import { isDemoTenant, logDemoAccess } from "@/lib/demo";
 
+export const maxDuration = 300;
+
 const COOLDOWN_MINUTES = 10;
 
 export async function POST(request: Request) {

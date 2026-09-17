@@ -57,7 +57,7 @@ type PostSummary = {
   thumbnailUrl?: string | null;
   url?: string | null;
   visibility: {
-    label: "Impressions" | "Vues" | "Portée";
+    label: "Impressions" | "Vues" | "Portée" | "Spectateurs uniques";
     value: number;
   };
   engagements: number | null;
@@ -235,7 +235,7 @@ function PostList({ posts, offset = 0 }: { posts: PostSummary[]; offset?: number
     {post.thumbnailUrl ? <Image style={styles.thumbnail} src={post.thumbnailUrl} /> : <View style={[styles.thumbnail,{backgroundColor:"#f3eff8",justifyContent:"center",padding:8}]}><Text style={styles.small}>Aperçu indisponible</Text></View>}
     <View style={{ flex: 1 }}><Text style={styles.kicker}>{offset + index + 1}. {clean(post.date)}</Text><Text style={styles.body}>{clean(post.caption.length > 420 ? post.caption.slice(0, 420) + "... (extrait)" : post.caption || "Publication sans légende")}</Text>
       <Text style={styles.small}>{post.visibility.value > 0 ? `${number(post.visibility.value)} ${post.visibility.label.toLowerCase()}` : "Visibilité non disponible"} · {number(post.engagements)} interactions · ratio {post.engagementRate == null || !Number.isFinite(post.engagementRate) ? "non disponible" : `${number(post.engagementRate, 1)}%`}</Text>
-      {!!post.details?.length && <Text style={[styles.small,{marginTop:5}]}>{post.details.map(item=>`${clean(item.label)} : ${number(item.value)}`).join(" · ")}</Text>}
+      {!!post.details?.length && <Text style={[styles.small,{marginTop:5}]}>{post.details.map(item=>`${clean(item.label)}\u00a0: \u00a0${number(item.value)}`).join(" · ")}</Text>}
       {safeUrl(post.url) && <Link style={styles.link} src={safeUrl(post.url)!}>Consulter la publication originale</Link>}
     </View>
   </View>)}</>;

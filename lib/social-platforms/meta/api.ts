@@ -2,6 +2,7 @@
  * Meta (Facebook + Instagram) API client for fetching analytics
  */
 
+import { collectPostInsights, prioritizePostInsights } from './post-insights';
 import { META_CONFIG } from './config';
 import { apiRequest, buildUrl } from '../core/api-client';
 import type { Connector, ConnectorSyncResult } from '@/lib/connectors/types';
@@ -9,8 +10,8 @@ import type { DailyMetric, PostMetric } from '../core/types';
 import type { DemographicEntry } from '@/lib/demographics-queries';
 
 const GRAPH_URL = META_CONFIG.graphUrl;
-const INSTAGRAM_POST_INSIGHTS_LIMIT = Number(process.env.INSTAGRAM_POST_INSIGHTS_LIMIT ?? 100);
-const FACEBOOK_POST_INSIGHTS_LIMIT = Number(process.env.FACEBOOK_POST_INSIGHTS_LIMIT ?? 40);
+const INSTAGRAM_POST_INSIGHTS_LIMIT = Number(process.env.INSTAGRAM_POST_INSIGHTS_LIMIT ?? 500);
+const FACEBOOK_POST_INSIGHTS_LIMIT = Number(process.env.FACEBOOK_POST_INSIGHTS_LIMIT ?? 500);
 const INSTAGRAM_POST_INSIGHTS_CONCURRENCY = Number(process.env.INSTAGRAM_POST_INSIGHTS_CONCURRENCY ?? 6);
 
 interface MetaInsightValue {
@@ -182,7 +183,7 @@ function mapInsightsToDaily(
 export const instagramConnector: Connector = {
   platform: 'instagram',
 
-  async sync({ externalAccountId, accessToken }) {
+  async sync({ externalAccountId, accessToken, postInsightsCheckedAt }) {
     if (!accessToken) {
       throw new Error('Missing Meta access token for Instagram');
     }
@@ -272,7 +273,7 @@ export const instagramConnector: Connector = {
       });
     }
 
-    // Fetch recent media with pagination (up to 100 posts)
+    // Fetch recent media with bounded pagination.
     const allMedia: MetaMediaItem[] = [];
     let nextMediaUrl: string | null = buildUrl(`${GRAPH_URL}/${externalAccountId}/media`, {
       fields: 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count',
@@ -280,9 +281,9 @@ export const instagramConnector: Connector = {
       access_token: accessToken,
     });
 
-    // Paginate to get more posts (max 2 pages = 100 posts)
+    // Read up to 500 recent posts, including high-volume monthly campaigns.
     let mediaPages = 0;
-    while (nextMediaUrl && mediaPages < 2) {
+    while (nextMediaUrl && mediaPages < 10) {
       const pageResponse: MetaMediaResponse = await apiRequest<MetaMediaResponse>(
         'instagram',
         nextMediaUrl,
@@ -294,142 +295,29 @@ export const instagramConnector: Connector = {
       }
       nextMediaUrl = pageResponse.paging?.next || null;
       mediaPages++;
+      const oldest = pageResponse.data?.at(-1)?.timestamp;
+      if (oldest && Date.parse(oldest) < Date.now() - 90 * 86400000) break;
     }
 
     console.log(`[instagram] Fetched ${allMedia.length} media items`);
 
-    // Fetch media insights with a batched request per media item for speed.
-    // Fallback to per-metric probes only when Meta rejects a metric for that media type.
-    const unsupportedMetricsByType = new Map<string, Set<string>>();
-
-    const fetchMediaMetric = async (mediaId: string, mediaType: string, metric: string) => {
-      const unsupported = unsupportedMetricsByType.get(mediaType) ?? new Set<string>();
-      if (unsupported.has(metric)) return null;
-
-      try {
-        const metricUrl = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
-          metric,
-          access_token: accessToken,
-        });
-        const response = await apiRequest<{ data?: Array<{ values?: Array<{ value?: number }> }> }>(
-          "instagram",
-          metricUrl,
-          {},
-          `media_insights_${metric}`,
-          true
-        );
-        const first = response.data?.[0] as
-          | { values?: Array<{ value?: number }>; total_value?: { value?: number }; value?: number }
-          | undefined;
-        const value = first?.values?.[0]?.value ?? first?.total_value?.value ?? first?.value;
-        return typeof value === "number" ? value : 0;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        const unsupportedMetric =
-          message.includes("valid insights metric") ||
-          message.includes("no longer supported") ||
-          message.includes("Invalid parameter") ||
-          message.includes("2108006");
-        if (unsupportedMetric) {
-          unsupported.add(metric);
-          unsupportedMetricsByType.set(mediaType, unsupported);
-        } else {
-          console.warn(`[instagram] media_insights_${metric} failed for ${mediaId} (${mediaType}): ${message.slice(0, 120)}`);
-        }
-        return null;
-      }
-    };
-
-    const metricsForMediaType = (mediaType: string): string[] => {
-      if (mediaType === "REEL" || mediaType === "VIDEO") {
-        return ["views", "reach", "total_interactions", "saved"];
-      }
-      if (mediaType === "STORY") {
-        return ["views", "reach", "total_interactions"];
-      }
-      // IMAGE / CAROUSEL / unknown
-      return ["reach", "total_interactions", "saved"];
-    };
-
-    const fetchMediaInsights = async (mediaId: string, mediaType?: string) => {
-      const normalized = (mediaType ?? "").toUpperCase();
-      const mediaTypeKey = normalized || "UNKNOWN";
-      const unsupported = unsupportedMetricsByType.get(mediaTypeKey) ?? new Set<string>();
-      const metricsToFetch = metricsForMediaType(mediaTypeKey).filter((metric) => !unsupported.has(metric));
-
-      const result = { impressions: 0, reach: 0, views: 0, engagements: 0 };
-      if (!metricsToFetch.length) return result;
-
-      try {
-        const batchUrl = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, {
-          metric: metricsToFetch.join(","),
-          access_token: accessToken,
-        });
-        const response = await apiRequest<{ data?: Array<{ name?: string; values?: Array<{ value?: number }> }> }>(
-          "instagram",
-          batchUrl,
-          {},
-          "media_insights",
-          true
-        );
-        for (const metricData of response.data ?? []) {
-          const richMetric = metricData as
-            | { name?: string; values?: Array<{ value?: number }>; total_value?: { value?: number }; value?: number }
-            | undefined;
-          const value = richMetric?.values?.[0]?.value ?? richMetric?.total_value?.value ?? richMetric?.value;
-          if (typeof value !== "number") continue;
-          switch (richMetric?.name) {
-            case "impressions":
-              result.impressions = value;
-              break;
-            case "reach":
-              result.reach = value;
-              break;
-            case "views":
-              result.views = value;
-              break;
-            case "total_interactions":
-              result.engagements = Math.max(result.engagements, value);
-              break;
-            case "saved":
-              result.engagements += value;
-              break;
-          }
-        }
-      } catch (err) {
-        // Probe per metric only when one of the requested metrics is unsupported.
-        // This avoids expensive per-metric traffic on the happy path.
-        const message = err instanceof Error ? err.message : String(err);
-        const unsupportedMetric =
-          message.includes("valid insights metric") ||
-          message.includes("no longer supported") ||
-          message.includes("Invalid parameter") ||
-          message.includes("2108006");
-        if (!unsupportedMetric) {
-          console.warn(`[instagram] media_insights failed for ${mediaId} (${mediaTypeKey}): ${message.slice(0, 120)}`);
-          return result;
-        }
-
-        const reach = await fetchMediaMetric(mediaId, mediaTypeKey, "reach");
-        const views = await fetchMediaMetric(mediaId, mediaTypeKey, "views");
-        const totalInteractions = await fetchMediaMetric(mediaId, mediaTypeKey, "total_interactions");
-        const saved = await fetchMediaMetric(mediaId, mediaTypeKey, "saved");
-
-        if (typeof reach === "number") result.reach = reach;
-        if (typeof views === "number") result.views = views;
-        if (typeof totalInteractions === "number") result.engagements = Math.max(result.engagements, totalInteractions);
-        if (typeof saved === "number") result.engagements += saved;
-      }
-
-      return result;
-    };
+    let insightRequests = 0;
+    const insightDeadline = Date.now() + 45_000;
+    const canReadInsights = () => insightRequests < 180 && Date.now() < insightDeadline;
+    const fetchMediaInsights = (mediaId: string, mediaType?: string) => collectPostInsights('instagram', async metrics => {
+      if (!canReadInsights()) throw new Error('Post insight collection budget reached');
+      insightRequests++;
+      const url = buildUrl(`${GRAPH_URL}/${mediaId}/insights`, { metric: metrics.join(','), access_token: accessToken });
+      return apiRequest('instagram', url, { timeout: 10000 }, `media_insights_${externalAccountId}`, true);
+    }, mediaType === 'STORY');
 
     const posts: PostMetric[] = [];
-    const mediaForInsights = allMedia.slice(0, Math.max(1, Math.min(INSTAGRAM_POST_INSIGHTS_LIMIT, allMedia.length)));
+    const mediaForInsights = prioritizePostInsights(allMedia, postInsightsCheckedAt).slice(0, Math.max(1, Math.min(INSTAGRAM_POST_INSIGHTS_LIMIT, allMedia.length)));
     console.log(`[instagram] Fetching post insights for ${mediaForInsights.length}/${allMedia.length} media`);
-    const insightsByMedia = new Map<string, { impressions: number; reach: number; views: number; engagements: number }>();
+    const insightsByMedia = new Map<string, Record<string, number>>();
 
     for (let i = 0; i < mediaForInsights.length; i += Math.max(1, INSTAGRAM_POST_INSIGHTS_CONCURRENCY)) {
+      if (!canReadInsights()) break;
       const chunk = mediaForInsights.slice(i, i + Math.max(1, INSTAGRAM_POST_INSIGHTS_CONCURRENCY));
       const chunkResults = await Promise.all(
         chunk.map(async (item) => ({
@@ -441,7 +329,7 @@ export const instagramConnector: Connector = {
         }))
       );
       for (const result of chunkResults) {
-        insightsByMedia.set(result.id, result.insights);
+        insightsByMedia.set(result.id, { ...result.insights, _visibility_checked_at: Date.now() });
       }
     }
 
@@ -457,19 +345,15 @@ export const instagramConnector: Connector = {
       const insights = insightsByMedia.get(item.id);
 
       const baseEngagements = likes + comments;
-      // Use API engagements if our base count is 0 (some posts hide like_count)
-      const engagements = baseEngagements > 0 ? baseEngagements : Math.max(baseEngagements, insights?.engagements ?? 0);
+      // The API total already includes saves and shares.
+      const engagements = insights?.engagements ?? (baseEngagements + (insights?.saves ?? 0) + (insights?.shares ?? 0));
 
       const metrics: Record<string, number> = {
         likes,
         comments,
         engagements,
       };
-      if (insights) {
-        metrics.impressions = insights.impressions;
-        metrics.reach = insights.reach;
-        metrics.views = insights.views;
-      }
+      if (insights) Object.assign(metrics, insights);
 
       posts.push({
         external_post_id: item.id,
@@ -503,8 +387,6 @@ export const instagramConnector: Connector = {
         entry.engagements =
           (entry.engagements ?? 0) +
           ((post.metrics?.likes ?? 0) + (post.metrics?.comments ?? 0));
-        const views = post.metrics?.views ?? 0;
-        entry.views = (entry.views ?? 0) + views;
         entry.followers = entry.followers ?? accountInfo.followers_count ?? 0;
         dailyMap.set(date, entry);
       }
@@ -522,7 +404,7 @@ export const instagramConnector: Connector = {
 export const facebookConnector: Connector = {
   platform: 'facebook',
 
-  async sync({ externalAccountId, accessToken }) {
+  async sync({ externalAccountId, accessToken, postInsightsCheckedAt }) {
     if (!accessToken) {
       throw new Error('Missing Meta access token for Facebook');
     }
@@ -635,9 +517,9 @@ export const facebookConnector: Connector = {
 
     let nextPostsUrl: string | null = buildPostsUrl();
 
-    // Paginate to get more posts (max 2 pages = 100 posts)
+    // Read up to 500 recent posts, including high-volume monthly campaigns.
     let postPages = 0;
-    while (nextPostsUrl && postPages < 2) {
+    while (nextPostsUrl && postPages < 10) {
       const fbPageResponse: MetaPostsResponse = await apiRequest<MetaPostsResponse>(
         'facebook',
         nextPostsUrl,
@@ -649,145 +531,39 @@ export const facebookConnector: Connector = {
       }
       nextPostsUrl = fbPageResponse.paging?.next || null;
       postPages++;
+      const oldest = fbPageResponse.data?.at(-1)?.created_time;
+      if (oldest && Date.parse(oldest) < Date.now() - 90 * 86400000) break;
     }
 
     console.log(`[facebook] Fetched ${allFbPosts.length} posts`);
 
-    // Try to fetch post-level insights via batch API.
-    // Some pages/posts no longer expose post_impressions*; probe alternatives.
-    const fetchPostInsights = async (postIds: string[]) => {
-      const result = new Map<string, { impressions: number; reach: number; views: number }>();
-      if (!postIds.length) return result;
-
-      const parseInsightValue = (value: unknown): number => {
-        if (typeof value === "number") return value;
-        if (value && typeof value === "object") {
-          return Object.values(value as Record<string, unknown>).reduce((sum: number, entry) => {
-            return sum + (typeof entry === "number" ? entry : 0);
-          }, 0);
-        }
-        return 0;
-      };
-
-      type MetricSpec = {
-        metric: string;
-        target: "impressions" | "reach" | "views";
-      };
-      const metricSpecs: MetricSpec[] = [
-        { metric: "post_impressions", target: "impressions" },
-        { metric: "post_impressions_unique", target: "reach" },
-        { metric: "post_media_view", target: "views" },
-        { metric: "post_total_media_view_unique", target: "reach" },
-      ];
-      const versions = [META_CONFIG.apiVersion, "v25.0", "v24.0", "v23.0", "v21.0"]
-        .filter(Boolean)
-        .filter((value, index, arr) => arr.indexOf(value) === index);
-
-      // Probe: use single-metric endpoint per Meta docs
-      const testPostId = postIds[0];
-      const supported: Array<MetricSpec & { version: string }> = [];
-      for (const spec of metricSpecs) {
-        let accepted = false;
-        for (const version of versions) {
-          try {
-            const versionUrl = `https://graph.facebook.com/${version}`;
-            const testUrl = buildUrl(`${versionUrl}/${testPostId}/insights/${spec.metric}`, {
-              period: "lifetime",
-              access_token: accessToken,
-            });
-            await apiRequest<{ data?: unknown[] }>(
-              "facebook", testUrl, {}, "post_insights_probe", true
-            );
-            supported.push({ ...spec, version });
-            accepted = true;
-            break;
-          } catch (probeErr) {
-            const msg = probeErr instanceof Error ? probeErr.message : String(probeErr);
-            if (msg.includes("valid insights metric")) {
-              continue;
-            }
-            if (msg.includes("Permissions error")) {
-              console.warn(`[facebook] Post insights probe failed (permissions) for ${spec.metric}: ${msg.slice(0, 120)}`);
-              return result;
-            }
-            console.warn(`[facebook] Post insights probe failed for ${spec.metric}: ${msg.slice(0, 120)}`);
-          }
-        }
-        if (!accepted) {
-          console.warn(`[facebook] Post insights metric unavailable: ${spec.metric}`);
-        }
-      }
-
-      if (!supported.length) {
-        console.warn("[facebook] No valid post insights metrics available for this page.");
-        return result;
-      }
-
-      // Batch endpoints are inconsistent for post insights on some pages.
-      // Use direct metric calls with bounded concurrency for reliability.
-      const POST_CONCURRENCY = 8;
-      for (let i = 0; i < postIds.length; i += POST_CONCURRENCY) {
-        const chunk = postIds.slice(i, i + POST_CONCURRENCY);
-        await Promise.all(
-          chunk.map(async (postId) => {
-            const existing = result.get(postId) ?? { impressions: 0, reach: 0, views: 0 };
-            for (const spec of supported) {
-              try {
-                const versionUrl = `https://graph.facebook.com/${spec.version}`;
-                const metricUrl = buildUrl(`${versionUrl}/${postId}/insights/${spec.metric}`, {
-                  period: "lifetime",
-                  access_token: accessToken,
-                });
-                const response = await apiRequest<{ data?: Array<{ values?: Array<{ value?: unknown }> }> }>(
-                  "facebook",
-                  metricUrl,
-                  {},
-                  `post_insights_${spec.metric}`,
-                  true
-                );
-                const value = response?.data?.[0]?.values?.[0]?.value;
-                const parsedValue = parseInsightValue(value);
-                if (spec.target === "impressions") {
-                  if (existing.impressions === 0 && parsedValue > 0) {
-                    existing.impressions = parsedValue;
-                  }
-                } else if (spec.target === "reach") {
-                  if (existing.reach === 0 && parsedValue > 0) {
-                    existing.reach = parsedValue;
-                  }
-                } else {
-                  if (existing.views === 0 && parsedValue > 0) {
-                    existing.views = parsedValue;
-                  }
-                }
-              } catch {
-                // Keep best effort behavior: one metric failure should not discard the post.
-              }
-            }
-            result.set(postId, existing);
-          })
-        );
-      }
-
-      return result;
-    };
-
-    const postsForInsights = allFbPosts.slice(0, Math.max(1, FACEBOOK_POST_INSIGHTS_LIMIT));
-    const postInsightsById = await fetchPostInsights(postsForInsights.map((post: any) => post.id));
-    const postsWithInsights = Array.from(postInsightsById.values()).filter(v => v.reach > 0 || v.impressions > 0);
-    console.log(`[facebook] Post insights: ${postInsightsById.size} fetched, ${postsWithInsights.length} with reach/impressions data`);
+    const postInsightsById = new Map<string, Record<string, number>>();
+    let insightRequests = 0;
+    const insightDeadline = Date.now() + 45_000;
+    const canReadInsights = () => insightRequests < 180 && Date.now() < insightDeadline;
+    const postsForInsights = prioritizePostInsights(allFbPosts, postInsightsCheckedAt).slice(0, Math.max(1, FACEBOOK_POST_INSIGHTS_LIMIT));
+    for (let i = 0; i < postsForInsights.length; i += 6) {
+      if (!canReadInsights()) break;
+      await Promise.all(postsForInsights.slice(i, i + 6).map(async post => {
+        const metrics = await collectPostInsights('facebook', async names => {
+          if (!canReadInsights()) throw new Error('Post insight collection budget reached');
+          insightRequests++;
+          const url = buildUrl(`${GRAPH_URL}/${post.id}/insights`, {
+            metric: names.join(','), period: 'lifetime', access_token: accessToken,
+          });
+          return apiRequest('facebook', url, { timeout: 10000 }, `post_insights_${externalAccountId}`, true);
+        });
+        postInsightsById.set(post.id, { ...metrics, _visibility_checked_at: Date.now() });
+      }));
+    }
+    const measured = [...postInsightsById.values()].filter(row => row.views !== undefined || row.viewers !== undefined).length;
+    console.log(`[facebook] Post visibility: ${measured}/${postsForInsights.length} measured`);
 
     const posts: PostMetric[] = allFbPosts.map((post: any) => {
       const reactions = post.reactions?.summary?.total_count ?? 0;
       const comments = post.comments?.summary?.total_count ?? 0;
       const shares = post.shares?.count ?? 0;
-      const insights = postInsightsById.get(post.id) ?? { impressions: 0, reach: 0, views: 0 };
-      const bestImpressions = (insights.impressions ?? 0) > 0
-        ? (insights.impressions ?? 0)
-        : (insights.views ?? 0);
-      const bestReach = (insights.reach ?? 0) > 0
-        ? (insights.reach ?? 0)
-        : (insights.views ?? 0);
+      const insights = postInsightsById.get(post.id) ?? {};
 
       return {
         external_post_id: post.id,
@@ -801,10 +577,7 @@ export const facebookConnector: Connector = {
           likes: reactions,
           comments: comments,
           shares: shares,
-          impressions: bestImpressions,
-          reach: bestReach,
-          views: insights.views,
-          media_views: bestImpressions,
+          ...insights,
           engagements: reactions + comments + shares,
         },
         raw_json: post as unknown as Record<string, unknown>,

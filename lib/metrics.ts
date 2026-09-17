@@ -104,8 +104,9 @@ export function getPostEngagements(metrics: MetricRecord): number {
 
 export function getPostVisibility(
   metrics: MetricRecord,
-  mediaType?: unknown
-): { label: "Impressions" | "Vues" | "Portée"; value: number } {
+  mediaType?: unknown,
+  platform?: string | null
+): { label: "Impressions" | "Vues" | "Portée" | "Spectateurs uniques"; value: number } {
   const normalized = normalizeMetricRecord(metrics);
   if (typeof normalized === "string") {
     return { label: "Impressions", value: coerceMetric(normalized) };
@@ -116,11 +117,34 @@ export function getPostVisibility(
   };
   const impressions = positive(["impressions","impression_count"]);
   const views = positive(["views","view_count","media_views","plays","play_count","video_views","video_view_count"]);
-  if (isReelMediaType(mediaType) && views > 0) {
+  if ((isReelMediaType(mediaType) || platform === 'facebook' || platform === 'instagram') && views > 0) {
     return { label: "Vues", value: views };
   }
   if (impressions > 0) return { label: "Impressions", value: impressions };
   if (views > 0) return { label: "Vues", value: views };
   const reach = positive(["reach","reach_count"]);
-  return { label: "Portée", value: reach };
+  if (reach > 0) return { label: "Portée", value: reach };
+  const viewers = positive(['viewers']);
+  if (viewers > 0) return { label: "Spectateurs uniques", value: viewers };
+  return { label: "Portée", value: 0 };
+}
+
+export type PostVisibilityDetail = { label: string; value: number; collectedAt?: number };
+export function getPostVisibilityDetails(metrics: MetricRecord): PostVisibilityDetail[] {
+  const values = normalizeMetricRecord(metrics);
+  if (!values || typeof values !== 'object') return [];
+  return [
+    { label: 'Vues', keys: ['views','view_count','media_views','plays','play_count','video_views','video_view_count'] },
+    { label: 'Portée', keys: ['reach','reach_count'] },
+    { label: 'Impressions', keys: ['impressions','impression_count'] },
+    { label: 'Spectateurs uniques', keys: ['viewers'] },
+  ].flatMap(({label, keys}) => {
+    for (const key of keys) {
+      const value = values[key];
+      const collectedAt = typeof values[`_${key}_collected_at`] === 'number' ? values[`_${key}_collected_at`] as number : undefined;
+      // Legacy storage generated zeros for absent metrics. Only dated API zeros are trusted.
+      if (typeof value === 'number' && Number.isFinite(value) && (value > 0 || (value === 0 && collectedAt && label !== 'Portée'))) return [{label, value, collectedAt}];
+    }
+    return [];
+  });
 }
