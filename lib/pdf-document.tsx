@@ -219,7 +219,7 @@ function PostList({ posts, offset = 0 }: { posts: PostSummary[]; offset?: number
     {/* eslint-disable-next-line jsx-a11y/alt-text */}
     {post.thumbnailUrl ? <Image style={styles.thumbnail} src={post.thumbnailUrl} /> : null}
     <View style={{ flex: 1 }}><Text style={styles.kicker}>{offset + index + 1}. {clean(post.date)}</Text><Text style={styles.body}>{clean(post.caption.length > 420 ? post.caption.slice(0, 420) + "... (extrait)" : post.caption || "Publication sans légende")}</Text>
-      <Text style={styles.small}>{number(post.visibility.value)} {post.visibility.label.toLowerCase()} · {number(post.engagements)} interactions · ratio {number(post.engagementRate, 1)}%</Text>
+      <Text style={styles.small}>{number(post.visibility.value)} {post.visibility.label.toLowerCase()} · {number(post.engagements)} interactions · ratio {post.engagementRate == null || !Number.isFinite(post.engagementRate) ? "non disponible" : `${number(post.engagementRate, 1)}%`}</Text>
       {safeUrl(post.url) && <Link style={styles.link} src={safeUrl(post.url)!}>Consulter la publication originale</Link>}
     </View>
   </View>)}</>;
@@ -284,7 +284,7 @@ export function PdfDocument(props: PdfDocumentProps) {
       <Text style={styles.h3}>Score JumpStart</Text><Text style={styles.body}>Barème interne v1 : croissance 25%, portée 25%, engagement 25%, régularité 15%, momentum 10%. Références internes : cadence de 12 publications par mois, croissance de 3% sur la période, ratio d'interactions de 3% correspondant à 70/100. Certaines données absentes sont neutralisées, d'autres peuvent pénaliser le score. Comparez le score à durée, périmètre et couverture similaires.</Text>
       {props.score?.subScores.map(sub => <Text key={sub.label} style={styles.small}>{clean(sub.label)} : {number(sub.value)} / 100</Text>)}
       <Text style={styles.h2}>État de la collecte</Text>
-      {props.dataQuality?.platformQuality.map(item => <Text key={item.platform} style={styles.body}>{platformName(item.platform)} : {item.coverage}% de couverture sur {item.accounts} compte(s). {item.missingMetrics.length ? `Métriques à contrôler : ${item.missingMetrics.join(", ")}.` : ""}</Text>)}
+      {props.dataQuality?.platformQuality.map(item => <Text key={item.platform} style={styles.body}>{platformName(item.platform)} : {item.coverage}% de couverture sur {item.accounts} compte(s). {item.missingMetrics.length ? `Métriques à contrôler : ${item.missingMetrics.map(metric => ({ views: "vues", reach: "portée", engagements: "interactions" }[metric])).join(", ")}.` : ""}</Text>)}
       <Text style={styles.small}>{props.dataQuality?.staleSync ? "La dernière synchronisation est ancienne, absente ou n'a pas abouti. Vérifier la collecte avant de conclure." : "La date d'édition du rapport n'est pas la date de collecte de chaque métrique."}</Text>
       {props.dataQuality?.actions.map(action => <Text key={action} style={[styles.small, { marginTop: 6 }]}>{clean(action)}</Text>)}
     </ReportPage>

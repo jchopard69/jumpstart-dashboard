@@ -143,7 +143,7 @@ export default async function ClientLayout({ children }: { children: React.React
                       <TenantSwitcher tenants={tenants} currentTenantId={currentTenantId} />
                     )}
                     {isAdmin && clientsData.length > 0 && (
-                      <ClientSwitcher clients={clientsData} />
+                      <ClientSwitcher clients={clientsData} compact />
                     )}
                     <span className="rounded-full border border-primary/15 bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
                       Client
