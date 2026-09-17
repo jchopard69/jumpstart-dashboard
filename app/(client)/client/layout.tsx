@@ -130,7 +130,7 @@ export default async function ClientLayout({ children }: { children: React.React
               </div>
             </aside>
 
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               {/* Mobile Header */}
               <header className="sticky top-0 z-30 border-b border-border/70 bg-white/80 backdrop-blur xl:hidden">
                 <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
