@@ -15,7 +15,6 @@ test("moment highlights detect standout days and attach same-day content", () =>
         id: "post-1",
         platform: "instagram",
         media_type: "reel",
-        thumbnail_url: null,
         caption: "Coulisses du lancement de la campagne avec l'equipe terrain",
         posted_at: "2026-05-03T08:30:00.000Z",
         url: "https://example.com/post-1",

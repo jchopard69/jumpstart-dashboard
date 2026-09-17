@@ -36,9 +36,9 @@ export function BestTimeHeatmap({ data }: BestTimeHeatmapProps) {
             </svg>
           </div>
           <div>
-            <h2 className="section-title">Meilleur moment pour publier</h2>
+            <h2 className="section-title">Horaires observés · UTC</h2>
             <p className="text-xs text-muted-foreground">
-              Basé sur {data.totalPostsAnalyzed} publications
+              {data.totalPostsAnalyzed} publications · signal exploratoire
               {data.platforms.length > 0 && (
                 <span> · {data.platforms.map(p => PLATFORM_LABELS[p as Platform] ?? p).join(", ")}</span>
               )}

@@ -1,3 +1,6 @@
+import { EditorialRoadmap } from "@/components/dashboard/editorial-roadmap";
+import { buildEditorialRoadmap } from "@/lib/editorial-roadmap";
+import { countCalendarDays } from "@/lib/date";
 import type { Metadata } from "next";
 import { getSessionProfile, getUserTenants } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -27,8 +30,6 @@ import { ScoreTrend } from "@/components/dashboard/score-trend";
 import { BestTimeHeatmap } from "@/components/dashboard/best-time-heatmap";
 import { StrategyDashboardCard } from "@/components/strategy/strategy-dashboard-card";
 import { DataQualityCard } from "@/components/dashboard/data-quality-card";
-import { OpportunityCard } from "@/components/dashboard/opportunity-card";
-import { PlatformDiagnosisCard } from "@/components/dashboard/platform-diagnosis-card";
 import { PlatformMixCard } from "@/components/dashboard/platform-mix-card";
 import { PlatformBreakdownCard } from "@/components/dashboard/platform-breakdown-card";
 import { MomentHighlightsCard } from "@/components/dashboard/moment-highlights-card";
@@ -39,8 +40,6 @@ import { toIsoDate } from "@/lib/date";
 import { cookies } from "next/headers";
 import { fetchClientStrategySnapshot } from "@/lib/client-strategy";
 import { computeDashboardDataQuality } from "@/lib/dashboard-data-quality";
-import { buildDashboardOpportunities } from "@/lib/dashboard-opportunities";
-import { buildPlatformDiagnosis } from "@/lib/platform-diagnosis";
 import { buildPlatformMix } from "@/lib/platform-mix";
 import { buildMomentHighlights } from "@/lib/moment-highlights";
 
@@ -273,31 +272,13 @@ export default async function ClientDashboardPage({
 
   // Compute JumpStart Score
   const periodDays = data.range
-    ? Math.max(1, Math.round((data.range.end.getTime() - data.range.start.getTime()) / msDay))
+    ? countCalendarDays(data.range)
     : 30;
 
-  const prevTotals = (data.prevMetrics ?? []).reduce(
-    (acc, row) => {
-      acc.views += row.views ?? 0;
-      acc.reach += row.reach ?? 0;
-      acc.engagements += row.engagements ?? 0;
-      return acc;
-    },
-    { followers: 0, views: 0, reach: 0, engagements: 0, postsCount: 0 }
-  );
-  // Compute prevFollowers directly from prevMetrics (latest per account)
-  const prevFollowersMap = new Map<string, { date: string; followers: number }>();
-  for (const row of data.prevMetrics ?? []) {
-    if (!row.social_account_id || !row.date) continue;
-    const existing = prevFollowersMap.get(row.social_account_id);
-    if (!existing || row.date > existing.date) {
-      prevFollowersMap.set(row.social_account_id, { date: row.date, followers: row.followers ?? 0 });
-    }
-  }
-  let prevFollowers = 0;
-  for (const entry of prevFollowersMap.values()) prevFollowers += entry.followers;
-  if (prevFollowers === 0) prevFollowers = data.totals?.followers ?? 0;
-  prevTotals.followers = prevFollowers;
+  const prevTotals = {
+    ...data.prevTotals,
+    postsCount: data.prevTotals.posts_count,
+  };
 
   const scoreInput: ScoreInput = {
     followers: data.totals?.followers ?? 0,
@@ -379,20 +360,13 @@ export default async function ClientDashboardPage({
   const bestTimeData = analyzeBestTime(data.posts, searchParams.platform);
   const dataQuality = computeDashboardDataQuality({
     range: data.range,
-    accounts,
+    accounts: accounts.filter(account => data.perPlatform.some(item => item.platform === account.platform) &&
+      (!searchParams.accountId || searchParams.accountId === "all" || account.id === searchParams.accountId)),
     metrics: data.metrics,
     perPlatform: data.perPlatform,
     lastSync: data.lastSync,
   });
-  const opportunities = buildDashboardOpportunities(data.posts.map((post) => ({
-    platform: post.platform,
-    media_type: (post as any).media_type,
-    caption: post.caption,
-    posted_at: post.posted_at,
-    metrics: post.metrics,
-    url: post.url,
-  })));
-  const platformDiagnosis = buildPlatformDiagnosis(data.perPlatform);
+  const experiments = buildEditorialRoadmap(data.posts, dataQuality.overallCoverage);
   const platformMix = buildPlatformMix(data.perPlatform);
   const momentHighlights = buildMomentHighlights({ metrics: data.metrics, posts: data.posts });
 
@@ -403,7 +377,7 @@ export default async function ClientDashboardPage({
 
   if (showEmptyState) {
     return (
-      <div className="space-y-8 fade-in">
+      <div className="report-workspace space-y-8 fade-in">
         <section className="surface-panel jumpstart-header p-8">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
@@ -499,23 +473,10 @@ export default async function ClientDashboardPage({
   })();
 
   // Build comparison label (previous equivalent period)
-  const comparisonLabel = (() => {
-    const labels: Record<string, string> = {
-      last_7_days: "les 7 jours précédents",
-      last_30_days: "les 30 jours précédents",
-      last_90_days: "les 90 jours précédents",
-      last_365_days: "les 12 mois précédents",
-      this_month: "le mois précédent",
-      last_month: "le mois d'avant",
-    };
-    if (preset === "custom" && data.range) {
-      return "la période précédente équivalente";
-    }
-    return labels[preset] ?? "la période précédente";
-  })();
+  const comparisonLabel = `${data.prevRange.start.toLocaleDateString("fr-FR")} - ${data.prevRange.end.toLocaleDateString("fr-FR")}`;
 
   return (
-    <div className="space-y-10 fade-in">
+    <div className="report-workspace space-y-10 fade-in">
       {/* ─── Header + Filters ─── */}
       <section className="dashboard-command-center jumpstart-header p-6 sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4 sm:gap-6">
@@ -587,7 +548,7 @@ export default async function ClientDashboardPage({
               <p className="text-sm font-medium text-amber-800">Données d&apos;insights manquantes</p>
               <p className="text-xs text-amber-700 mt-1 leading-relaxed">
                 Le compte est connecté mais les métriques de portée, vues et engagements ne sont pas disponibles.
-                Essayez de reconnecter le compte dans les paramètres admin.
+                Consultez le détail de collecte et le dernier statut de synchronisation avant de relancer la connexion.
               </p>
             </div>
           </div>
@@ -595,7 +556,16 @@ export default async function ClientDashboardPage({
       )}
 
       {/* ─── Score + KPIs ─── */}
-      <ScoreCard
+      {(dataQuality.overallCoverage < 80 || dataQuality.staleSync) && (
+        <section aria-label="Limites des données de la période" className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <h2 className="text-sm font-semibold text-amber-950">Résultats à interpréter avec précaution</h2>
+          <p className="mt-1 text-sm leading-relaxed text-amber-900">
+            {dataQuality.overallCoverage < 80 ? `La couverture des relevés est de ${Math.round(dataQuality.overallCoverage)} %. Les évolutions peuvent refléter des données manquantes.` : "La dernière collecte est ancienne, absente ou n’a pas abouti."}
+            {" "}Vérifiez la collecte avant de modifier votre stratégie éditoriale.
+          </p>
+        </section>
+      )}
+      {data.metrics.length > 0 && <ScoreCard
         score={jumpStartScore}
         takeaways={keyTakeaways}
         executiveSummary={executiveSummary}
@@ -603,21 +573,13 @@ export default async function ClientDashboardPage({
           return dataQuality.platformQuality.length > 0 ? dataQuality.overallCoverage : null;
         })()}
         postsAnalyzed={data.posts.length}
-      />
-
-      <section id="dashboard-opportunities" className="scroll-mt-6 space-y-6">
-        <OpportunityCard opportunities={opportunities} />
-
-        <StrategyDashboardCard
-          snapshot={strategySnapshot}
-          tenantId={profile.role === "agency_admin" ? effectiveTenantId : undefined}
-        />
-      </section>
+      />}
 
       <section id="dashboard-kpis" className="scroll-mt-6">
         <KpiSection
           totals={data.totals}
           delta={data.delta}
+          previousTotals={data.prevTotals}
           goals={goals}
           metrics={data.metrics}
           comparisonLabel={comparisonLabel}
@@ -627,7 +589,7 @@ export default async function ClientDashboardPage({
         />
       </section>
 
-      <PlatformDiagnosisCard diagnosis={platformDiagnosis} />
+      <PlatformBreakdownCard platforms={data.perPlatform} />
 
       {/* ─── Strategic Analysis ─── */}
       <div className="section-divider" />
@@ -637,26 +599,26 @@ export default async function ClientDashboardPage({
           <div>
             <p className="section-label">Intelligence créative</p>
             <h2 className="mt-1 text-xl font-semibold tracking-normal text-foreground font-display">
-              Ce qui explique vraiment la période
+              Ce que les résultats nous apprennent
             </h2>
           </div>
           <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-            Les insights et Content DNA sont regroupés pour lire à la fois la performance business et les patterns éditoriaux qui la créent.
+            Les constats observés sur la période, à distinguer des hypothèses créatives à tester.
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <InsightCard insights={strategicInsights.map(i => ({
+        <div className="space-y-5">
+        <InsightCard insights={strategicInsights.slice(0, 3).map(i => ({
           type: i.type as any,
           title: i.title,
           description: i.description,
         }))} />
-        <ContentDnaCard dna={contentDna} />
+        <details className="dashboard-detail"><summary>Explorer les signaux créatifs</summary><div className="pt-5"><ContentDnaCard dna={contentDna} /></div></details>
         </div>
-        <MomentHighlightsCard highlights={momentHighlights} />
+        <details className="dashboard-detail"><summary>Examiner les moments forts de la période</summary><div className="pt-5"><MomentHighlightsCard highlights={momentHighlights} /></div></details>
       </section>
 
       {/* ─── Score Trend ─── */}
-      <ScoreTrend history={scoreHistory} />
+
 
       {/* ─── Trends ─── */}
       <div className="section-divider" />
@@ -675,20 +637,22 @@ export default async function ClientDashboardPage({
       {/* ─── Content Strategy: Top Posts + Best Time ─── */}
       <div className="section-divider" />
 
-      <div id="dashboard-content" className="grid scroll-mt-6 grid-cols-1 gap-6 lg:grid-cols-2">
+      <div id="dashboard-content" className="scroll-mt-6 space-y-6">
         <TopPosts posts={data.posts} />
-        {bestTimeData && <BestTimeHeatmap data={bestTimeData} />}
+        {bestTimeData && <details className="dashboard-detail"><summary>Explorer les horaires de publication</summary><div className="pt-5"><BestTimeHeatmap data={bestTimeData} /></div></details>}
       </div>
 
-      <section id="dashboard-platforms" className="scroll-mt-6 space-y-6">
-        <PlatformBreakdownCard platforms={data.perPlatform} />
-        <PlatformMixCard mix={platformMix} />
-      </section>
+      <EditorialRoadmap experiments={experiments} />
+
+      <details className="dashboard-detail"><summary>Objectifs et stratégie du client</summary><div className="pt-5">
+        <StrategyDashboardCard snapshot={strategySnapshot} tenantId={profile.role === "agency_admin" ? effectiveTenantId : undefined} />
+      </div></details>
 
       {/* ─── Operations ─── */}
       <div className="section-divider" />
 
-      <div id="dashboard-operations" className="grid scroll-mt-6 grid-cols-1 gap-6 lg:grid-cols-2">
+      <details id="dashboard-operations" className="dashboard-detail"><summary>Qualité des données et suivi de la collaboration</summary>
+      <div className="grid gap-6 pt-5 lg:grid-cols-2">
         <div className="space-y-6">
           <DataQualityCard quality={dataQuality} />
           <SyncStatus lastSync={data.lastSync} range={data.range} metrics={data.metrics} />
@@ -708,12 +672,19 @@ export default async function ClientDashboardPage({
         />
       </div>
 
+      </details>
+
+      <details className="dashboard-detail"><summary>Données quotidiennes et historique du score</summary><div className="space-y-6 pt-5">
+      <p className="text-xs text-muted-foreground">L’historique du score correspond aux relevés enregistrés ; il ne se recalcule pas avec les filtres de cette page.</p>
+      <ScoreTrend history={scoreHistory} />
+      <PlatformMixCard mix={platformMix} />
       <DailyMetricsTable
         metrics={aggregatedMetricsArray}
         showViews={showViews}
         showReach={showReach}
         showEngagements={showEngagements}
       />
+      </div></details>
     </div>
   );
 }

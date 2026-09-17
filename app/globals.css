@@ -502,3 +502,13 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Reporting: one visual hierarchy, quiet surfaces, details on demand. */
+.report-workspace .card-surface { box-shadow: none; border-color: hsl(var(--border)); }
+.report-workspace .card-surface:hover { box-shadow: none; }
+.report-workspace .dashboard-command-center { background: white; box-shadow: none; border-color: hsl(var(--border)); }
+.report-workspace .dashboard-detail { border-top: 1px solid hsl(var(--border)); padding: 1rem 0; }
+.report-workspace .dashboard-detail > summary { cursor: pointer; font-size: .875rem; font-weight: 500; color: hsl(var(--muted-foreground)); }
+.report-workspace .dashboard-detail > summary:hover { color: hsl(var(--primary)); }
+.report-workspace .dashboard-detail > summary:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 5px; }
+.jumpstart-canvas { background: #f7f7fa; }

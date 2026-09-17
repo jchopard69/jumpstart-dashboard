@@ -6,15 +6,11 @@ test("buildPlatformMix ranks channels by visibility and engagement contribution"
   const mix = buildPlatformMix([
     {
       platform: "instagram",
-      available: { views: true, reach: true, engagements: true },
       totals: { followers: 1000, views: 5000, reach: 3000, engagements: 600, posts_count: 8 },
-      delta: { followers: 0, views: 0, reach: 0, engagements: 0, posts_count: 0 },
     },
     {
       platform: "tiktok",
-      available: { views: true, reach: false, engagements: true },
       totals: { followers: 500, views: 1000, reach: 0, engagements: 50, posts_count: 4 },
-      delta: { followers: 0, views: 0, reach: 0, engagements: 0, posts_count: 0 },
     },
   ]);
 
@@ -33,15 +29,11 @@ test("buildPlatformMix labels balanced channel mixes", () => {
   const mix = buildPlatformMix([
     {
       platform: "instagram",
-      available: { views: true, reach: true, engagements: true },
       totals: { followers: 1000, views: 1000, reach: 900, engagements: 100, posts_count: 2 },
-      delta: { followers: 0, views: 0, reach: 0, engagements: 0, posts_count: 0 },
     },
     {
       platform: "linkedin",
-      available: { views: true, reach: true, engagements: true },
       totals: { followers: 900, views: 1000, reach: 900, engagements: 100, posts_count: 2 },
-      delta: { followers: 0, views: 0, reach: 0, engagements: 0, posts_count: 0 },
     },
   ]);
 

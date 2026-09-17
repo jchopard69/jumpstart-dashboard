@@ -1,3 +1,4 @@
+import { buildDailySeries } from "@/lib/daily-series";
 import { KpiCard } from "./kpi-card";
 import { computeEngagementRate } from "@/lib/metrics";
 import type { DashboardTotals, DashboardDelta, DashboardMetric } from "@/lib/types/dashboard";
@@ -6,6 +7,7 @@ import type { TenantGoals } from "@/lib/goals";
 type KpiSectionProps = {
   totals: DashboardTotals | null;
   delta: DashboardDelta;
+  previousTotals?: DashboardTotals;
   goals?: TenantGoals | null;
   metrics?: DashboardMetric[];
   comparisonLabel?: string;
@@ -14,12 +16,7 @@ type KpiSectionProps = {
   showEngagements: boolean;
 };
 
-function buildSparkline(metrics: DashboardMetric[], key: keyof DashboardMetric): number[] {
-  const sorted = [...metrics].sort((a, b) => a.date.localeCompare(b.date));
-  return sorted.map(m => (m[key] as number | null) ?? 0);
-}
-
-export function KpiSection({ totals, delta, goals, metrics = [], comparisonLabel, showViews, showReach, showEngagements }: KpiSectionProps) {
+export function KpiSection({ totals, delta, previousTotals, goals, metrics = [], comparisonLabel, showViews, showReach, showEngagements }: KpiSectionProps) {
   const rawRate = totals
     ? computeEngagementRate(
         totals.engagements ?? 0,
@@ -27,22 +24,19 @@ export function KpiSection({ totals, delta, goals, metrics = [], comparisonLabel
         totals.reach ?? 0
       )
     : null;
-  // Format: 1 decimal, show "< 0.1" for very small non-zero rates
-  // Keep null when there's no data so KpiCard shows "N/A" instead of "0%"
-  const engagementRate = rawRate !== null && rawRate !== undefined
-    ? (rawRate > 0 && rawRate < 0.1 ? 0.1 : Number(rawRate.toFixed(1)))
-    : null;
+  const engagementRate = rawRate;
+  const comparison = (key: keyof DashboardTotals) => previousTotals && previousTotals[key] <= 0 ? null : delta[key];
 
   const hasSparklineData = metrics.length >= 3;
 
   const cards = [
-    { label: "Abonnés", value: totals?.followers ?? 0, delta: delta.followers, goal: goals?.followers_target, sparkline: hasSparklineData ? buildSparkline(metrics, "followers") : undefined },
-    showViews ? { label: "Vues", value: totals?.views ?? 0, delta: delta.views, goal: goals?.views_target, sparkline: hasSparklineData ? buildSparkline(metrics, "views") : undefined } : null,
-    showReach ? { label: "Portée", value: totals?.reach ?? 0, delta: delta.reach, goal: goals?.reach_target, sparkline: hasSparklineData ? buildSparkline(metrics, "reach") : undefined } : null,
-    showEngagements ? { label: "Engagements", value: totals?.engagements ?? 0, delta: delta.engagements, sparkline: hasSparklineData ? buildSparkline(metrics, "engagements") : undefined } : null,
-    { label: "Publications", value: totals?.posts_count ?? 0, delta: delta.posts_count },
+    { label: "Abonnés", value: totals?.followers ?? 0, delta: comparison("followers"), goal: goals?.followers_target, sparkline: hasSparklineData ? buildDailySeries(metrics, "followers") : undefined },
+    showViews ? { label: "Vues", value: totals?.views ?? 0, delta: comparison("views"), goal: goals?.views_target, sparkline: hasSparklineData ? buildDailySeries(metrics, "views") : undefined } : null,
+    showReach ? { label: "Portée", value: totals?.reach ?? 0, delta: comparison("reach"), goal: goals?.reach_target, sparkline: hasSparklineData ? buildDailySeries(metrics, "reach") : undefined } : null,
+    showEngagements ? { label: "Engagements", value: totals?.engagements ?? 0, delta: comparison("engagements"), sparkline: hasSparklineData ? buildDailySeries(metrics, "engagements") : undefined } : null,
+    { label: "Publications", value: totals?.posts_count ?? 0, delta: comparison("posts_count") },
     { label: "Taux d'engagement", value: engagementRate, delta: 0, suffix: "%", goal: goals?.engagement_rate_target },
-  ].filter(Boolean) as Array<{ label: string; value: number | null; delta: number; suffix?: string; goal?: number | null; sparkline?: number[] }>;
+  ].filter(Boolean) as Array<{ label: string; value: number | null; delta: number | null; suffix?: string; goal?: number | null; sparkline?: number[] }>;
 
   return (
     <section>
@@ -51,11 +45,14 @@ export function KpiSection({ totals, delta, goals, metrics = [], comparisonLabel
           Variations vs {comparisonLabel}
         </p>
       )}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-        {cards.map((card, i) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.filter(card => card.label !== "Portée" && !card.suffix).map((card, i) => (
           <KpiCard key={card.label} index={i} {...card} />
         ))}
       </div>
+      <details className="mt-4 text-sm"><summary className="cursor-pointer text-muted-foreground focus-visible:outline focus-visible:outline-2">Portée cumulée et ratio d’interactions</summary><div className="mt-4 grid gap-4 sm:grid-cols-2">{cards.filter(card => card.label === "Portée" || card.suffix).map(card => <KpiCard key={card.label} {...card} />)}</div><p className="mt-3 text-xs text-muted-foreground">Le ratio utilise les vues disponibles, sinon la portée cumulée. Ce taux agrégé dépend du mix de réseaux ; il ne constitue pas un benchmark.</p>
+        {metrics.some(row => row.platform === "tiktok") && <p className="mt-2 text-xs text-muted-foreground">TikTok est exclu de la portée : seules les vues sont disponibles. Ses résultats correspondent aux cumuls des vidéos publiées dans la période, et non aux vues consommées pendant le mois.</p>}
+      </details>
     </section>
   );
 }

@@ -78,6 +78,10 @@ test("PdfDocument renders with demo watermark", async () => {
         items: [
           {
             platform: "instagram",
+            visibilityValue: 31000,
+            visibilityMetricLabel: "vues",
+            engagements: 2400,
+            postsCount: 9,
             visibilityShare: 68,
             engagementShare: 82,
             engagementRate: 7.7,

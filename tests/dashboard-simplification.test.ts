@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 
-test("dashboard no longer renders action plan or client next decisions", () => {
+test("dashboard keeps the score and groups recommendations in a single editorial roadmap", () => {
   const dashboard = readFileSync("app/(client)/client/dashboard/page.tsx", "utf8");
   const nav = readFileSync("components/dashboard/dashboard-section-nav.tsx", "utf8");
 
   assert.doesNotMatch(dashboard, /ActionPlanCard|ClientNextActionsCard|buildDashboardActionPlan|buildClientNextActions/);
   assert.doesNotMatch(dashboard, /dashboard-priorities/);
-  assert.match(dashboard, /dashboard-opportunities/);
-  assert.match(nav, /Opportunités/);
+  assert.match(dashboard, /<ScoreCard/);
+  assert.match(dashboard, /<EditorialRoadmap/);
+  assert.doesNotMatch(dashboard, /<OpportunityCard|<PlatformDiagnosisCard/);
+  assert.match(nav, /Prochaines semaines/);
   assert.doesNotMatch(nav, /Actions, opportunités, stratégie/);
 });
 
@@ -29,17 +31,17 @@ test("pdf and csv exports stay focused on useful signals", () => {
   assert.doesNotMatch(csv, /Priorité V2|Brief automatisable|getAutomatableBrief|getV2Priority/);
 });
 
-test("Content DNA remains available in dashboard and PDF exports", () => {
+test("Content DNA stays in the dashboard while both exports share report preparation", () => {
   const dashboard = readFileSync("app/(client)/client/dashboard/page.tsx", "utf8");
   const pdf = readFileSync("app/api/export/pdf/route.ts", "utf8");
   const scheduler = readFileSync("lib/report-scheduler.ts", "utf8");
-  const document = readFileSync("lib/pdf-document.tsx", "utf8");
+  const preparation = readFileSync("lib/prepare-report.ts", "utf8");
 
   assert.match(dashboard, /ContentDnaCard/);
   assert.match(dashboard, /analyzeContentDna/);
-  assert.match(pdf, /contentDna/);
-  assert.match(scheduler, /contentDna/);
-  assert.match(document, /ADN de contenu/);
+  assert.match(pdf, /prepareReport/);
+  assert.match(scheduler, /prepareReport/);
+  assert.doesNotMatch(preparation, /analyzeContentDna|buildPlatformDiagnosis|buildDashboardOpportunities/);
 });
 
 test("opportunity card keeps a premium empty state without adding gadget features", () => {

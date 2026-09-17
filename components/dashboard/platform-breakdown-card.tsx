@@ -59,7 +59,8 @@ export function PlatformBreakdownCard({ platforms }: PlatformBreakdownCardProps)
         </p>
       </div>
 
-      <div className="overflow-x-auto">
+      <p className="px-6 pb-3 text-xs text-muted-foreground lg:hidden">Faites défiler le tableau horizontalement pour voir tous les indicateurs.</p>
+      <div className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" tabIndex={0} role="region" aria-label="Statistiques par plateforme, tableau à défilement horizontal">
         <table className="w-full min-w-[820px] text-sm">
           <thead>
             <tr className="border-b border-border/60 bg-muted/25 text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground">

@@ -9,7 +9,7 @@ type DataQualityCardProps = {
 };
 
 const statusLabels: Record<PlatformDataQuality["status"], string> = {
-  good: "Complet",
+  good: "Bien couvert",
   partial: "Partiel",
   missing: "À vérifier",
 };
@@ -27,9 +27,9 @@ const metricLabels: Record<PlatformDataQuality["missingMetrics"][number], string
 };
 
 function getCoverageLabel(value: number): string {
-  if (value >= 80) return "Fiabilité élevée";
-  if (value >= 50) return "Fiabilité moyenne";
-  return "Fiabilité limitée";
+  if (value >= 80) return "Couverture élevée";
+  if (value >= 50) return "Couverture partielle";
+  return "Couverture limitée";
 }
 
 function PlatformCoverageRow({ item }: { item: PlatformDataQuality }) {
@@ -55,7 +55,7 @@ function PlatformCoverageRow({ item }: { item: PlatformDataQuality }) {
         />
       </div>
       <div className="grid grid-cols-3 gap-2 text-[11px] text-muted-foreground">
-        <span className="tabular-nums">{item.coveredDays}/{item.expectedDays} jours</span>
+        <span className="tabular-nums">{item.observedAccountDays ?? item.coveredDays}/{item.expectedAccountDays ?? item.expectedDays} jours-comptes</span>
         <span className="text-center">
           {item.accounts} compte{item.accounts > 1 ? "s" : ""}
         </span>
@@ -76,7 +76,7 @@ export function DataQualityCard({ quality }: DataQualityCardProps) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="section-title">Qualité des données</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">Fiabilité de l'analyse sur la période sélectionnée.</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Présence de données exploitables. Une couverture élevée ne garantit pas leur exactitude.</p>
         </div>
         <Badge variant={quality.overallCoverage >= 80 ? "success" : quality.overallCoverage >= 50 ? "warning" : "danger"}>
           {getCoverageLabel(quality.overallCoverage)}

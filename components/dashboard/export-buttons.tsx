@@ -51,7 +51,9 @@ export function ExportButtons({ query }: { query: string }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `export-${type === "pdf" ? "rapport" : "donnees-brutes"}-${new Date().toISOString().slice(0, 10)}.${type}`;
+      const disposition = res.headers.get("Content-Disposition");
+      const serverFilename = disposition?.match(/filename="([^"\r\n]+)"/i)?.[1];
+      a.download = serverFilename?.replace(/[\\/]/g, "-") || `export-${type === "pdf" ? "rapport" : "donnees-brutes"}-${new Date().toISOString().slice(0, 10)}.${type}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

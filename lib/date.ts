@@ -1,4 +1,4 @@
-import { addDays, endOfDay, formatISO, startOfDay, subDays } from "date-fns";
+import { addDays, differenceInCalendarDays, endOfDay, formatISO, startOfDay, subDays } from "date-fns";
 
 export type DateRangePreset =
   | "last_7_days"
@@ -77,9 +77,7 @@ export function toUtcRange(range: { start: Date; end: Date }) {
 }
 
 export function buildPreviousRange(range: { start: Date; end: Date }) {
-  const diffDays = Math.round(
-    (range.end.getTime() - range.start.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const diffDays = differenceInCalendarDays(range.end, range.start);
   const prevEnd = subDays(range.start, 1);
   const prevStart = subDays(prevEnd, diffDays);
   return { start: startOfDay(prevStart), end: endOfDay(prevEnd) };
@@ -93,4 +91,8 @@ export function eachDay(range: { start: Date; end: Date }) {
     current = addDays(current, 1);
   }
   return days;
+}
+
+export function countCalendarDays(range: { start: Date; end: Date }): number {
+  return Math.max(1, differenceInCalendarDays(range.end, range.start) + 1);
 }

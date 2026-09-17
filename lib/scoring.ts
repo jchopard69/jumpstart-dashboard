@@ -4,8 +4,8 @@
  * Proprietary composite score (0-100) measuring social media performance
  * across 5 dimensions: Growth, Reach, Engagement, Consistency, Momentum.
  *
- * This is a signature metric — comparable over time, across platforms,
- * and between clients.
+ * Internal heuristic. Only compare equal-duration periods, identical account scope,
+ * and comparable data coverage. Not an external industry benchmark.
  */
 
 export type SubScore = {
@@ -205,14 +205,14 @@ export function computeJumpStartScore(input: ScoreInput): JumpStartScore {
       key: "reach",
       value: computeReachScore(input),
       weight: WEIGHTS.reach,
-      description: "Part de votre audience atteinte",
+      description: "Rapport entre portée cumulée et abonnés, sans déduplication",
     },
     {
       label: "Engagement",
       key: "engagement",
       value: computeEngagementScore(input),
       weight: WEIGHTS.engagement,
-      description: "Qualité des interactions",
+      description: "Ratio d’interactions sur vues ou portée disponible",
     },
     {
       label: "Régularité",

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 type KpiCardProps = {
   label: string;
   value: number | null;
-  delta: number;
+  delta: number | null;
   suffix?: string;
   description?: string;
   className?: string;
@@ -19,7 +19,7 @@ type KpiCardProps = {
 const KPI_DESCRIPTIONS: Record<string, string> = {
   "Abonnés": "Nombre total de followers sur vos comptes connectés.",
   "Vues": "Nombre total de lectures et affichages de vos contenus.",
-  "Portée": "Nombre de personnes uniques ayant vu au moins un de vos contenus.",
+  "Portée": "Somme des portées collectées par jour et par compte. Une personne peut être comptée plusieurs fois.",
   "Engagements": "Total des likes, commentaires, partages et sauvegardes.",
   "Publications": "Nombre de posts publiés sur la période sélectionnée.",
   "Taux d'engagement": "Ratio entre les interactions (likes, commentaires, partages, sauvegardes) et les vues sur la période.",
@@ -51,86 +51,26 @@ function formatCompact(value: number): string {
     .replace(/[\u00A0\u202F]/g, "\u2009");
 }
 
-function AnimatedNumber({ value, suffix, label }: { value: number; suffix?: string; label?: string }) {
-  const [display, setDisplay] = useState(0);
+function MetricNumber({ value, suffix, label }: { value: number; suffix?: string; label?: string }) {
   const [copied, setCopied] = useState(false);
-  const ref = useRef<HTMLParagraphElement>(null);
-  const hasAnimated = useRef(false);
-
-  useEffect(() => {
-    if (hasAnimated.current) {
-      setDisplay(value);
-      return;
-    }
-
-    // Use IntersectionObserver to only animate when visible
-    const el = ref.current;
-    if (!el) { setDisplay(value); return; }
-
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReducedMotion) {
-      setDisplay(value);
-      hasAnimated.current = true;
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          observer.disconnect();
-          hasAnimated.current = true;
-
-          if (value === 0) { setDisplay(0); return; }
-
-          const duration = 600;
-          const start = performance.now();
-          const from = 0;
-
-          function tick(now: number) {
-            const elapsed = now - start;
-            const progress = Math.min(elapsed / duration, 1);
-            // ease-out-expo
-            const eased = 1 - Math.pow(2, -10 * progress);
-            setDisplay(Math.round(from + (value - from) * eased));
-            if (progress < 1) requestAnimationFrame(tick);
-          }
-          requestAnimationFrame(tick);
-        }
-      },
-      { threshold: 0.3 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [value]);
-
-  const compact = formatCompact(display);
-  const full = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 })
-    .format(value)
-    .replace(/[\u00A0\u202F]/g, "\u2009");
-  const isAbbreviated = formatCompact(value) !== full;
-
-  const handleCopy = () => {
-    const text = `${full}${suffix ?? ""}${label ? ` ${label}` : ""}`;
-    navigator.clipboard.writeText(text).then(() => {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const full = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: suffix ? 2 : 0 }).format(value);
+  const compact = suffix ? (value > 0 && value < 0.1 ? "< 0,1" : new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(value)) : formatCompact(value);
+  const isAbbreviated = !suffix && value >= 100000;
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(`${full}${suffix ?? ""}${label ? ` ${label}` : ""}`);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    }).catch(() => {});
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(false), 1200);
+    } catch { /* Copy remains optional; the full value is always visible. */ }
   };
-
-  return (
-    <div ref={ref} onClick={handleCopy} className="cursor-pointer group/value" title="Cliquer pour copier">
-      <p className="text-3xl font-semibold font-display tabular-nums animate-count-up">
-        {copied ? (
-          <span className="text-emerald-500 text-lg">Copié !</span>
-        ) : (
-          <>{compact}{suffix && <span className="text-xl ml-0.5">{suffix}</span>}</>
-        )}
-      </p>
-      {isAbbreviated && !copied && (
-        <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{full}</p>
-      )}
-    </div>
-  );
+  return <button type="button" onClick={handleCopy} title="Copier la valeur" aria-label={`Copier ${full}${suffix ?? ""} ${label ?? ""}`} className="text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+    <span className="block text-3xl font-semibold tracking-tight tabular-nums">{compact}<span className="ml-0.5 text-lg">{suffix}</span></span>
+    {isAbbreviated && <span className="mt-1 block text-xs tabular-nums text-muted-foreground">{full}</span>}
+    {copied && <span role="status" className="block text-xs text-primary">Copié !</span>}
+  </button>;
 }
 
 function MiniSparkline({ data, trend }: { data: number[]; trend: "up" | "down" }) {
@@ -163,8 +103,8 @@ function MiniSparkline({ data, trend }: { data: number[]; trend: "up" | "down" }
 }
 
 export function KpiCard({ label, value, delta, suffix, description, className, index = 0, goal, sparkline }: KpiCardProps) {
-  const trend = delta >= 0 ? "up" : "down";
-  const deltaValue = formatDelta(delta);
+  const trend = (delta ?? 0) >= 0 ? "up" : "down";
+  const deltaValue = delta == null ? null : formatDelta(delta);
   const tooltipText = description || KPI_DESCRIPTIONS[label];
 
   const goalProgress = goal && goal > 0 && value !== null ? (value / goal) * 100 : null;
@@ -173,16 +113,13 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
     <Card
       className={cn(
         "card-surface relative overflow-hidden p-5 fade-in-up group",
-        "bg-[radial-gradient(circle_at_top_right,rgba(32,214,162,0.13),transparent_36%),linear-gradient(145deg,rgba(255,255,255,0.99),rgba(248,250,252,0.94))]",
+        "bg-white",
         className
       )}
       style={{ animationDelay: `${index * 80}ms` }}
     >
-      <div className="absolute inset-x-0 top-0 h-[3px] bg-[linear-gradient(90deg,#6d4dff,#20d6a2)] opacity-80 transition-opacity group-hover:opacity-100" />
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full border border-primary/10 bg-primary/[0.035]" />
-
       <div className="flex min-w-0 items-start justify-between gap-2">
-        <p className="section-label leading-tight truncate flex items-center gap-1">
+        <p className="text-xs font-medium leading-snug text-muted-foreground flex items-center gap-1">
           {label}
           {tooltipText && (
             <span
@@ -193,7 +130,7 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
             </span>
           )}
         </p>
-        {delta !== 0 && (
+        {delta != null && delta !== 0 && (
           <span
             className={cn(
               "inline-flex items-center gap-0.5 shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold whitespace-nowrap shadow-sm",
@@ -214,14 +151,15 @@ export function KpiCard({ label, value, delta, suffix, description, className, i
         )}
       </div>
 
-      <div className="mt-5 rounded-2xl border border-white/80 bg-white/68 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+      <div className="mt-5">
         {value === null ? (
           <p className="text-3xl font-semibold font-display text-muted-foreground/50">N/A</p>
         ) : (
-          <AnimatedNumber value={value} suffix={suffix} label={label} />
+          <MetricNumber value={value} suffix={suffix} label={label} />
         )}
       </div>
 
+      {delta == null && <p className="mt-2 text-xs text-muted-foreground">Comparaison indisponible</p>}
       {sparkline && sparkline.length >= 2 && (
         <div className="mt-3 rounded-xl border border-border/50 bg-white/50 px-2 py-1">
           <MiniSparkline data={sparkline} trend={trend} />

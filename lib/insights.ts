@@ -77,75 +77,24 @@ export function generateStrategicInsights(input: InsightsInput): StrategicInsigh
  */
 export function generateExecutiveSummary(input: InsightsInput): string {
   const { totals, prevTotals } = input;
-
-  const followersDelta = prevTotals.followers > 0
-    ? Math.round(((totals.followers - prevTotals.followers) / prevTotals.followers) * 100)
-    : 0;
-
-  const engDelta = prevTotals.engagements > 0
-    ? Math.round(((totals.engagements - prevTotals.engagements) / prevTotals.engagements) * 100)
-    : 0;
-
-  const reachDelta = prevTotals.reach > 0
-    ? Math.round(((totals.reach - prevTotals.reach) / prevTotals.reach) * 100)
-    : 0;
-
-  const rawEngRate = computeEngagementRate(totals.engagements, totals.views, totals.reach);
-  const engRate = rawEngRate !== null ? rawEngRate.toFixed(1) : "0";
-
+  if (![totals.followers, totals.views, totals.reach, totals.engagements, totals.postsCount].some(value => value > 0)) {
+    return "Aucune donnée exploitable sur cette période. Vérifiez la collecte avant de conclure sur la performance.";
+  }
   const parts: string[] = [];
-
-  // Audience
-  if (followersDelta > 5) {
-    parts.push(`Votre audience a progressé de ${followersDelta}%`);
-  } else if (followersDelta < -5) {
-    parts.push(`Votre audience a reculé de ${Math.abs(followersDelta)}%`);
+  if (prevTotals.followers > 0 && totals.followers > 0) {
+    const change = (totals.followers - prevTotals.followers) / prevTotals.followers * 100;
+    parts.push(`Audience : ${change >= 0 ? "+" : ""}${change.toFixed(1)}% par rapport à la période précédente.`);
   } else {
-    parts.push("Votre audience est stable");
+    parts.push("Évolution de l'audience non interprétable sans deux relevés exploitables.");
   }
-
-  // Engagement
-  if (engDelta > 15) {
-    parts.push(`avec un engagement en forte hausse (+${engDelta}%)`);
-  } else if (engDelta < -15) {
-    parts.push(`mais l'engagement a baissé de ${Math.abs(engDelta)}%`);
+  if (prevTotals.engagements > 0) {
+    const change = (totals.engagements - prevTotals.engagements) / prevTotals.engagements * 100;
+    parts.push(`Interactions : ${change >= 0 ? "+" : ""}${change.toFixed(1)}% sur les données collectées.`);
   } else {
-    parts.push(`avec un engagement stable (taux de ${engRate}%)`);
+    parts.push("Pas de référence exploitable pour comparer les interactions.");
   }
-
-  // Reach
-  if (reachDelta > 20) {
-    parts.push("La portée organique est en nette progression.");
-  } else if (reachDelta < -20) {
-    parts.push("La portée organique nécessite une attention particulière.");
-  } else {
-    parts.push("");
-  }
-
-  // Best platform
-  const bestPlatform = input.platforms
-    .filter(p => p.totals.engagements > 0)
-    .sort((a, b) => {
-      const aRate = a.totals.views > 0 ? a.totals.engagements / a.totals.views : 0;
-      const bRate = b.totals.views > 0 ? b.totals.engagements / b.totals.views : 0;
-      return bRate - aRate;
-    })[0];
-
-  if (bestPlatform) {
-    const platformNames: Record<string, string> = {
-      instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn",
-      tiktok: "TikTok", youtube: "YouTube", twitter: "X"
-    };
-    parts.push(`${platformNames[bestPlatform.platform] ?? bestPlatform.platform} est votre plateforme la plus performante ce mois.`);
-  }
-
-  // Score mention
-  if (input.score) {
-    parts.push(`Score JumpStart : ${input.score.global}/100 (${input.score.grade}).`);
-  }
-
-  const filtered = parts.filter(Boolean);
-  return filtered.join(", ").replace(/, ([^,]*)$/, ". $1") + (filtered[filtered.length - 1]?.endsWith(".") ? "" : ".");
+  parts.push(`${totals.postsCount} publications sur ${input.periodDays} jours. Les variations doivent être relues à couverture et périmètre comparables.`);
+  return parts.join(" ");
 }
 
 /**
@@ -171,9 +120,9 @@ export function generateKeyTakeaways(input: InsightsInput): string[] {
   // Engagement rate
   const engRate = computeEngagementRate(totals.engagements, totals.views, totals.reach) ?? 0;
   if (engRate > 0) {
-    const qualifier = engRate > 5 ? "excellent" : engRate > 3 ? "bon" : engRate > 1 ? "correct" : "à améliorer";
+    const denominator = totals.views > 0 ? "vues" : "portée cumulée";
     takeaways.push({
-      text: `Taux d'engagement ${qualifier} : ${engRate.toFixed(1)}%`,
+      text: `Interactions / ${denominator} : ${engRate.toFixed(1)}% (ratio descriptif)`,
       priority: 2,
     });
   }
@@ -197,17 +146,8 @@ export function generateKeyTakeaways(input: InsightsInput): string[] {
       tiktok: "TikTok", youtube: "YouTube", twitter: "X"
     };
     takeaways.push({
-      text: `Meilleure plateforme : ${names[bestPlat.platform] ?? bestPlat.platform}`,
+      text: `Premier contributeur aux interactions : ${names[bestPlat.platform] ?? bestPlat.platform}`,
       priority: 4,
-    });
-  }
-
-  // Reach vs followers
-  if (totals.reach > 0 && totals.followers > 0) {
-    const reachPct = totals.followers > 0 ? Math.round((totals.reach / totals.followers) * 100) : 0;
-    takeaways.push({
-      text: `Portée organique : ${reachPct}% de l'audience atteinte`,
-      priority: 5,
     });
   }
 
@@ -255,8 +195,8 @@ function analyzeEngagement(input: InsightsInput): StrategicInsight[] {
   if (currentRate > 5) {
     results.push({
       type: "positive", category: "engagement", priority: 2,
-      title: "Taux d'engagement excellent",
-      description: `${currentRate.toFixed(1)}% — bien au-dessus de la moyenne du secteur (1-3%). Vos contenus génèrent une forte interaction.`,
+      title: "Ratio d’interactions observé",
+      description: `${currentRate.toFixed(1)}% sur les données collectées. Ce ratio dépend du dénominateur et des plateformes ; comparez-le à votre propre historique.`,
     });
   } else if (currentRate < 1 && totals.views > 100) {
     results.push({
@@ -300,11 +240,11 @@ function analyzeCrossPlatform(input: InsightsInput): StrategicInsight[] {
     tiktok: "TikTok", youtube: "YouTube", twitter: "X"
   };
 
-  if (best.rate > worst.rate * 2 && worst.rate > 0) {
+  if (best.totals.views > 0 && worst.totals.views > 0 && best.rate > worst.rate * 2 && worst.rate > 0) {
     results.push({
       type: "opportunity", category: "platform", priority: 4,
       title: `${names[best.platform] ?? best.platform} surperforme`,
-      description: `Taux d'engagement de ${best.rate.toFixed(1)}% vs ${worst.rate.toFixed(1)}% sur ${names[worst.platform] ?? worst.platform}. Envisagez de redistribuer vos efforts.`,
+      description: `Taux d'engagement de ${best.rate.toFixed(1)}% vs ${worst.rate.toFixed(1)}% sur ${names[worst.platform] ?? worst.platform}. Ces ratios ne prouvent pas la supériorité d’un canal : les audiences et définitions diffèrent.`,
     });
   }
 
@@ -332,7 +272,7 @@ function analyzeConsistency(input: InsightsInput): StrategicInsight[] {
     results.push({
       type: "warning", category: "content", priority: 3,
       title: "Fréquence de publication faible",
-      description: `${postsPerWeek.toFixed(1)} post/semaine. Les algorithmes favorisent la régularité — visez au moins 3 publications par semaine.`,
+      description: `${postsPerWeek.toFixed(1)} post/semaine. Validez une cadence soutenable avec le client et mesurez son effet pendant quatre semaines.`,
     });
   } else if (postsPerWeek > 10) {
     results.push({
@@ -349,14 +289,14 @@ function generateRecommendations(input: InsightsInput): StrategicInsight[] {
   const results: StrategicInsight[] = [];
 
   // Recommend based on score sub-scores if available
-  if (input.score) {
+  if (input.score?.subScores.length) {
     const weakest = input.score.subScores.reduce((a, b) => a.value < b.value ? a : b);
 
     const recs: Record<string, string> = {
       growth: "Investissez dans des contenus de découverte (Reels, hashtags tendance) pour accélérer la croissance d'audience.",
-      reach: "Publiez à des heures de forte affluence et utilisez des formats favorisés par les algorithmes (vidéo courte, carrousel).",
+      reach: "Testez deux horaires à format comparable et comparez les résultats après sept jours.",
       engagement: "Intégrez plus d'appels à l'action, posez des questions et créez du contenu qui suscite le débat.",
-      consistency: "Mettez en place un calendrier éditorial avec au moins 3 publications par semaine.",
+      consistency: "Fixez une cadence compatible avec les moyens de production, puis mesurez-la pendant quatre semaines.",
       momentum: "Analysez ce qui a changé récemment et revenez aux formats qui fonctionnaient.",
     };
 

@@ -16,7 +16,7 @@ const DEFAULT_METRIC_AVAILABILITY: Record<Platform, MetricAvailability> = {
   facebook: { views: true, reach: true, engagements: true },
   instagram: { views: true, reach: true, engagements: true },
   linkedin: { views: false, reach: true, engagements: true },
-  tiktok: { views: true, reach: true, engagements: true },
+  tiktok: { views: true, reach: false, engagements: true },
   youtube: { views: true, reach: false, engagements: true },
   twitter: { views: false, reach: false, engagements: false },
 };
@@ -30,7 +30,9 @@ export function getDashboardMetricAvailability(
 
   return {
     views: defaults.views || currentTotals.views > 0 || previousTotals.views > 0,
-    reach: defaults.reach || currentTotals.reach > 0 || previousTotals.reach > 0,
+    // The TikTok connector historically stores video views in this column.
+    // Those values are not a measurement of reach, even when nonzero.
+    reach: platform !== "tiktok" && (defaults.reach || currentTotals.reach > 0 || previousTotals.reach > 0),
     engagements:
       defaults.engagements || currentTotals.engagements > 0 || previousTotals.engagements > 0,
   };

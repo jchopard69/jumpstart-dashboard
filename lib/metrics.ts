@@ -75,6 +75,16 @@ export function getPostImpressions(metrics: MetricRecord): number {
   );
 }
 
+export function hasPostEngagementMeasurement(metrics: MetricRecord): boolean {
+  const normalized = normalizeMetricRecord(metrics);
+  if (!normalized || typeof normalized !== "object") return false;
+  return ["engagements", "likes", "like_count", "comments", "comment_count", "comments_count", "shares", "share_count", "saves", "save_count", "favorite_count", "reposts", "repost_count"]
+    .some(key => {
+      const value = normalized[key];
+      return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+    });
+}
+
 export function getPostEngagements(metrics: MetricRecord): number {
   const normalized = normalizeMetricRecord(metrics);
   if (typeof normalized === "string") {

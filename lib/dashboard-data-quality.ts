@@ -1,3 +1,4 @@
+import { countCalendarDays, toIsoDate } from "./date";
 import type { Platform } from "./types";
 import type { DashboardTotals, PlatformData, SyncStatusInfo } from "./types/dashboard";
 
@@ -27,6 +28,8 @@ export type PlatformDataQuality = {
   platform: Platform;
   accounts: number;
   coveredDays: number;
+  observedAccountDays?: number;
+  expectedAccountDays?: number;
   expectedDays: number;
   coverage: number;
   status: "good" | "partial" | "missing";
@@ -43,10 +46,7 @@ export type DashboardDataQuality = {
 
 function getDaysInclusive(range?: { start: Date; end: Date }): number {
   if (!range) return 0;
-  return Math.max(
-    1,
-    Math.ceil((range.end.getTime() - range.start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-  );
+  return countCalendarDays(range);
 }
 
 function hasMetricSignal(row: MetricLike): boolean {
@@ -77,7 +77,7 @@ export function computeDashboardDataQuality(params: {
   );
 
   const staleSync = (() => {
-    if (!params.lastSync?.finished_at) return true;
+    if (params.lastSync?.status !== "success" || !params.lastSync.finished_at) return true;
     const finishedAt = new Date(params.lastSync.finished_at);
     if (Number.isNaN(finishedAt.getTime())) return true;
     return Date.now() - finishedAt.getTime() >= 48 * 60 * 60 * 1000;
@@ -85,11 +85,17 @@ export function computeDashboardDataQuality(params: {
 
   const platformQuality = platforms.map((platform) => {
     const platformAccounts = params.accounts.filter((account) => account.platform === platform);
-    const platformRows = params.metrics.filter((row) => row.platform === platform);
-    const coveredDays = new Set(
-      platformRows.filter(hasMetricSignal).map((row) => row.date).filter(Boolean)
-    ).size;
-    const coverage = expectedDays > 0 ? Math.min(100, Math.round((coveredDays / expectedDays) * 100)) : 0;
+    const platformRows = params.metrics.filter((row) => row.platform === platform && row.date &&
+      (!params.range || (row.date >= toIsoDate(params.range.start) && row.date <= toIsoDate(params.range.end))));
+    // Measure account-days, so one populated account cannot hide a missing account.
+    const accountIds = platformAccounts.map(account => account.id).filter(Boolean);
+    const coveredFor = (id?: string | null) => new Set(platformRows
+      .filter(row => hasMetricSignal(row) && (!id || row.social_account_id === id || (accountIds.length === 1 && !row.social_account_id)))
+      .map(row => row.date)).size;
+    const observedAccountDays = accountIds.length ? accountIds.reduce((sum, id) => sum + coveredFor(id), 0) : coveredFor();
+    const expectedAccountDays = expectedDays * Math.max(1, accountIds.length);
+    const coveredDays = new Set(platformRows.filter(hasMetricSignal).map(row => row.date)).size;
+    const coverage = expectedAccountDays > 0 ? Math.min(100, Math.round(observedAccountDays / expectedAccountDays * 100)) : 0;
     const summary = params.perPlatform.find((item) => item.platform === platform);
     const missingMetrics: PlatformDataQuality["missingMetrics"] = [];
 
@@ -108,6 +114,8 @@ export function computeDashboardDataQuality(params: {
       platform,
       accounts: platformAccounts.length,
       coveredDays,
+      observedAccountDays,
+      expectedAccountDays,
       expectedDays,
       coverage,
       status,

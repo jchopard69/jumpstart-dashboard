@@ -140,7 +140,7 @@ function buildModeInsight(posts: PostData[], mode: TopPostsSortMode): { signal: 
   if (mode === "visibility") {
     return {
       signal: `${title} domine avec ${formatMetric(visibility.value)} ${visibility.label.toLowerCase()}.`,
-      nextStep: "Transformer ce format en relai, sponsorisation ou variation courte pour amplifier la portée.",
+      nextStep: "Examiner le sujet, le format et la diffusion avant de préparer une variante sur le même canal.",
     };
   }
 
@@ -150,13 +150,13 @@ function buildModeInsight(posts: PostData[], mode: TopPostsSortMode): { signal: 
       : "taux non disponible";
     return {
       signal: `${title} génère ${formatMetric(engagements)} engagements (${rateLabel}).`,
-      nextStep: "Réutiliser son angle éditorial dans un contenu plus interactif ou conversationnel.",
+      nextStep: "Tester une variation de l’accroche sur le même canal et comparer les résultats à J+7, à diffusion comparable.",
     };
   }
 
   return {
     signal: `${title} combine ${formatMetric(visibility.value)} ${visibility.label.toLowerCase()} et ${formatMetric(engagements)} engagements.`,
-    nextStep: "En faire la référence créative de la prochaine série et comparer les variations sur 7 jours.",
+    nextStep: "Utiliser ce contenu comme point de départ d’un test, puis vérifier si le signal se répète sur le même canal.",
   };
 }
 
@@ -205,7 +205,7 @@ export function TopPosts({ posts }: TopPostsProps) {
         )}
       </div>
       {portfolio.postsAnalyzed > 0 && (
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-white/70 bg-white/75 px-3 py-2 shadow-sm">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Format dominant</p>
             <p className="mt-1 text-sm font-semibold text-foreground">{portfolio.dominantFormat}</p>
@@ -213,10 +213,6 @@ export function TopPosts({ posts }: TopPostsProps) {
           <div className="rounded-xl border border-white/70 bg-white/75 px-3 py-2 shadow-sm">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Canal contributeur</p>
             <p className="mt-1 text-sm font-semibold text-foreground">{portfolio.topPlatform}</p>
-          </div>
-          <div className="rounded-xl border border-white/70 bg-white/75 px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Rendement moyen</p>
-            <p className="mt-1 text-sm font-semibold text-foreground">{formatPercent(portfolio.averageEngagementRate)} · {portfolio.qualityLabel}</p>
           </div>
         </div>
       )}

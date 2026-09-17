@@ -1,3 +1,4 @@
+import { readAllRows } from "@/lib/paginated-read";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { resolveActiveTenantId } from "@/lib/auth";
 import { buildPreviousRange, resolveDateRange, toIsoDate } from "@/lib/date";
@@ -37,14 +38,14 @@ export async function fetchDashboardData(params: {
 
   let metricsQuery = supabase
     .from("social_daily_metrics")
-    .select("date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform")
+    .select("date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform", { count: "exact" })
     .eq("tenant_id", tenantId)
     .gte("date", toIsoDate(range.start))
     .lte("date", toIsoDate(range.end));
 
   let prevQuery = supabase
     .from("social_daily_metrics")
-    .select("date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform")
+    .select("date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform", { count: "exact" })
     .eq("tenant_id", tenantId)
     .gte("date", toIsoDate(prevRange.start))
     .lte("date", toIsoDate(prevRange.end));
@@ -59,20 +60,10 @@ export async function fetchDashboardData(params: {
     prevQuery = prevQuery.eq("social_account_id", filters.socialAccountId);
   }
 
-  const metricsPromise = metricsQuery.order("date", { ascending: true });
-  const prevPromise = prevQuery.order("date", { ascending: true });
-  const [{ data: metrics, error: metricsError }, { data: prevMetrics, error: prevMetricsError }] = await Promise.all([
-    metricsPromise,
-    prevPromise
+  const [metrics, prevMetrics] = await Promise.all([
+    readAllRows((from, to) => metricsQuery.order("date", { ascending: true }).order("social_account_id", { ascending: true }).range(from, to), "les métriques"),
+    readAllRows((from, to) => prevQuery.order("date", { ascending: true }).order("social_account_id", { ascending: true }).range(from, to), "les métriques précédentes"),
   ]);
-  if (metricsError || prevMetricsError) {
-    console.error("[dashboard] Failed to load daily metrics", {
-      tenantId,
-      metricsError,
-      prevMetricsError
-    });
-    throw new Error("Impossible de charger les métriques.");
-  }
 
   const normalizeMetrics = <T extends {
     date?: string | null;
@@ -92,7 +83,9 @@ export async function fetchDashboardData(params: {
     social_account_id: row.social_account_id ? String(row.social_account_id) : null,
     followers: coerceMetric(row.followers),
     impressions: coerceMetric(row.impressions),
-    reach: coerceMetric(row.reach),
+    // Exclude the legacy TikTok views proxy from every aggregate and chart.
+    // Keep the stored data and API connector untouched.
+    reach: row.platform === "tiktok" ? 0 : coerceMetric(row.reach),
     engagements: coerceMetric(row.engagements),
     views: coerceMetric(row.views),
     watch_time: coerceMetric(row.watch_time),
@@ -147,34 +140,20 @@ export async function fetchDashboardData(params: {
       return { currentRows, previousRows };
     }
 
-    const [{ data: historicalRows, error: historicalError }, { data: baselineRows, error: baselineError }] =
-      await Promise.all([
-        supabase
-          .from("social_daily_metrics")
-          .select("date,followers,social_account_id,platform")
-          .eq("tenant_id", tenantId)
-          .eq("platform", "linkedin")
-          .in("social_account_id", accountIds)
-          .gte("date", earliestDate)
-          .order("date", { ascending: true }),
-        supabase
-          .from("social_daily_metrics")
-          .select("date,followers,social_account_id")
-          .eq("tenant_id", tenantId)
-          .eq("platform", "linkedin")
-          .in("social_account_id", accountIds)
-          .lt("date", earliestDate)
-          .order("date", { ascending: false }),
-      ]);
-
-    if (historicalError || baselineError) {
-      console.warn("[dashboard] Failed to repair LinkedIn follower series on read", {
-        tenantId,
-        historicalError,
-        baselineError,
-      });
-      return { currentRows, previousRows };
-    }
+    const historicalQuery = supabase
+      .from("social_daily_metrics")
+      .select("date,followers,social_account_id,platform", { count: "exact" })
+      .eq("tenant_id", tenantId).eq("platform", "linkedin")
+      .in("social_account_id", accountIds).gte("date", earliestDate);
+    const baselineQuery = supabase
+      .from("social_daily_metrics")
+      .select("date,followers,social_account_id", { count: "exact" })
+      .eq("tenant_id", tenantId).eq("platform", "linkedin")
+      .in("social_account_id", accountIds).lt("date", earliestDate);
+    const [historicalRows, baselineRows] = await Promise.all([
+      readAllRows((from, to) => historicalQuery.order("date", { ascending: true }).order("social_account_id", { ascending: true }).range(from, to), "l’historique LinkedIn"),
+      readAllRows((from, to) => baselineQuery.order("date", { ascending: false }).order("social_account_id", { ascending: true }).range(from, to), "la référence d’abonnés LinkedIn"),
+    ]);
 
     const baselineByAccount = new Map<string, number>();
     for (const row of baselineRows ?? []) {
@@ -360,6 +339,9 @@ export async function fetchDashboardData(params: {
     postsCountQuery,
     prevPostsCountQuery
   ]);
+  if (postsCountResult.error || prevPostsCountResult.error || postsCountResult.count === null || prevPostsCountResult.count === null) {
+    throw new Error("Impossible de compter les publications.");
+  }
   const postsCount = postsCountResult.count;
   const prevPostsCount = prevPostsCountResult.count;
 
@@ -385,7 +367,7 @@ export async function fetchDashboardData(params: {
 
   let postsQuery = supabase
     .from("social_posts")
-    .select("id,external_post_id,social_account_id,created_at,caption,thumbnail_url,posted_at,metrics,url,platform,media_type")
+    .select("id,external_post_id,social_account_id,created_at,caption,thumbnail_url,posted_at,metrics,url,platform,media_type", { count: "exact" })
     .eq("tenant_id", tenantId)
     .gte("posted_at", range.start.toISOString())
     .lte("posted_at", range.end.toISOString());
@@ -398,10 +380,10 @@ export async function fetchDashboardData(params: {
     postsQuery = postsQuery.eq("social_account_id", filters.socialAccountId);
   }
 
-  const { data: posts, error: postsError } = await postsQuery.order("posted_at", { ascending: false }).limit(100);
-  if (postsError) {
-    console.error("[dashboard] Failed to load posts", { tenantId, error: postsError });
-  }
+  const posts = await readAllRows(
+    (from, to) => postsQuery.order("posted_at", { ascending: false }).order("id", { ascending: true }).range(from, to),
+    "les publications",
+  );
 
   const { data: collaboration, error: collaborationError } = await supabase
     .from("collaboration")
@@ -460,11 +442,18 @@ export async function fetchDashboardData(params: {
   // Use shared dedup+sort logic (same function used by PDF export)
   const sortedPosts = selectTopPosts((posts ?? []) as any[], (posts ?? []).length) as NonNullable<typeof posts>;
 
-  const availablePlatforms = filters.platform
+  let availablePlatforms = filters.platform
     ? [filters.platform]
     : params.platforms?.length
       ? params.platforms
       : Array.from(new Set((normalizedMetrics ?? []).map((row) => row.platform as Platform).filter(Boolean)));
+  if (filters.socialAccountId) {
+    const { data: selectedAccount, error } = await supabase.from("social_accounts").select("platform")
+      .eq("tenant_id", tenantId).eq("id", filters.socialAccountId).maybeSingle();
+    if (error) throw new Error("Impossible de vérifier le compte sélectionné.");
+    availablePlatforms = selectedAccount && (!filters.platform || selectedAccount.platform === filters.platform)
+      ? [selectedAccount.platform as Platform] : [];
+  }
 
   const buildPlatformStats = (platform: Platform) => {
     const currentRows = (normalizedMetrics ?? []).filter((row) => row.platform === platform);
@@ -514,12 +503,13 @@ export async function fetchDashboardData(params: {
       .gte("posted_at", rangeStart.toISOString())
       .lte("posted_at", rangeEnd.toISOString());
 
-    if (params.socialAccountId) {
-      query = query.eq("social_account_id", params.socialAccountId);
+    if (filters.socialAccountId) {
+      query = query.eq("social_account_id", filters.socialAccountId);
     }
 
-    const { count } = await query;
-    return count ?? 0;
+    const { count, error } = await query;
+    if (error || count === null) throw new Error("Impossible de compter les publications par plateforme.");
+    return count;
   };
 
   const postsByPlatform = await Promise.all(
@@ -564,6 +554,7 @@ export async function fetchDashboardData(params: {
     return {
       platform: item.platform,
       totals: { ...item.totals, posts_count: postsCurrent },
+      prevTotals: { ...item.prevTotals, posts_count: postsPrev },
       delta: deltaPercent,
       available
     };
@@ -573,6 +564,7 @@ export async function fetchDashboardData(params: {
     range,
     prevRange,
     totals: { ...totalsSafe, posts_count: postsCount ?? 0 },
+    prevTotals: { ...prevTotalsSafe, posts_count: prevPostsCount ?? 0 },
     delta: deltaPercent,
     metrics: normalizedMetrics ?? [],
     prevMetrics: normalizedPrevMetrics ?? [],
