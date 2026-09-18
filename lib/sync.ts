@@ -237,18 +237,20 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           )
         );
         const existingMetricsByExternalId = new Map<string, Record<string, unknown>>();
-        if (externalPostIds.length) {
+        const existingMediaByExternalId = new Map<string, {thumbnail_url?: string; media_url?: string}>();
+        for (let batchStart = 0; batchStart < externalPostIds.length; batchStart += 100) {
           const { data: existingPosts, error: existingPostsError } = await supabase
             .from("social_posts")
-            .select("external_post_id,metrics")
+            .select("external_post_id,metrics,thumbnail_url,media_url")
             .eq("tenant_id", tenantId)
             .eq("platform", account.platform)
             .eq("social_account_id", account.id)
-            .in("external_post_id", externalPostIds);
+            .in("external_post_id", externalPostIds.slice(batchStart, batchStart + 100));
           if (existingPostsError) {
-            console.warn(`[sync] Failed to load existing post metrics for ${account.platform}: ${existingPostsError.message}`);
+            throw new Error(`Existing post data unavailable for ${account.platform}`);
           } else {
             for (const existingPost of existingPosts ?? []) {
+              existingMediaByExternalId.set(String(existingPost.external_post_id), existingPost);
               existingMetricsByExternalId.set(
                 String(existingPost.external_post_id ?? ""),
                 (existingPost.metrics as Record<string, unknown> | null) ?? {}
@@ -304,8 +306,8 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
               url: post.url ? String(post.url).slice(0, 500) : null,
               caption: post.caption ? String(post.caption).replace(/\u0000/g, '').slice(0, 500) : null,
               media_type: post.media_type ? String(post.media_type).slice(0, 50) : null,
-              thumbnail_url: post.thumbnail_url ? String(post.thumbnail_url) : null,
-              media_url: post.media_url ? String(post.media_url) : null,
+              thumbnail_url: post.thumbnail_url ? String(post.thumbnail_url) : existingMediaByExternalId.get(externalPostId)?.thumbnail_url ?? null,
+              media_url: post.media_url ? String(post.media_url) : existingMediaByExternalId.get(externalPostId)?.media_url ?? null,
               metrics: account.platform === 'instagram' || account.platform === 'facebook'
                 ? mergeMetaPostMetrics(account.platform, incomingMetrics, existingMetrics)
                 : {

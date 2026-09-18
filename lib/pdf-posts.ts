@@ -1,4 +1,4 @@
-import { postPreviewCandidates } from "./post-preview";
+import { resolveSocialImage, type ImagePost } from "./social-image";
 import { readPostMetric } from "./monthly-review";
 import "server-only";
 
@@ -6,7 +6,7 @@ import { getPostEngagements, getPostVisibilityDetails, getPostVisibility, hasPos
 import { selectDisplayTopPosts } from "@/lib/top-posts";
 import { PLATFORM_LABELS, type Platform } from "@/lib/types";
 
-type PdfPostSource = {
+type PdfPostSource = ImagePost & {
   caption?: string | null;
   posted_at?: string | null;
   platform?: string | null;
@@ -42,41 +42,6 @@ function formatPostDate(value?: string | null): string {
   });
 }
 
-async function resolveThumbnailDataUrl(url?: string | null): Promise<string | null> {
-  if (!url) return null;
-  if (url.startsWith("data:image/")) {
-    return url;
-  }
-  if (!/^https?:\/\//i.test(url)) {
-    return null;
-  }
-
-  try {
-    const response = await fetch(url, {
-      redirect: "follow",
-      signal: AbortSignal.timeout(5000),
-      cache: "no-store",
-      headers: { Accept: "image/jpeg, image/png" },
-    });
-    if (!response.ok) {
-      return null;
-    }
-
-    const bytes = await response.arrayBuffer();
-    if (bytes.byteLength === 0 || bytes.byteLength > 8 * 1024 * 1024) {
-      return null;
-    }
-
-    const buffer = Buffer.from(bytes);
-    // React PDF supports JPEG and PNG. Reject other formats so a fallback can be tried.
-    const contentType=buffer[0]===0xff&&buffer[1]===0xd8?'image/jpeg':buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))?'image/png':null;
-    if(!contentType)return null;
-    return `data:${contentType};base64,${buffer.toString("base64")}`;
-  } catch {
-    return null;
-  }
-}
-
 export async function buildPdfPostSummaries(
   posts: PdfPostSource[],
   limit: number
@@ -89,10 +54,8 @@ export async function buildPdfPostSummaries(
   await Promise.all(Array.from({length:Math.min(8,selectedPosts.length)},async()=>{
     while(next<selectedPosts.length) {
       const index=next++;
-      for(const candidate of postPreviewCandidates(selectedPosts[index])) {
-        const image=await resolveThumbnailDataUrl(candidate);
-        if(image){thumbnails[index]=image;break;}
-      }
+      const image = await resolveSocialImage(selectedPosts[index]);
+      if (image && ['image/jpeg','image/png'].includes(image.type)) thumbnails[index] = `data:${image.type};base64,${image.bytes.toString('base64')}`;
     }
   }));
 

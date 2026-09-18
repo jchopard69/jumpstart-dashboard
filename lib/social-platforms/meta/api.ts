@@ -2,6 +2,7 @@
  * Meta (Facebook + Instagram) API client for fetching analytics
  */
 
+import { metaPostMedia, META_POST_MEDIA_FIELDS, type MetaPostMedia } from './post-media';
 import { collectPostInsights, prioritizePostInsights } from './post-insights';
 import { META_CONFIG } from './config';
 import { apiRequest, buildUrl } from '../core/api-client';
@@ -31,7 +32,7 @@ interface MetaInsightsResponse {
   paging?: { next?: string };
 }
 
-interface MetaMediaItem {
+interface MetaMediaItem extends MetaPostMedia {
   id: string;
   caption?: string;
   media_type?: string;
@@ -55,7 +56,7 @@ interface MetaAccountInfo {
   fan_count?: number;
 }
 
-interface MetaPostItem {
+interface MetaPostItem extends MetaPostMedia {
   id: string;
   message?: string;
   created_time?: string;
@@ -276,7 +277,7 @@ export const instagramConnector: Connector = {
     // Fetch recent media with bounded pagination.
     const allMedia: MetaMediaItem[] = [];
     let nextMediaUrl: string | null = buildUrl(`${GRAPH_URL}/${externalAccountId}/media`, {
-      fields: 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count',
+      fields: `id,caption,permalink,timestamp,like_count,comments_count,${META_POST_MEDIA_FIELDS.instagram}`,
       limit: 50,
       access_token: accessToken,
     });
@@ -337,11 +338,6 @@ export const instagramConnector: Connector = {
       const likes = item.like_count || 0;
       const comments = item.comments_count || 0;
 
-      const mediaTypeFromProduct = (item.media_product_type ?? "").toUpperCase();
-      const normalizedMediaType =
-        mediaTypeFromProduct === "REELS"
-          ? "reel"
-          : item.media_type?.toLowerCase();
       const insights = insightsByMedia.get(item.id);
 
       const baseEngagements = likes + comments;
@@ -360,9 +356,7 @@ export const instagramConnector: Connector = {
         posted_at: item.timestamp || new Date().toISOString(),
         url: item.permalink,
         caption: item.caption?.slice(0, 500),
-        media_type: normalizedMediaType,
-        thumbnail_url: item.thumbnail_url || item.media_url,
-        media_url: item.media_url,
+        ...metaPostMedia('instagram', item),
         metrics,
         raw_json: item as unknown as Record<string, unknown>,
       });
@@ -508,7 +502,7 @@ export const facebookConnector: Connector = {
     // Fetch recent posts with engagement metrics (with pagination)
     console.log(`[facebook] Fetching posts...`);
     const allFbPosts: MetaPostItem[] = [];
-    const postsFieldsBase = 'id,message,created_time,permalink_url,full_picture,shares,reactions.summary(total_count),comments.summary(total_count)';
+    const postsFieldsBase = `id,message,created_time,permalink_url,shares,reactions.summary(total_count),comments.summary(total_count),${META_POST_MEDIA_FIELDS.facebook}`;
     const buildPostsUrl = () => buildUrl(`${GRAPH_URL}/${externalAccountId}/posts`, {
       fields: postsFieldsBase,
       limit: 50,
@@ -570,9 +564,7 @@ export const facebookConnector: Connector = {
         posted_at: post.created_time || new Date().toISOString(),
         url: post.permalink_url,
         caption: post.message?.slice(0, 500),
-        media_type: post.full_picture ? 'image' : 'text',
-        thumbnail_url: post.full_picture,
-        media_url: post.full_picture,
+        ...metaPostMedia('facebook', post),
         metrics: {
           likes: reactions,
           comments: comments,

@@ -1,3 +1,4 @@
+import { ContentRepair } from "@/components/admin/content-repair";
 import type { Metadata } from "next";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
@@ -19,7 +20,7 @@ export default async function AdminClientsPage() {
   const supabase = createSupabaseServiceClient();
 
   const [{ data: tenants }, { data: accounts }, { data: syncLogs }] = await Promise.all([
-    supabase.from("tenants").select("id,name,slug,is_active,created_at").order("name"),
+    supabase.from("tenants").select("id,name,slug,is_active,is_demo,created_at").order("name"),
     supabase.from("social_accounts").select("tenant_id,platform"),
     supabase
       .from("sync_logs")
@@ -89,6 +90,8 @@ export default async function AdminClientsPage() {
           <Button type="submit">Créer</Button>
         </form>
       </section>
+
+      <ContentRepair userId={profile.id} clients={(tenants ?? []).filter(t=>t.is_active&&!t.is_demo).map(t=>({id:t.id,name:t.name}))} />
 
       <section className="card-surface rounded-2xl p-6 fade-in-up">
         <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-4">
