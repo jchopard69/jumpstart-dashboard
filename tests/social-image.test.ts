@@ -22,3 +22,13 @@ test('image proxy validates bytes and rejects HTML and oversized payloads',async
     assert.equal(await downloadSocialImage('https://scontent.fbcdn.net/a'),null);
   }finally{globalThis.fetch=original;}
 });
+test('PDF converts WebP covers to compact JPEG and rejects corrupt images',async()=>{
+ const sharp=(await import('sharp')).default;
+ const {pdfImageDataUrl}=await import('../lib/social-image');
+ const bytes=await sharp({create:{width:1600,height:900,channels:4,background:{r:20,g:40,b:90,alpha:0.8}}}).webp().toBuffer();
+ const url=await pdfImageDataUrl({bytes,type:'image/webp'});
+ assert.ok(url?.startsWith('data:image/jpeg;base64,'));
+ const metadata=await sharp(Buffer.from(url!.split(',')[1],'base64')).metadata();
+ assert.equal(metadata.format,'jpeg');assert.equal(metadata.width,960);
+ assert.equal(await pdfImageDataUrl({bytes:Buffer.from('invalid'),type:'image/jpeg'}),null);
+});

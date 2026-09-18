@@ -25,13 +25,13 @@ export async function POST(request: Request) {
   if (tenantError || !tenant || tenant.is_demo || !tenant.is_active) return NextResponse.json({error:'Client indisponible.'},{status:403});
   const { data: accounts, error: accountError } = await db.from('social_accounts').select('id,auth_status,platform').eq('tenant_id',tenant.id);
   if (accountError) return NextResponse.json({error:'Lecture des comptes impossible.'},{status:503});
-  let query = db.from('social_posts').select('id,tenant_id,social_account_id,external_post_id,platform,thumbnail_url,media_url,media_type,metrics').eq('tenant_id',tenant.id).order('id').limit(9);
+  let query = db.from('social_posts').select('id,tenant_id,social_account_id,external_post_id,platform,url,thumbnail_url,media_url,media_type,metrics').eq('tenant_id',tenant.id).order('id').limit(9);
   if (body.cursor) query = query.gt('id',body.cursor);
   const { data: rows, error } = await query;
   if (error) return NextResponse.json({error:'Lecture des contenus impossible.'},{status:503});
   const posts = (rows ?? []).slice(0,8);
   const tokens = new Map<string, Promise<string | null>>();
-  const results: {id:string;platform:string;views:boolean;preview:string;issue:string|null}[] = [];
+  const results: {id:string;platform:string;url:string|null;views:boolean;preview:string;issue:string|null}[] = [];
   let next = 0;
   await Promise.all(Array.from({length:Math.min(4,posts.length)},async()=>{
     while(next<posts.length) {
@@ -71,9 +71,9 @@ export async function POST(request: Request) {
           if(saveError)throw new Error('Enregistrement impossible');
         }
         const image = current.media_type === 'text' ? null : await resolveSocialImage(current);
-        results.push({id:post.id,platform:post.platform,views:typeof metrics.views==='number' && (Number(metrics.views)>0||!!metrics._views_collected_at),preview:current.media_type==='text'?'sans visuel':image?'disponible':'indisponible',issue});
+        results.push({id:post.id,platform:post.platform,url:post.url??null,views:typeof metrics.views==='number' && (Number(metrics.views)>0||!!metrics._views_collected_at),preview:current.media_type==='text'?'sans visuel':image?'disponible':'indisponible',issue});
       } catch {
-        results.push({id:post.id,platform:post.platform,views:typeof metrics.views==='number'&&Number(metrics.views)>0,preview:'non vérifié',issue:issue??'Collecte interrompue ou compte à reconnecter'});
+        results.push({id:post.id,platform:post.platform,url:post.url??null,views:typeof metrics.views==='number'&&Number(metrics.views)>0,preview:'non vérifié',issue:issue??'Collecte interrompue ou compte à reconnecter'});
       }
     }
   }));

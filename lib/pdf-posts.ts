@@ -1,4 +1,4 @@
-import { resolveSocialImage, type ImagePost } from "./social-image";
+import { resolveSocialImage, pdfImageDataUrl, type ImagePost } from "./social-image";
 import { readPostMetric } from "./monthly-review";
 import "server-only";
 
@@ -51,11 +51,11 @@ export async function buildPdfPostSummaries(
   // Bound concurrent downloads, not the number of illustrated publications.
   const thumbnails: (string|null)[] = Array(selectedPosts.length).fill(null);
   let next = 0;
-  await Promise.all(Array.from({length:Math.min(8,selectedPosts.length)},async()=>{
+  await Promise.all(Array.from({length:Math.min(4,selectedPosts.length)},async()=>{
     while(next<selectedPosts.length) {
       const index=next++;
       const image = await resolveSocialImage(selectedPosts[index]);
-      if (image && ['image/jpeg','image/png'].includes(image.type)) thumbnails[index] = `data:${image.type};base64,${image.bytes.toString('base64')}`;
+      if (image) thumbnails[index] = await pdfImageDataUrl(image);
     }
   }));
 

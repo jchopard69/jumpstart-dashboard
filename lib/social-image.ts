@@ -1,10 +1,21 @@
 import 'server-only';
+import sharp from 'sharp';
 import { postPreviewCandidates } from './post-preview';
 import { META_CONFIG } from './social-platforms/meta/config';
 import { metaPostMedia, META_POST_MEDIA_FIELDS, type MetaPostMedia } from './social-platforms/meta/post-media';
 
 export type ImagePost = { id?: string; tenant_id?: string; social_account_id?: string; external_post_id?: string;
   platform?: string | null; thumbnail_url?: string | null; media_url?: string | null; media_type?: string | null };
+
+/** Embed compact JPEGs, including when a network serves a WebP or animated GIF. */
+export async function pdfImageDataUrl(image: { bytes: Buffer; type: string }): Promise<string | null> {
+  try {
+    const bytes = await sharp(image.bytes, { limitInputPixels: 20_000_000, animated: false })
+      .rotate().resize({ width: 960, height: 1280, fit: 'inside', withoutEnlargement: true })
+      .flatten({ background: '#ffffff' }).jpeg({ quality: 82 }).toBuffer();
+    return `data:image/jpeg;base64,${bytes.toString('base64')}`;
+  } catch { return null; }
+}
 
 // Only image hosts used by the connected networks. Validate every redirect too.
 export function isSocialImageUrl(value: string): boolean {
