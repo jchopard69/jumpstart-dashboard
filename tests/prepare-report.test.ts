@@ -22,3 +22,31 @@ test("real report preparation does not turn an empty collection into a score or 
   assert.equal(report.postsAnalyzed, 0);
   assert.equal(report.platforms[0].hasCurrentMetrics, false);
 });
+
+test("LNH and WorldSkills PDFs select five posts per network while retaining full statistics", async () => {
+  const posts = ['instagram', 'facebook'].flatMap(platform => Array.from({length:8}, (_,i) => ({
+    id:`${platform}-${i}`, platform, social_account_id:`account-${platform}`, posted_at:'2026-09-10T12:00:00Z',
+    caption:`${platform}-${i}`, media_type:'image', metrics:{views:(i+1)*100,likes:i+1,engagements:i+1},
+  })));
+  const totals={followers:1000,views:3600,reach:0,engagements:36,posts_count:8};
+  const data={
+    totals,prevTotals:totals, metrics:[],prevMetrics:[],posts,lastSync:null,
+    perPlatform:['instagram','facebook'].map(platform=>({platform,totals,prevTotals:totals,available:{views:true,reach:false,engagements:true},delta:totals})),
+    range:{start:new Date(2026,8,1),end:new Date(2026,8,30)},
+    prevRange:{start:new Date(2026,7,1),end:new Date(2026,7,31)},
+  } as unknown as Parameters<typeof prepareReport>[0]['data'];
+  for (const tenantId of ['050d9f12-296e-47f1-91dc-44c38d8dcdd1','e2685522-91a9-4b24-8812-0d9a85b078c9']) {
+    const report=await prepareReport({data,accounts:[],tenantName:'Client',tenantId});
+    assert.equal(report.posts.length,10);
+    assert.equal(report.postsAnalyzed,16);
+    assert.equal(report.postLimitPerPlatform,5);
+    for (const platform of ['instagram','facebook']) {
+      assert.equal(report.posts.filter(p=>p.platform===platform).length,5);
+      assert.equal(report.posts.find(p=>p.caption===`${platform}-0`),undefined);
+      assert.equal(report.platforms.find(p=>p.platform===platform)?.totals.views,3600);
+    }
+  }
+  const other=await prepareReport({data,accounts:[],tenantName:'Autre client',tenantId:'other'});
+  assert.equal(other.posts.length,16);
+  assert.equal(other.postLimitPerPlatform,undefined);
+});

@@ -11,10 +11,11 @@ import type { PdfDocumentProps } from "./pdf-document";
 import type { Platform } from "./types";
 import type { fetchDashboardData, fetchDashboardAccounts } from "./queries";
 
-export async function prepareReport({ data, accounts, tenantName, watermark, accountId }: {
+export async function prepareReport({ data, accounts, tenantName, watermark, accountId, tenantId }: {
   data: Awaited<ReturnType<typeof fetchDashboardData>>;
   accounts: Awaited<ReturnType<typeof fetchDashboardAccounts>>;
   tenantName: string;
+  tenantId?: string;
   watermark?: string;
   accountId?: string;
 }): Promise<PdfDocumentProps> {
@@ -65,8 +66,14 @@ export async function prepareReport({ data, accounts, tenantName, watermark, acc
     perPlatform: data.perPlatform,
     lastSync: data.lastSync,
   });
+  // Limit illustrated content for high-volume clients before downloading previews.
+  // Analyses, KPIs and daily statistics still use the complete dataset.
+  const postLimitPerPlatform = tenantId && [
+    "050d9f12-296e-47f1-91dc-44c38d8dcdd1", // Ligue Nationale de Handball
+    "e2685522-91a9-4b24-8812-0d9a85b078c9", // WorldSkills France
+  ].includes(tenantId) ? 5 : undefined;
   const displayTopPosts = (await Promise.all(data.perPlatform.map(platform =>
-    buildPdfPostSummaries(data.posts.filter(post => post.platform === platform.platform), data.posts.length)
+    buildPdfPostSummaries(data.posts.filter(post => post.platform === platform.platform), postLimitPerPlatform ?? data.posts.length)
   ))).flat();
 
   const documentProps: PdfDocumentProps = {
@@ -91,6 +98,7 @@ export async function prepareReport({ data, accounts, tenantName, watermark, acc
       delta: item.delta,
     })),
     posts: displayTopPosts,
+    postLimitPerPlatform,
     shootDays: data.collaboration?.shoot_days_remaining ?? 0,
     shoots: (data.shoots ?? []).map((shoot) => ({
       date: new Date(shoot.shoot_date).toLocaleDateString("fr-FR"),

@@ -93,6 +93,7 @@ export type PdfDocumentProps = {
   kpis: KpiData[];
   platforms: PlatformSummary[];
   posts: PostSummary[];
+  postLimitPerPlatform?: number;
   shootDays: number;
   shoots: ShootSummary[];
   documents: DocumentSummary[];
@@ -260,7 +261,7 @@ export function PdfDocument(props: PdfDocumentProps) {
       const quality = props.dataQuality?.platformQuality.find(item => item.platform === platform.platform);
       const signals=(props.strategicSignals??[]).filter(s=>s.platform===platform.platform);
       const timing=props.bestTimes?.find(data=>data.platforms.includes(platform.platform));
-      const posts = props.posts.filter(post => post.platform === platform.platform);
+      const posts = props.posts.filter(post => post.platform === platform.platform).slice(0, props.postLimitPerPlatform);
       const postsPerPage = 2;
       const postPages = Array.from({ length: Math.max(1, Math.ceil(posts.length / postsPerPage)) }, (_, page) => posts.slice(page * postsPerPage, (page + 1) * postsPerPage));
       const platformRows = (props.metrics ?? []).filter(row => row.platform === platform.platform);
@@ -289,8 +290,8 @@ export function PdfDocument(props: PdfDocumentProps) {
           <Text style={styles.small}>Même compte et même réseau. Cumuls à la collecte : l’âge, le sujet et une éventuelle promotion des contenus peuvent expliquer les écarts. Ces résultats servent à choisir les formats du prochain brief ; ils ne prouvent pas qu’un format cause une meilleure performance. Les jours sans contenu collecté ne prouvent pas l’absence de publication.</Text>
         </ReportPage>)}
         {postPages.map((pagePosts, page) => <ReportPage props={props} key={`posts-${page}`}>
-          <Heading kicker={platformName(platform.platform)} title="Les publications du mois" subtitle={`Publications collectées, classées par performance relative${postPages.length > 1 ? ` · ${page + 1}/${postPages.length}` : ""}.`} />
-          <Text style={styles.small}>Les cumuls dépendent de l'âge des contenus. Les liens permettent de consulter les originaux ; les résultats peuvent avoir évolué depuis la collecte.</Text>
+          <Heading kicker={platformName(platform.platform)} title={props.postLimitPerPlatform ? `Top ${props.postLimitPerPlatform} du réseau` : "Les publications du mois"} subtitle={`${props.postLimitPerPlatform ? "Sélection des contenus les plus performants parmi les publications collectées" : "Publications collectées"}, classés par performance relative${postPages.length > 1 ? ` · ${page + 1}/${postPages.length}` : ""}.`} />
+          <Text style={styles.small}>{props.postLimitPerPlatform ? "Classement combinant visibilité, interactions et taux d’interaction. Les statistiques du réseau et les analyses portent sur l’ensemble des données collectées. " : ""}Les cumuls dépendent de l'âge des contenus. Les liens permettent de consulter les originaux ; les résultats peuvent avoir évolué depuis la collecte.</Text>
           <PostList posts={pagePosts} offset={page * postsPerPage} />
         </ReportPage>)}
         {chunks.map((rows, page) => <ReportPage props={props} key={page}>

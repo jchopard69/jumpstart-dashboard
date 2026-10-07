@@ -75,7 +75,7 @@ export async function GET(request: Request) {
     const isDemo = Boolean(tenant?.is_demo) || (await isDemoTenant(tenantId));
     const watermark = isDemo && shouldUseDemoPdfWatermark() ? getDemoPdfWatermarkText() : undefined;
 
-    const documentProps = await prepareReport({ data, accounts, tenantName: tenant?.name ?? "Client", watermark, accountId });
+    const documentProps = await prepareReport({ data, accounts, tenantId, tenantName: tenant?.name ?? "Client", watermark, accountId });
 
     const pdfBuffer = await renderToBuffer(PdfDocument(documentProps));
     const safeName = (tenant?.name ?? "client")

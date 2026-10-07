@@ -34,7 +34,7 @@ async function generateTenantPdfBuffer(tenantId: string, frequency: "weekly" | "
     profile, tenantId, preset: "custom", from: period.from, to: period.to,
     platforms: [...new Set(accounts.map(account => account.platform))],
   });
-  const props = await prepareReport({ data, accounts, tenantName: tenant.name, watermark: tenant.is_demo ? "DEMO" : undefined });
+  const props = await prepareReport({ data, accounts, tenantId, tenantName: tenant.name, watermark: tenant.is_demo ? "DEMO" : undefined });
   return Buffer.from(await renderToBuffer(PdfDocument(props)));
 }
 
