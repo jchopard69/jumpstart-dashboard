@@ -369,13 +369,19 @@ export async function triggerTenantSync(formData: FormData) {
   if (!baseUrl) {
     throw new Error("NEXT_PUBLIC_SITE_URL is missing");
   }
-  await fetch(`${baseUrl}/api/cron/sync?tenantId=${tenantId}`, {
+  const platform = formData.get("platform");
+  if (platform && platform !== "youtube") throw new Error("Unsupported targeted sync");
+  const query = new URLSearchParams({ tenantId });
+  if (platform === "youtube") query.set("platform", "youtube");
+  const response = await fetch(`${baseUrl}/api/cron/sync?${query}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`
     }
   });
+  if (!response.ok) throw new Error("La synchronisation n’a pas pu être lancée.");
   revalidatePath(`/admin/clients/${tenantId}`);
+  revalidatePath("/client/dashboard");
 }
 
 export async function resetLinkedInData(formData: FormData) {

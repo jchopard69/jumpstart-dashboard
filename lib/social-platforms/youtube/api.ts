@@ -7,9 +7,10 @@ import { apiRequest, buildUrl } from "../core/api-client";
 import type { Connector, ConnectorSyncResult } from "@/lib/connectors/types";
 import type { DailyMetric, PostMetric } from "../core/types";
 
-const MAX_SYNC_DAYS = 30;
+// Keep the two previous monthly reports available for comparison.
+const MAX_SYNC_DAYS = 90;
 const SEARCH_PAGE_SIZE = 50;
-const MAX_RECENT_VIDEOS = 100;
+const MAX_RECENT_VIDEOS = 500;
 const VIDEO_BATCH_SIZE = 50;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -297,7 +298,8 @@ async function fetchRecentVideoRefs(
     nextPageToken = searchResponse.nextPageToken;
   } while (nextPageToken && videos.length < MAX_RECENT_VIDEOS);
 
-  return videos.slice(0, MAX_RECENT_VIDEOS);
+  if (nextPageToken) throw new Error("YouTube content window exceeds 500 videos; refusing incomplete publication counts.");
+  return videos;
 }
 
 async function fetchVideoDetails(
@@ -385,6 +387,9 @@ export const youtubeConnector: Connector = {
 
     const dailyMap = seedDailyMetrics(since, until);
 
+    if (!hasAnalytics) {
+      throw new Error("YouTube Analytics requires a connected channel. Reconnect YouTube before collecting monthly statistics.");
+    }
     if (hasAnalytics) {
       try {
         const analyticsRows = await fetchDailyAnalytics(
@@ -419,7 +424,8 @@ export const youtubeConnector: Connector = {
           };
         }
       } catch (error) {
-        console.warn("[youtube] Failed to fetch daily analytics, falling back to limited sync:", error);
+        // Never overwrite reliable history with seeded zeros when Analytics fails.
+        throw error;
       }
     }
 

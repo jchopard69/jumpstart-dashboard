@@ -183,6 +183,11 @@ export default async function ClientDetailPage({ params }: { params: { tenantId:
               <input type="hidden" name="tenant_id" value={params.tenantId} />
               <Button type="submit" disabled={isDemoTenant}>Lancer la synchro</Button>
             </form>
+            <form action={triggerTenantSync}>
+              <input type="hidden" name="tenant_id" value={params.tenantId} />
+              <input type="hidden" name="platform" value="youtube" />
+              <Button variant="outline" type="submit" disabled={isDemoTenant}>Recollecter YouTube · 90 jours</Button>
+            </form>
             <form action={resetLinkedInData}>
               <input type="hidden" name="tenant_id" value={params.tenantId} />
               <Button variant="outline" type="submit" disabled={isDemoTenant}>Reset LinkedIn</Button>

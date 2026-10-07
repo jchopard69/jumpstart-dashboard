@@ -187,6 +187,8 @@ describe("YouTube connector analytics sync", () => {
 
       const viewsSum = result.dailyMetrics.reduce((sum, metric) => sum + (metric.views ?? 0), 0);
       assert.equal(viewsSum, 2000);
+      assert.equal(result.dailyMetrics.length, 90);
+      assert.equal(result.dailyMetrics[0].date, new Date(today.getTime() - 89 * DAY_MS).toISOString().slice(0, 10));
 
       const todayMetric = result.dailyMetrics.find((metric) => metric.date === todayKey);
       const yesterdayMetric = result.dailyMetrics.find((metric) => metric.date === yesterdayKey);
@@ -210,4 +212,27 @@ describe("YouTube connector analytics sync", () => {
       else process.env.GOOGLE_CLIENT_SECRET = previousClientSecret;
     }
   });
+});
+
+
+test("YouTube rejects unavailable Analytics instead of returning zeros to persist", async () => {
+  const previous = global.fetch;
+  const oldId = process.env.GOOGLE_CLIENT_ID;
+  const oldSecret = process.env.GOOGLE_CLIENT_SECRET;
+  process.env.GOOGLE_CLIENT_ID = "test";
+  process.env.GOOGLE_CLIENT_SECRET = "test";
+  global.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/channels")) return Response.json({items:[{
+      id:"UC123", snippet:{title:"Test", thumbnails:{}}, statistics:{subscriberCount:"100"}
+    }]});
+    return Response.json({error:{message:"Analytics access denied"}}, {status:403});
+  }) as typeof fetch;
+  try {
+    await assert.rejects(youtubeConnector.sync({tenantId:"tenant", socialAccountId:"account", externalAccountId:"UC123", accessToken:"test"}), /Analytics access denied/);
+  } finally {
+    global.fetch = previous;
+    if (oldId === undefined) delete process.env.GOOGLE_CLIENT_ID; else process.env.GOOGLE_CLIENT_ID = oldId;
+    if (oldSecret === undefined) delete process.env.GOOGLE_CLIENT_SECRET; else process.env.GOOGLE_CLIENT_SECRET = oldSecret;
+  }
 });
