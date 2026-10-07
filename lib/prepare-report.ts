@@ -66,14 +66,10 @@ export async function prepareReport({ data, accounts, tenantName, watermark, acc
     perPlatform: data.perPlatform,
     lastSync: data.lastSync,
   });
-  // Limit illustrated content for high-volume clients before downloading previews.
-  // Analyses, KPIs and daily statistics still use the complete dataset.
-  const postLimitPerPlatform = tenantId && [
-    "050d9f12-296e-47f1-91dc-44c38d8dcdd1", // Ligue Nationale de Handball
-    "e2685522-91a9-4b24-8812-0d9a85b078c9", // WorldSkills France
-  ].includes(tenantId) ? 5 : undefined;
+  // Only illustrated content is limited; every analysis uses the full dataset.
+  const postLimitPerPlatform = 5;
   const displayTopPosts = (await Promise.all(data.perPlatform.map(platform =>
-    buildPdfPostSummaries(data.posts.filter(post => post.platform === platform.platform), postLimitPerPlatform ?? data.posts.length)
+    buildPdfPostSummaries(data.posts.filter(post => post.platform === platform.platform), postLimitPerPlatform)
   ))).flat();
 
   const documentProps: PdfDocumentProps = {

@@ -2,8 +2,7 @@ import { resolveSocialImage, pdfImageDataUrl, type ImagePost } from "./social-im
 import { readPostMetric } from "./monthly-review";
 import "server-only";
 
-import { getPostEngagements, getPostVisibilityDetails, getPostVisibility, hasPostEngagementMeasurement } from "@/lib/metrics";
-import { selectDisplayTopPosts } from "@/lib/top-posts";
+import { getPostEngagements, getPostVisibilityDetails, hasPostEngagementMeasurement } from "@/lib/metrics";
 import { PLATFORM_LABELS, type Platform } from "@/lib/types";
 
 type PdfPostSource = ImagePost & {
@@ -46,8 +45,22 @@ export async function buildPdfPostSummaries(
   posts: PdfPostSource[],
   limit: number
 ): Promise<PdfPostSummary[]> {
-  const ranked = selectDisplayTopPosts(posts, posts.length);
-  const selectedPosts = [...ranked, ...posts.filter(post => !ranked.includes(post))].slice(0, limit);
+  // Use one metric for the whole network: views first, then the available
+  // visibility metric. Never compare views on one post with reach on another.
+  const measured = posts.map(post => ({post, details: getPostVisibilityDetails(post.metrics as any)}));
+  const metricLabel = (["Vues", "Impressions", "Portée", "Spectateurs uniques"] as const)
+    .find(label => measured.some(item => item.details.some(metric => metric.label === label && metric.value > 0)))
+    ?? (["Vues", "Impressions", "Portée", "Spectateurs uniques"] as const)
+      .find(label => measured.some(item => item.details.some(metric => metric.label === label)));
+  if (!metricLabel) return [];
+  const ranked = measured.flatMap(item => {
+    const metric = item.details.find(detail => detail.label === metricLabel);
+    return metric ? [{post: item.post, visibility: {label: metricLabel, value: metric.value}}] : [];
+  }).sort((a, b) => b.visibility.value - a.visibility.value
+    || getPostEngagements(b.post.metrics as any) - getPostEngagements(a.post.metrics as any)
+    || String(b.post.posted_at ?? "").localeCompare(String(a.post.posted_at ?? "")))
+    .slice(0, limit);
+  const selectedPosts = ranked.map(item => item.post);
   // Bound concurrent downloads, not the number of illustrated publications.
   const thumbnails: (string|null)[] = Array(selectedPosts.length).fill(null);
   let next = 0;
@@ -60,7 +73,7 @@ export async function buildPdfPostSummaries(
   }));
 
   return selectedPosts.map((post, index) => {
-    const visibility = getPostVisibility(post.metrics as any, post.media_type, post.platform);
+    const visibility = ranked[index].visibility;
     const engagements = hasPostEngagementMeasurement(post.metrics as any) ? getPostEngagements(post.metrics as any) : null;
     const platform = String(post.platform ?? "");
     const knownPlatform = platform as Platform;
