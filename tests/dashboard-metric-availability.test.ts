@@ -39,3 +39,8 @@ test("historical data still makes a metric available when defaults do not", () =
     }
   );
 });
+
+test('LinkedIn historical impressions in views do not become video views',()=>{
+ const result=getDashboardMetricAvailability('linkedin',{views:5000,reach:800,engagements:40},{views:4000,reach:700,engagements:30});
+ assert.equal(result.views,false);
+});

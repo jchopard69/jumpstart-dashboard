@@ -88,7 +88,8 @@ export async function fetchDashboardData(params: {
     // Keep the stored data and API connector untouched.
     reach: row.platform === "tiktok" ? null : observedNumber(row.reach),
     engagements: observedNumber(row.engagements),
-    views: observedNumber(row.views),
+    // Keep legacy LinkedIn impressions out of every views aggregate.
+    views: row.platform === "linkedin" ? null : observedNumber(row.views),
     watch_time: observedNumber(row.watch_time),
     posts_count: observedNumber(row.posts_count)
   })) as Array<T & {

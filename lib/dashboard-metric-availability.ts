@@ -29,7 +29,8 @@ export function getDashboardMetricAvailability(
   const defaults = DEFAULT_METRIC_AVAILABILITY[platform];
 
   return {
-    views: defaults.views || currentTotals.views > 0 || previousTotals.views > 0,
+    // LinkedIn daily views is a legacy alias for impressions in this connector.
+    views: platform !== "linkedin" && (defaults.views || currentTotals.views > 0 || previousTotals.views > 0),
     // The TikTok connector historically stores video views in this column.
     // Those values are not a measurement of reach, even when nonzero.
     reach: platform !== "tiktok" && platform !== "youtube" && (platform === "facebook" ? currentTotals.reach > 0 : (defaults.reach || currentTotals.reach > 0 || previousTotals.reach > 0)),
