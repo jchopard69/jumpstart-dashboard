@@ -149,8 +149,8 @@ const styles = StyleSheet.create({
   tableRow: { flexDirection: "row", paddingVertical: 7, borderBottom: `0.5 solid ${BORDER}`, fontSize: 9 },
   cell: { flex: 1, paddingHorizontal: 6, textAlign: "right" },
   firstCell: { width: "27%", paddingHorizontal: 6 },
-  post: { flexDirection: "row", gap: 14, borderBottom: `1 solid ${BORDER}`, paddingVertical: 14 },
-  thumbnail: { width: 110, height: 124, objectFit: "cover", borderRadius: 4 },
+  post: { flexDirection: "row", gap: 12, borderBottom: `1 solid ${BORDER}`, paddingVertical: 9 },
+  thumbnail: { width: 67, height: 76, objectFit: "cover", borderRadius: 4 },
   link: { color: ACCENT, fontSize: 9, marginTop: 7 },
   experiment: { paddingVertical: 10, borderBottom: `1 solid ${BORDER}` },
 });
@@ -179,8 +179,8 @@ function ReportPage({ props, children }: { props: PdfDocumentProps; children: Re
 function Heading({ kicker, title, subtitle }: { kicker: string; title: string; subtitle?: string }) {
   return <View minPresenceAhead={80} style={styles.masthead}><Text style={[styles.kicker,{color:"#c6a3ff"}]}>{clean(kicker)}</Text><Text style={[styles.title,{color:"#ffffff"}]}>{clean(title)}</Text>{subtitle && <Text style={[styles.subtitle,{color:"#ddd2eb",marginBottom:0,fontSize:10}]}>{clean(subtitle)}</Text>}</View>;
 }
-function Metric({ label, value, hint, suffix }: { label: string; value: number | null; hint?: string; suffix?: string }) {
-  return <View style={styles.metric} wrap={false}><Text style={styles.small}>{clean(label)}</Text><Text style={styles.metricValue}>{number(value, suffix ? 1 : 0)}{value != null && suffix ? suffix : ""}</Text>{hint && <Text style={[styles.small, { marginTop: 5 }]}>{clean(hint)}</Text>}</View>;
+function Metric({ label, value, hint, suffix, wide = false }: { label: string; value: number | null; hint?: string; suffix?: string; wide?: boolean }) {
+  return <View style={[styles.metric, wide ? {width:"50%",paddingVertical:12} : {}]} wrap={false}><Text style={styles.small}>{clean(label)}</Text><Text style={styles.metricValue}>{number(value, suffix ? 1 : 0)}{value != null && suffix ? suffix : ""}</Text>{hint && <Text style={[styles.small, { marginTop: 5 }]}>{clean(hint)}</Text>}</View>;
 }
 function getPlatformNotes(platform: string): string {
   if (platform === "tiktok") return "TikTok : les statistiques de vidéos sont cumulées et rattachées à leur date de publication. La portée stockée est une approximation issue des vues, pas une audience unique. L'historique d'abonnés peut reprendre le stock actuel ; il ne prouve pas la croissance passée.";
@@ -219,102 +219,48 @@ function DailyTrend({metrics,platform}:{metrics:DashboardMetric[];platform:Platf
   for(const row of rows){const last=segments.at(-1);if(!last||new Date(row.date).getTime()-new Date(last.at(-1)!.date).getTime()>86400000)segments.push([row]);else last.push(row);}
   return <View style={{marginTop:14,marginBottom:8}} wrap={false}><Text style={styles.small}>INTERACTIONS QUOTIDIENNES · maximum {number(max)}</Text><Svg width={500} height={60} viewBox="0 0 500 60"><Line x1={0} y1={55} x2={500} y2={55} stroke={BORDER}/>{segments.map((segment,i)=><Polyline key={i} points={segment.map(r=>`${((new Date(r.date).getTime()-start)/Math.max(1,end-start))*495},${55-(r.engagements!/max)*48}`).join(' ')} fill="none" stroke={ACCENT} strokeWidth={1.7}/>)}</Svg><View style={{flexDirection:'row',justifyContent:'space-between'}}><Text style={styles.small}>{rows[0].date.split('-').reverse().join('/')}</Text><Text style={styles.small}>{rows.at(-1)!.date.split('-').reverse().join('/')}</Text></View></View>;
 }
-function DailyTable({ metrics, platform }: { metrics: DashboardMetric[]; platform: PlatformSummary }) {
-  const rows = buildReportDailyRows(metrics, platform.platform, platform.available);
-  const showReach = platform.available?.reach !== false && !["tiktok","youtube"].includes(platform.platform) && (platform.platform !== "facebook" || platform.totals.reach > 0);
-  return <>
-    <View style={styles.tableHeader}><Text style={styles.firstCell}>Date du relevé</Text><Text style={styles.cell}>Abonnés*</Text><Text style={styles.cell}>Vues</Text>{showReach && <Text style={styles.cell}>Portée**</Text>}<Text style={styles.cell}>Interactions</Text></View>
-    {rows.map(({ date, ...row }) => <View style={[styles.tableRow, { paddingVertical: 3, fontSize: 8, lineHeight: 1.2 }]} key={date} wrap={false}><Text style={styles.firstCell}>{date.split("-").reverse().join("/")}</Text><Text style={styles.cell}>{number(row.followers)}</Text><Text style={styles.cell}>{number(row.views)}</Text>{showReach && <Text style={styles.cell}>{number(row.reach)}</Text>}<Text style={styles.cell}>{number(row.engagements)}</Text></View>)}
-    {!rows.length && <Text style={styles.body}>Aucun relevé quotidien disponible.</Text>}
-    <Text style={[styles.small, { marginTop: 10 }]}>* Somme des comptes disposant d'un relevé ce jour-là, sans report des comptes absents. ** Portée quotidienne cumulée entre comptes. Un jour absent n'est pas un zéro. Sur TikTok, la date correspond à la publication des vidéos, pas au jour de consommation.</Text>
-  </>;
-}
-function PostList({ posts, offset = 0 }: { posts: PostSummary[]; offset?: number }) {
-  if (!posts.length) return <Text style={styles.body}>Aucune publication exploitable dans le périmètre sélectionné.</Text>;
+function PostList({ posts }: { posts: PostSummary[] }) {
+  if (!posts.length) return <Text style={styles.body}>Aucun contenu avec une mesure de visibilité disponible.</Text>;
   return <>{posts.map((post, index) => <View style={styles.post} wrap={false} key={`${post.url}-${index}`}>
-    {/* eslint-disable-next-line jsx-a11y/alt-text */}
-    {post.thumbnailUrl ? <Image style={styles.thumbnail} src={post.thumbnailUrl} /> : <View style={[styles.thumbnail,{backgroundColor:"#f3eff8",justifyContent:"center",padding:8}]}><Text style={styles.small}>Aperçu indisponible</Text></View>}
-    <View style={{ flex: 1 }}><Text style={styles.kicker}>{offset + index + 1}. {clean(post.date)}</Text><Text style={styles.body}>{clean(post.caption.length > 420 ? post.caption.slice(0, 420) + "... (extrait)" : post.caption || "Publication sans légende")}</Text>
-      <Text style={styles.small}>{post.visibility.value > 0 ? `${number(post.visibility.value)} ${post.visibility.label.toLowerCase()}` : "Visibilité non disponible"} · {number(post.engagements)} interactions · ratio {post.engagementRate == null || !Number.isFinite(post.engagementRate) ? "non disponible" : `${number(post.engagementRate, 1)}%`}</Text>
-      {!!post.details?.length && <Text style={[styles.small,{marginTop:5}]}>{post.details.map(item=>`${clean(item.label)}\u00a0: \u00a0${number(item.value)}`).join(" · ")}</Text>}
-      {safeUrl(post.url) && <Link style={styles.link} src={safeUrl(post.url)!}>Consulter la publication originale</Link>}
+    {post.thumbnailUrl ? <Image style={styles.thumbnail} src={post.thumbnailUrl} /> : <View style={[styles.thumbnail,{backgroundColor:"#f3eff8",justifyContent:"center",padding:5}]}><Text style={styles.small}>Sans aperçu</Text></View>}
+    <View style={{flex:1}}>
+      <Text style={[styles.kicker,{fontSize:8,marginBottom:4}]}>{index+1} · {clean(post.date)}</Text>
+      <Text style={[styles.body,{fontSize:9,marginBottom:4,lineHeight:1.25}]}>{clean((post.caption || "Publication sans légende").replace(/\s+/g," ").slice(0,115))}{post.caption.length>115?"...":""}</Text>
+      <Text style={{fontSize:17,fontFamily:"Helvetica-Bold",color:ACCENT}}>{number(post.visibility.value)} <Text style={{fontSize:9}}>{post.visibility.label.toLowerCase()}</Text></Text>
+      <Text style={styles.small}>{number(post.engagements)} interactions{post.engagementRate!=null && Number.isFinite(post.engagementRate)?` · ratio ${number(post.engagementRate,1)}%`:""}</Text>
+      {safeUrl(post.url) && <Link style={[styles.link,{fontSize:8,marginTop:3}]} src={safeUrl(post.url)!}>Voir la publication</Link>}
     </View>
   </View>)}</>;
 }
 export function PdfDocument(props: PdfDocumentProps) {
-
-  return <Document title={`Rapport social media - ${props.tenantName} - ${props.rangeLabel}`} author="JumpStart Studio" subject="Bilan mensuel et statistiques détaillées par plateforme" language="fr-FR">
+  return <Document title={`Rapport social media - ${props.tenantName} - ${props.rangeLabel}`} author="JumpStart Studio" subject="Bilan mensuel, résultats par réseau et top 5 des contenus" language="fr-FR">
     <ReportPage props={props}>
-      <Heading kicker="Votre bilan social media" title={props.tenantName} subtitle={`${props.rangeLabel} · Édité le ${props.generatedAt}`} />
-      <Text style={styles.small}>Comparaison : {clean(props.prevRangeLabel)}. Les filtres et comptes inclus sont détaillés dans les chapitres par plateforme.</Text>
-      <View style={styles.scoreRow}>
-        <View style={styles.score}><Text style={[styles.kicker, { letterSpacing: .3, fontSize: 8 }]}>Score JumpStart</Text><Text style={styles.scoreValue}>{props.score ? props.score.global : "N/D"}</Text><Text style={styles.small}>sur 100 · {props.score?.grade ?? "-"}{"\n"}Indice interne, barème v1</Text></View>
-        <View style={{ flex: 1 }}><Text style={styles.h3}>La période en bref</Text><Text style={styles.body}>{clean(props.executiveSummary ?? "Lisez les résultats par plateforme pour apprécier cette période.")}</Text><Text style={styles.small}>Couverture : {number(props.dataQuality?.overallCoverage)}% · {props.postsAnalyzed ?? props.posts.length} publications examinées. La couverture indique la présence des données, pas leur exactitude.</Text></View>
-      </View>
-      <View style={styles.metrics}>{props.kpis.filter(kpi => !kpi.suffix).map(kpi => <Metric key={kpi.label} label={kpi.label} value={kpi.value} hint={kpi.delta == null ? "Comparaison non disponible" : `${kpi.delta > 0 ? "+" : ""}${number(kpi.delta, 1)}% vs période précédente`} />)}</View>
-      <View style={styles.note}><Text style={styles.small}>Les audiences et portées ne sont pas dédupliquées entre comptes ou jours. Les définitions diffèrent selon le réseau. Ne pas assimiler les cumuls de vues à des personnes uniques. Le score ne constitue pas une référence sectorielle.</Text></View>
-      <Text style={styles.h2}>Dans ce rapport</Text>
-      {props.platforms.map((platform, index) => <Text key={platform.platform} style={styles.body}>{`${String(index + 1).padStart(2, "0")}  ${platformName(platform.platform)} : chiffres, lecture des résultats, contenus et relevés.`}</Text>)}
-      <Text style={styles.body}>Puis : variations par réseau, méthode de calcul et qualité des données.</Text>
+      <Heading kicker="Bilan social media" title={props.tenantName} subtitle={props.rangeLabel}/>
+      <Text style={styles.small}>Comparé au {clean(props.prevRangeLabel)} · Édité le {clean(props.generatedAt)}</Text>
+      <View style={styles.metrics}>{props.kpis.filter(kpi=>!kpi.suffix).map(kpi=><Metric wide key={kpi.label} label={kpi.label} value={kpi.value} hint={kpi.delta==null?"Comparaison indisponible":`${kpi.delta>0?"+":""}${number(kpi.delta,1)}% vs mois précédent`}/>)}</View>
+      <View style={styles.summary}><Text style={styles.h3}>Le mois en bref</Text><Text style={[styles.body,{marginBottom:0}]}>{clean(props.executiveSummary ?? "Consultez les résultats par réseau dans les pages suivantes.")}</Text></View>
+      <Text style={styles.h2}>Les résultats par réseau</Text>
+      <View style={styles.tableHeader}><Text style={styles.firstCell}>Réseau</Text><Text style={styles.cell}>Vues*</Text><Text style={styles.cell}>Interactions</Text><Text style={styles.cell}>Publications</Text></View>
+      {props.platforms.map(platform=><View style={styles.tableRow} wrap={false} key={platform.platform}><Text style={styles.firstCell}>{platformName(platform.platform)}</Text><Text style={styles.cell}>{platform.hasCurrentMetrics===false || platform.available?.views===false || platform.measured?.views===false ? "N/D":number(platform.totals.views)}</Text><Text style={styles.cell}>{platform.hasCurrentMetrics===false || platform.measured?.engagements===false ? "N/D":number(platform.totals.engagements)}</Text><Text style={styles.cell}>{number(platform.totals.posts_count)}</Text></View>)}
+      <View style={styles.note}><Text style={styles.small}>* Les définitions de visibilité diffèrent selon le réseau. Vues et impressions ne représentent pas des personnes uniques. N/D : donnée indisponible. Les comparaisons non exploitables sont signalées.</Text><Text style={[styles.small,{marginTop:5}]}>Couverture des relevés : {number(props.dataQuality?.overallCoverage)}% · {props.postsAnalyzed ?? props.posts.length} publications collectées. Tous les résultats du mois sont inclus ; seules les illustrations sont limitées au top 5.</Text></View>
     </ReportPage>
-    {props.platforms.map((platform, index) => {
-      const quality = props.dataQuality?.platformQuality.find(item => item.platform === platform.platform);
-      const signals=(props.strategicSignals??[]).filter(s=>s.platform===platform.platform);
-      const timing=props.bestTimes?.find(data=>data.platforms.includes(platform.platform));
-      const posts = props.posts.filter(post => post.platform === platform.platform).slice(0, props.postLimitPerPlatform);
-      const postsPerPage = 2;
-      const postPages = Array.from({ length: Math.max(1, Math.ceil(posts.length / postsPerPage)) }, (_, page) => posts.slice(page * postsPerPage, (page + 1) * postsPerPage));
-      const platformRows = (props.metrics ?? []).filter(row => row.platform === platform.platform);
-      const dates = [...new Set(platformRows.map(row => row.date))].sort();
-      const chunks = Array.from({ length: Math.max(1, Math.ceil(dates.length / 31)) }, (_, page) => {
-        const included = new Set(dates.slice(page * 31, (page + 1) * 31));
-        return platformRows.filter(row => included.has(row.date));
-      });
+    {props.platforms.map(platform=>{
+      const quality=props.dataQuality?.platformQuality.find(item=>item.platform===platform.platform);
+      const posts=props.posts.filter(post=>post.platform===platform.platform).slice(0,5);
       return <React.Fragment key={platform.platform}>
         <ReportPage props={props}>
-          <Heading kicker={`Plateforme ${String(index + 1).padStart(2, "0")}`} title={platformName(platform.platform)} subtitle={platform.accountNames?.join(" · ") || "Comptes inclus dans la sélection"} />
-          <Text style={styles.small}>Période : {clean(props.rangeLabel)} · Comparaison : {clean(props.prevRangeLabel)}</Text>
-          <PlatformStats platform={platform} />
-          <DailyTrend metrics={platformRows} platform={platform}/>
-
-
-          <View style={styles.note}><Text style={styles.small}>{quality ? `Couverture du canal : ${quality.coverage}%. ` : "Couverture non mesurée. "}{clean(getPlatformNotes(platform.platform))}</Text></View>
+          <Heading kicker="Résultats du mois" title={platformName(platform.platform)} subtitle={platform.accountNames?.join(" · ") || props.rangeLabel}/>
+          <Text style={styles.small}>{clean(props.rangeLabel)} · Comparaison : {clean(props.prevRangeLabel)}</Text>
+          <PlatformStats platform={platform}/>
+          <DailyTrend metrics={(props.metrics ?? []).filter(row=>row.platform===platform.platform)} platform={platform}/>
+          <View style={styles.note}><Text style={styles.small}>{quality?`Couverture : ${quality.coverage}%. `:""}{clean(getPlatformNotes(platform.platform))}</Text></View>
         </ReportPage>
-        {(signals.length>0 || timing) && <ReportPage props={props}><Heading kicker={platformName(platform.platform)} title="Du bilan au prochain brief" subtitle={`Publications du ${props.rangeLabel} · propositions à valider avec JumpStart.`}/>{signals.map(signal=><View key={signal.title} style={styles.experiment} wrap={false}><Text style={styles.h3}>{clean(signal.title)}</Text><Text style={styles.body}>{clean(signal.observation)}</Text><Text style={styles.small}>Hypothèse : {clean(signal.interpretation)}</Text><Text style={[styles.h3,{marginTop:10}]}>{clean(signal.format??"À produire")}</Text><Text style={styles.body}>{clean(signal.angle??signal.interpretation)}</Text>{signal.steps?signal.steps.map((step,index)=><Text key={index} style={styles.body}>{index+1}. {clean(step)}</Text>):<Text style={styles.body}>{clean(signal.action)}</Text>}<Text style={styles.small}>À mesurer : {clean(signal.measure)}</Text><Text style={styles.small}>{clean(signal.limitation)}</Text>{safeUrl(signal.url)&&<Link style={styles.link} src={signal.url!}>Consulter le contenu de référence</Link>}</View>)}{(props.bestTimes??[]).filter(t=>t.platforms.includes(platform.platform)).map(timing=><View key={timing.accountId??timing.platforms.join('-')} style={styles.summary} wrap={false}><Text style={styles.h3}>Quand publier · {clean(timing.accountName??platformName(platform.platform))} · heure de Paris</Text><Text style={styles.body}>Créneau le plus performant observé : {clean(timing.bestDay)} {clean(timing.bestHour)}. {timing.bestSlotCount} publication(s) sur ce créneau, {timing.totalPostsAnalyzed} analysées. Mesure : {clean(timing.metricLabel.toLowerCase())} moyennes.</Text><Text style={styles.small}>Le sujet, le format, l’âge et la diffusion peuvent expliquer les écarts. Ce créneau constitue une piste, pas une garantie de performance.</Text></View>)}</ReportPage>}
-        {(props.contentObservatory??[]).filter(a=>a.platform===platform.platform).map((account,accountIndex)=><ReportPage props={props} key={`formats-${account.key}`}>
-          <Heading kicker={platformName(platform.platform)} title="Formats & régularité" subtitle={`Compte ${accountIndex+1} · ${account.count} publications collectées · ${account.activeDays} jours avec publication.`}/>
-          {account.topShare!=null&&<View style={styles.summary}><Text style={styles.h3}>{Math.round(account.topShare)} % des interactions concentrées sur {account.topCount} contenu{account.topCount>1?'s':''}</Text><Text style={styles.body}>Les 20 % de contenus les plus performants (arrondis au supérieur), parmi {account.measured} publications avec interactions mesurées. Les publications sans mesure sont exclues.</Text></View>}
-          <Text style={styles.h3}>Résultat médian par publication</Text>
-          <Text style={styles.small}>La moitié des contenus fait mieux, l’autre moitié fait moins. Au moins 3 mesures sont requises ; « — » indique un échantillon insuffisant.</Text>
-          {account.formats.map(format=><View key={format.format} style={styles.experiment} wrap={false}><Text style={styles.h3}>{format.format} · {format.count} publications</Text>{([['engagements','Interactions'],['comments','Commentaires'],['shares','Partages'],['saves','Enregistrements']] as const).map(([key,label])=><Text key={key} style={styles.body}>{label} : {format[key].median==null?'—':number(format[key].median)} · {format[key].count}/{format.count} contenus mesurés</Text>)}</View>)}
-          <Text style={styles.small}>Même compte et même réseau. Cumuls à la collecte : l’âge, le sujet et une éventuelle promotion des contenus peuvent expliquer les écarts. Ces résultats servent à choisir les formats du prochain brief ; ils ne prouvent pas qu’un format cause une meilleure performance. Les jours sans contenu collecté ne prouvent pas l’absence de publication.</Text>
-        </ReportPage>)}
-        {postPages.map((pagePosts, page) => <ReportPage props={props} key={`posts-${page}`}>
-          <Heading kicker={platformName(platform.platform)} title={props.postLimitPerPlatform ? `Top ${props.postLimitPerPlatform} du réseau` : "Les publications du mois"} subtitle={`${props.postLimitPerPlatform ? "Sélection parmi les publications collectées" : "Publications collectées"}, classés par vues décroissantes (ou la mesure de visibilité disponible)${postPages.length > 1 ? ` · ${page + 1}/${postPages.length}` : ""}.`} />
-          <Text style={styles.small}>{props.postLimitPerPlatform ? "Priorité aux vues ; si elles sont indisponibles sur le réseau, classement par impressions, portée ou spectateurs uniques. La mesure utilisée est indiquée pour chaque contenu. Les publications sans cette mesure sont exclues du top. Les statistiques du réseau et les analyses portent sur l’ensemble des données collectées. " : ""}Les cumuls dépendent de l'âge des contenus. Les liens permettent de consulter les originaux ; les résultats peuvent avoir évolué depuis la collecte.</Text>
-          <PostList posts={pagePosts} offset={page * postsPerPage} />
-        </ReportPage>)}
-        {chunks.map((rows, page) => <ReportPage props={props} key={page}>
-          <Heading kicker={platformName(platform.platform)} title="Le détail des relevés" subtitle={`Les chiffres disponibles, jour par jour${chunks.length > 1 ? ` · ${page + 1}/${chunks.length}` : ""}.`} />
-          <DailyTable metrics={rows} platform={platform} />
-        </ReportPage>)}
+        <ReportPage props={props}>
+          <Heading kicker={platformName(platform.platform)} title="Top 5 des contenus" subtitle="Les publications les plus vues du mois"/>
+          <PostList posts={posts}/>
+          <View style={styles.note}><Text style={styles.small}>Classement par vues ; à défaut sur ce réseau, par la mesure de visibilité indiquée. Les contenus sans cette mesure sont exclus. Cumuls disponibles à la collecte : l’âge et une éventuelle promotion peuvent influencer les résultats.</Text></View>
+        </ReportPage>
       </React.Fragment>;
     })}
-    <ReportPage props={props}>
-      <Heading kicker="Bilan de direction" title="Ce qui a changé" subtitle="Contribution de chaque réseau à l’évolution des interactions." />
-      {props.platforms.map(platform => <View key={platform.platform} style={styles.experiment} wrap={false}><Text style={styles.h3}>{platformName(platform.platform)}</Text><Text style={styles.body}>{platform.hasCurrentMetrics === false || !platform.prevTotals ? "Comparaison indisponible." : `${number(platform.totals.engagements)} interactions, contre ${number(platform.prevTotals.engagements)} : écart de ${number(platform.totals.engagements-platform.prevTotals.engagements)} (${evolution(platform.totals.engagements,platform.prevTotals.engagements)}).`}</Text><Text style={styles.small}>Ces écarts décomposent les résultats ; ils n’identifient pas leurs causes. Les contenus présentés dans les chapitres précédents permettent de préparer la discussion.</Text></View>)}
-    </ReportPage>
-    <ReportPage props={props}>
-      <Heading kicker="Pour bien interpréter" title="Méthode et qualité des données" />
-      <Text style={styles.h3}>Périmètre et collecte</Text><Text style={styles.body}>Le rapport reprend les données synchronisées pour les comptes et dates sélectionnés. Une connexion active ne garantit pas la disponibilité de toutes les métriques. N/D signifie non disponible ou non interprétable ; un zéro peut aussi provenir d'une donnée absente dans un ancien relevé.</Text>
-      <Text style={styles.h3}>Comparaisons</Text><Text style={styles.body}>Évolution = (valeur actuelle - valeur précédente) / valeur précédente. Si la base précédente est nulle ou absente, le pourcentage est non comparable. Un mois civil complet est comparé au mois civil précédent, même si leurs durées diffèrent. Une plage libre est comparée à la plage précédente de même durée. Les comparaisons restent descriptives si les comptes, la couverture ou les sources diffèrent.</Text>
-      <Text style={styles.h3}>Portée, vues et interactions</Text><Text style={styles.body}>La portée cumulée additionne des relevés qui peuvent inclure plusieurs fois une même personne. Les vues et impressions ne sont pas interchangeables avec une audience unique. Le ratio d'interactions utilise les vues disponibles, sinon la portée ; aucun benchmark sectoriel n'est appliqué. Les interactions ne constituent pas une mesure de ventes ou de retour sur investissement.</Text>
-      <Text style={styles.h3}>Score JumpStart</Text><Text style={styles.body}>Barème interne v1 : croissance 25%, portée 25%, engagement 25%, régularité 15%, momentum 10%. Références internes : cadence de 12 publications par mois, croissance de 3% sur la période, ratio d'interactions de 3% correspondant à 70/100. Certaines données absentes sont neutralisées, d'autres peuvent pénaliser le score. Comparez le score à durée, périmètre et couverture similaires.</Text>
-      {props.score?.subScores.map(sub => <Text key={sub.label} style={styles.small}>{clean(sub.label)} : {number(sub.value)} / 100</Text>)}
-      <Text style={styles.h2}>État de la collecte</Text>
-      {props.dataQuality?.platformQuality.map(item => <Text key={item.platform} style={styles.body}>{platformName(item.platform)} : {item.coverage}% de couverture sur {item.accounts} compte(s). {item.missingMetrics.length ? `Métriques à contrôler : ${item.missingMetrics.map(metric => ({ views: "vues", reach: "portée", engagements: "interactions" }[metric])).join(", ")}.` : ""}</Text>)}
-      <Text style={styles.small}>{props.dataQuality?.staleSync ? "La dernière synchronisation est ancienne, absente ou n'a pas abouti. Vérifier la collecte avant de conclure." : "La date d'édition du rapport n'est pas la date de collecte de chaque métrique."}</Text>
-      {props.dataQuality?.actions.map(action => <Text key={action} style={[styles.small, { marginTop: 6 }]}>{clean(action)}</Text>)}
-    </ReportPage>
   </Document>;
 }
