@@ -1,3 +1,4 @@
+import { retainedPostExtras } from "@/lib/post-metric-extras";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { mergeMetaPostMetrics } from "./social-platforms/meta/post-insights";
 import { coerceMetric } from "@/lib/metrics";
@@ -321,7 +322,8 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
                 media_views: mediaViews,
                 engagements,
                 impressions,
-                reach
+                reach,
+                ...retainedPostExtras(account.platform, incomingMetrics, existingMetrics)
               },
               raw_json: null
             };
