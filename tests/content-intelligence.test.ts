@@ -32,3 +32,7 @@ test('concentration requires sufficient measured content and no positive denomin
  const result=buildContentIntelligence([1000,0,0,0,0].map((v,i)=>post(String(i),v)),now)[0];assert.equal(result.topShare,100);
  const zero=buildContentIntelligence([0,0,0,0,0].map((v,i)=>post(String(i),v)),now)[0];assert.equal(zero.topShare,null);assert.equal(zero.formats[0].visibilityShare,null);
 });
+test('a third comparable format is considered when the nearest challenger is close',()=>{
+ const posts=[['Carrousel',56000],['Reel',49000],['Image',38000]].flatMap(([format,value])=>Array.from({length:3},(_,i)=>post(String(format)+i,Number(value),String(format))));
+ const result=buildContentIntelligence(posts,now)[0];assert.equal(result.opportunity?.best.format,'Carrousel');assert.equal(result.opportunity?.other.format,'Image');
+});

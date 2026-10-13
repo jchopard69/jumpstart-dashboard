@@ -48,7 +48,7 @@ export function buildContentIntelligence(posts: ReviewPost[], now = Date.now()):
     }).sort((a,b) => (b.median ?? -1) - (a.median ?? -1));
     const reliable = formats.filter(f => f.median != null && f.mature > 0 && f.eligible / f.mature >= .8);
     const best = reliable[0];
-    const other = best && reliable.find(f => f !== best && f.median! > 0 && best.age != null && f.age != null && Math.max(best.age,f.age)/Math.min(best.age,f.age) <= 2);
+    const other = best && reliable.find(f => f !== best && f.median! > 0 && (best.median! / f.median! - 1) * 100 >= 25 && best.age != null && f.age != null && Math.max(best.age,f.age)/Math.min(best.age,f.age) <= 2);
     const lift = best && other ? (best.median! / other.median! - 1) * 100 : 0;
     return {key, platform:first.platform, accountId:first.accountId, unit, posts:group,
       measured:measured.length, total:measured.length ? total : null, topShare:total>0 && measured.length>=5 ? top.reduce((s,p)=>s+value(p)!,0)/total*100 : null,
