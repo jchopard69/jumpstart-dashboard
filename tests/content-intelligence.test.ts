@@ -1,24 +1,34 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {buildContentIntelligence} from '../lib/content-intelligence';
-import type {ReviewChannel,ReviewPost} from '../lib/monthly-review';
+import type {ReviewPost} from '../lib/monthly-review';
 const now=Date.parse('2026-10-13T12:00:00Z');
-function channel(overrides:Partial<ReviewChannel>={}):ReviewChannel{return {platform:'instagram',hasCurrent:true,hasPrevious:true,coverage:100,previousCoverage:100,available:{views:true,engagements:true,reach:false},totals:{views:5000,engagements:50,followers:100,posts_count:5,reach:0},prevTotals:{views:10000,engagements:50,followers:100,posts_count:5,reach:0},...overrides};}
-function post(id:string,views:number|null,accountId='a',date='2026-09-01'):ReviewPost{return{id,platform:'instagram',accountId,date,format:'Reel',caption:'Montage de la structure à Reims',thumbnail:null,url:'https://example.com/'+id,visibility:views,visibilityLabel:'Vues',engagements:30,likes:25,comments:5,shares:0,saves:0};}
-test('partial or missing measures create collection signals instead of performance claims',()=>{
- assert.equal(buildContentIntelligence([channel({coverage:70})],[],now).watch[0].kind,'coverage');
- for(const overrides of [{previousCoverage:50},{hasPrevious:false},{measured:{views:false,engagements:true,followers:true,reach:true}},{previousMeasured:{views:false,engagements:true,followers:true,reach:true}}])assert.equal(buildContentIntelligence([channel(overrides)],[],now).watch.length,0);
+function post(id:string,views:number|null,format='Reel',accountId='a',date='2026-09-01'):ReviewPost{return{id,platform:'instagram',accountId,date,format,caption:'Sujet concret',thumbnail:null,url:null,visibility:views,visibilityLabel:'Vues',engagements:30,likes:25,comments:5,shares:0,saves:0};}
+test('format medians resist exceptional hits and representatives are typical',()=>{
+ const result=buildContentIntelligence([100,110,120,10000].map((v,i)=>post('r'+i,v)),now)[0];
+ assert.equal(result.formats[0].median,115);assert.equal(result.formats[0].representative?.id,'r1');assert.equal(result.topShare,null);
 });
-test('measured decline is explicit and small bases do not trigger noisy alerts',()=>{
- const alert=buildContentIntelligence([channel()],[],now).watch[0];assert.equal(alert.kind,'decline');assert.match(alert.proof,/5.?000.*10.?000/);
- assert.equal(buildContentIntelligence([channel({prevTotals:{views:500,engagements:0,followers:0,posts_count:0,reach:0}})],[],now).watch.length,0);
+test('accounts and units are isolated; LinkedIn impressions retain their definition',()=>{
+ const impressions=[100,200,300].map((v,i)=>({...post('i'+i,v,'Texte','b'),platform:'linkedin' as const,visibilityLabel:'Impressions'}));
+ const result=buildContentIntelligence([...impressions,post('video',10,'Vidéo','b'),post('other',99999,'Reel','c')],now);
+ assert.equal(result.length,3);assert.equal(result[0].unit,'impressions');assert.equal(result[0].total,600);
+ const mixed=buildContentIntelligence([...impressions,{...post('realviews',10,'Vidéo','b'),platform:'linkedin' as const}],now)[0];
+ assert.equal(mixed.unit,'vues');assert.equal(mixed.measured,1);assert.equal(mixed.total,10);
 });
-test('a production reference retains its source and excludes young or unmatched posts',()=>{
- const posts=[post('top',1000),post('one',100),post('two',100),post('three',100),post('recent',5000,'a','2026-10-12'),post('unmatched',10000,'b'),post('missing',null)];
- const result=buildContentIntelligence([],posts,now);assert.equal(result.references.length,1);assert.equal(result.references[0].post.id,'top');assert.equal(result.references[0].baseline,100);assert.match(result.references[0].brief,/https:\/\/example.com\/top/);assert.match(result.references[0].action,/Reims/);assert.equal(result.pending,1);assert.equal(result.missingViews,1);
+test('missing is not zero; recent and invalid dates cannot enter a format baseline',()=>{
+ const result=buildContentIntelligence([post('zero',0),post('missing',null),post('young',100,'Reel','a','2026-10-12'),post('invalid',200,'Reel','a','')],now)[0];
+ assert.equal(result.measured,3);assert.equal(result.formats[0].eligible,1);assert.equal(result.formats[0].median,null);
+ assert.equal(buildContentIntelligence([post('none',null)],now)[0].total,null);
 });
-test('LinkedIn references keep the impressions label and do not mix units',()=>{
- const posts=[1000,100,100,100].map((value,i)=>({...post(String(i),value),platform:'linkedin' as const,visibilityLabel:'Impressions'}));
- const result=buildContentIntelligence([],posts,now);assert.equal(result.references[0].metricLabel,'impressions');assert.match(result.references[0].brief,/impressions/);assert.equal(result.references[0].metricValue,1000);
- const withViews=[...posts,{...post('video',1500),platform:'linkedin' as const}];assert.equal(buildContentIntelligence([],withViews,now).references.length,0);
+test('a concrete opportunity needs enough measures, coverage and similar ages',()=>{
+ const reels=[1000,1100,1200].map((v,i)=>post('r'+i,v));
+ const images=[100,110,120].map((v,i)=>post('i'+i,v,'Image'));
+ const result=buildContentIntelligence([...reels,...images],now)[0];assert.equal(result.opportunity?.lift,900);assert.equal(result.formats.reduce((s,f)=>s+f.visibilityShare!,0),100);
+ for(const additions of [[post('missing',null)],[post('missing',null),post('missing2',null)]])assert.equal(buildContentIntelligence([...reels,...images,...additions],now)[0].opportunity,null);
+ assert.equal(buildContentIntelligence([...reels,...images.map(p=>({...p,date:'2026-05-01'}))],now)[0].opportunity,null);
+ assert.equal(buildContentIntelligence([...reels,...images].map(p=>({...p,accountId:''})),now)[0].opportunity,null);
+});
+test('concentration requires sufficient measured content and no positive denominator is invented',()=>{
+ const result=buildContentIntelligence([1000,0,0,0,0].map((v,i)=>post(String(i),v)),now)[0];assert.equal(result.topShare,100);
+ const zero=buildContentIntelligence([0,0,0,0,0].map((v,i)=>post(String(i),v)),now)[0];assert.equal(zero.topShare,null);assert.equal(zero.formats[0].visibilityShare,null);
 });
