@@ -1,11 +1,12 @@
 "use client";
 
+import { ContentIntelligence } from "./content-intelligence";
+
 
 import { assessContentPerformance } from "@/lib/content-performance";
 import { consolidatedChange, monthlyReading } from "@/lib/monthly-reading";
 import { publicationDay } from "@/lib/content-observatory";
 import { ContentObservatory } from "./content-observatory";
-import { buildStrategicReading } from "@/lib/strategic-reading";
 import { buildPreviousRange, toIsoDate } from '@/lib/date';
 import { BestTimeHeatmap } from "@/components/dashboard/best-time-heatmap";
 import type { BestTimeData } from "@/lib/best-time";
@@ -19,7 +20,7 @@ import type { JumpStartScore } from '@/lib/scoring';
 
 type Props = { bestTimes?: BestTimeData[]; period: string; previousPeriod: string; from: string; to: string; channels: ReviewChannel[]; posts: ReviewPost[]; rows: ReviewRow[]; previousRows: ReviewRow[]; score: JumpStartScore | null; sources: React.ReactNode; header: React.ReactNode };
 const metrics: ReviewMetric[] = ['views','engagements','followers','posts_count'];
-const tabs = [{id:'bilan',label:'Bilan du mois'}, {id:'contenus',label:'Explorer les contenus'}, {id:'production',label:'Formats & cadence'}, {id:'conseils',label:'Conseils'}, {id:'horaires',label:'Quand publier'}, {id:'sources',label:'Sources & méthode'}] as const;
+const tabs = [{id:'bilan',label:'Bilan & statistiques'}, {id:'conseils',label:'À suivre'}, {id:'contenus',label:'Explorer les contenus'}, {id:'production',label:'Formats & cadence'}, {id:'horaires',label:'Quand publier'}, {id:'sources',label:'Sources & méthode'}] as const;
 const signed = (v: number | null) => v == null ? '—' : `${v>0?'+':''}${n(v)}`;
 const date = (value: string) => value ? new Date(value).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) : 'Date non disponible';
 function Change({value}:{value:number|null}) { return <span className={`review-change ${value==null?'':value>0?'positive':value<0?'negative':''}`}>{value!=null && value!==0 && (value>0?<ArrowUpRight size={14}/>:<ArrowDownRight size={14}/>)}{value==null?'Non comparable':`${signed(Math.round(value*10)/10)} %`}</span>; }
@@ -37,7 +38,6 @@ export function MonthlyWorkspace(p:Props) {
   const totalChanges = metrics.map(key=>({key,...consolidatedChange(p.channels,key)}));
   const reading=monthlyReading(p.channels);
   const drivers=buildDrivers(p.channels,metric);const current=totalChanges.find(d=>d.key===metric)!;
-  const strategicSignals=useMemo(()=>buildStrategicReading(p.posts),[p.posts]);
   const performances=useMemo(()=>assessContentPerformance(p.posts),[p.posts]);
   const matching=useMemo(()=>filterReviewPosts(p.posts,query,platform,format,sort),[p.posts,query,platform,format,sort]);
   const filtered=matching.filter(post=>performanceFilter==='all'||performances.get(post.id)?.kind===performanceFilter);
@@ -88,7 +88,7 @@ export function MonthlyWorkspace(p:Props) {
 
 
     </div>}
-    {tab==='conseils'&&<div className="review-panel">      <section className="review-strategy"><div className="review-section-title"><div><span className="review-eyebrow">Du résultat au prochain brief</span><h2>Conseils pour vos prochains contenus</h2><p>Publications du {p.period}. Des propositions créatives appuyées sur vos résultats, à valider avec JumpStart.</p></div></div>{strategicSignals.length?<div className="review-signal-grid">{strategicSignals.map(signal=><article key={`${signal.platform}-${signal.title}`}><span className="review-eyebrow">{PLATFORM_LABELS[signal.platform]}</span><h3>{signal.title}</h3><p className="review-signal-proof">{signal.observation}</p><p className="review-small"><strong>Hypothèse à vérifier. </strong>{signal.interpretation}</p><div className="review-advice-action"><span className="review-eyebrow">Proposition créative</span><h4>{signal.format}</h4><p><strong>L’angle : </strong>{signal.angle}</p><ol className="review-advice-steps">{signal.steps?.map((step,index)=><li key={index}>{step}</li>)}</ol><p className="review-small mt-3"><strong>À mesurer. </strong>{signal.measure}</p><p className="review-small">{signal.limitation}</p></div><button className="review-text-button" onClick={()=>setDetail(p.posts.find(post=>post.id===signal.postId)??null)}>Voir le contenu et ses chiffres <ArrowRight size={14}/></button></article>)}</div>:<p className="review-small">Les données de cette sélection ne suffisent pas à distinguer un contenu parmi au moins trois publications du même compte et du même format. Explorez les contenus pour préparer une lecture avec l’agence.</p>}</section><p className="review-notice">Ces recommandations reposent sur les résultats collectés de vos publications. Les compteurs ne révèlent ni le sentiment des commentaires, ni les ventes générées, ni les causes d’une variation. Votre équipe JumpStart complète cette lecture avec le contexte des campagnes et vos objectifs.</p></div>}
+    {tab==='conseils'&&<ContentIntelligence channels={p.channels} posts={p.posts} period={p.period} onOpen={setDetail} onSources={()=>setTab('sources')} onExplore={(network,filter)=>{drill(network);setPerformanceFilter(filter);setSort(network==='linkedin'?'visibility':filter==='low'?'views_asc':'views');}}/>}
     {tab==='production'&&<ContentObservatory posts={p.posts} from={p.from} to={p.to} onOpen={setDetail}/>}
     {tab==='horaires'&&<div className="review-panel">      <section className="space-y-5" aria-label="Meilleur moment pour publier"><div className="review-section-title"><div><h3>Meilleur moment pour publier</h3><p>Vos créneaux observés, réseau par réseau, en heure de Paris.</p></div></div>{(p.bestTimes??[]).map(data=><BestTimeHeatmap key={data.accountId??data.platforms.join('-')} data={data}/>)}{!(p.bestTimes??[]).length&&<p className="review-empty">Pas encore assez de données pour comparer les horaires sur ce périmètre. Il faut au moins 5 publications mesurées, réparties sur 3 créneaux, avec des résultats non nuls.</p>}</section></div>}
     {tab==='sources'&&<div className="review-panel"><div className="review-section-title"><div><h2>Sources & méthode</h2><p>Ce qui est collecté, ce qui manque et ce que l’on peut comparer.</p></div></div><div className="review-notice">Une métrique indisponible n’est pas remplacée par un chiffre inventé. Les vues, impressions et portées gardent leur propre libellé. Les audiences ne sont pas dédupliquées entre réseaux.</div>{p.sources}{p.score&&<details><summary>Calcul du score JumpStart · {p.score.global}/100</summary><p className="review-small">Indice interne conservé : croissance 25 %, portée 25 %, engagement 25 %, régularité 15 %, momentum 10 %. Ce n’est pas un benchmark sectoriel. Les différences de périmètre ou de collecte limitent sa comparaison.</p></details>}</div>}
