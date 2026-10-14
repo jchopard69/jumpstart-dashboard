@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { decryptToken } from "@/lib/crypto";
-import { fetchInstagramMediaBackfill, fetchInstagramReachSeries, fetchInstagramTotalValueSnapshot, buildInstagramDailyMetrics } from "@/lib/social-platforms/meta/backfill";
+import { collectInstagramDays, instagramDates } from "@/lib/social-platforms/meta/account-insights";
+import { getValidAccessToken } from "@/lib/social-platforms/core/token-manager";
 import { fetchLinkedInDailyStats, fetchLinkedInPostsBackfill } from "@/lib/social-platforms/linkedin/backfill";
 import { normalizeLinkedInFollowerSeries } from "@/lib/social-platforms/linkedin/community";
 import { apiRequest, buildUrl } from "@/lib/social-platforms/core/api-client";
@@ -36,10 +37,7 @@ export async function POST(request: Request) {
   const tenantId = searchParams.get("tenantId");
   const socialAccountId = searchParams.get("socialAccountId");
   const lookbackDays = Number(searchParams.get("days") ?? 365);
-  const includeViews = searchParams.get("includeViews") !== "false";
   const sinceDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
-  const since = Math.floor(sinceDate.getTime() / 1000);
-  const until = Math.floor(Date.now() / 1000);
 
   const supabase = createSupabaseServiceClient();
   const { data: accounts, error } = await supabase
@@ -241,112 +239,29 @@ export async function POST(request: Request) {
         continue;
       }
 
-      const [dailyReach, posts, totalValues] = await Promise.all([
-        fetchInstagramReachSeries({
-          externalAccountId: account.external_account_id,
-          accessToken,
-          since,
-          until
-        }),
-        fetchInstagramMediaBackfill({
-          externalAccountId: account.external_account_id,
-          accessToken,
-          sinceDate,
-          includeViews
-        }),
-        fetchInstagramTotalValueSnapshot({
-          externalAccountId: account.external_account_id,
-          accessToken,
-          since,
-          until
-        })
-      ]);
-
-      const accountInfoUrl = buildUrl(`${META_CONFIG.graphUrl}/${account.external_account_id}`, {
-        fields: "followers_count",
-        access_token: accessToken
+      // Account-period views must come from account insights, never lifetime post totals.
+      const token = await getValidAccessToken(account.id);
+      if (!token) throw new Error("Compte Instagram à reconnecter");
+      const dates = instagramDates().filter(day => new Date(day + "T00:00:00Z") >= sinceDate);
+      const collected = await collectInstagramDays(dates, async (day, metrics) => {
+        const dayStart = Math.floor(new Date(day + "T00:00:00Z").getTime() / 1000);
+        return apiRequest("instagram", buildUrl(`${META_CONFIG.graphUrl}/${account.external_account_id}/insights`, {
+          metric: metrics.join(","), period: "day", metric_type: "total_value",
+          since: dayStart, until: dayStart + 86400, access_token: token
+        }), { timeout: 10000 }, `instagram_backfill_${account.id}`, true);
       });
-      const accountInfo: { followers_count?: number } = await apiRequest(
-        "instagram",
-        accountInfoUrl,
-        {},
-        "account_info_backfill"
-      );
-      const followers = Number(accountInfo.followers_count ?? 0);
-
-      const dailyMetrics = buildInstagramDailyMetrics({
-        posts,
-        dailyReach,
-        followers
-      });
-
-      const snapshotDate = new Date().toISOString().slice(0, 10);
-      if (Object.keys(totalValues).length) {
-        dailyMetrics.push({
-          date: snapshotDate,
-          followers,
-          impressions: 0,
-          reach: dailyReach.get(snapshotDate) ?? 0,
-          engagements:
-            totalValues.accounts_engaged ??
-            totalValues.total_interactions ??
-            0,
-          likes: totalValues.likes ?? 0,
-          comments: totalValues.comments ?? 0,
-          shares: totalValues.shares ?? 0,
-          saves: totalValues.saves ?? 0,
-          views: totalValues.views ?? totalValues.content_views ?? 0,
-          watch_time: 0,
-          posts_count: 0,
-          raw_json: totalValues
-        });
+      for (const row of collected.rows) {
+        const { error: writeError } = await supabase.from("social_daily_metrics").upsert([{
+          tenant_id: account.tenant_id, social_account_id: account.id, platform: "instagram",
+          date: row.date, views: row.views, raw_json: row.raw_json,
+          ...(row.reach != null ? { reach: row.reach } : {}),
+          ...(row.engagements != null ? { engagements: row.engagements } : {})
+        }], { onConflict: "tenant_id,platform,social_account_id,date", defaultToNull: false });
+        if (writeError) throw new Error("Enregistrement des statistiques Instagram impossible");
       }
-
-      if (posts.length) {
-        await supabase.from("social_posts").upsert(
-          posts.map((post) => ({
-            tenant_id: account.tenant_id,
-            platform: account.platform,
-            social_account_id: account.id,
-            external_post_id: post.external_post_id,
-            posted_at: post.posted_at,
-            url: post.url,
-            caption: post.caption,
-            media_type: post.media_type,
-            thumbnail_url: post.thumbnail_url,
-            media_url: post.media_url,
-            metrics: post.metrics ?? {},
-            raw_json: post.raw_json ?? null
-          })),
-          { onConflict: "tenant_id,platform,social_account_id,external_post_id" }
-        );
-      }
-
-      if (dailyMetrics.length) {
-        await supabase.from("social_daily_metrics").upsert(
-          dailyMetrics.map((metric) => ({
-            tenant_id: account.tenant_id,
-            platform: account.platform,
-            social_account_id: account.id,
-            date: metric.date,
-            followers: metric.followers ?? 0,
-            impressions: metric.impressions ?? 0,
-            reach: metric.reach ?? 0,
-            engagements: metric.engagements ?? 0,
-            likes: metric.likes ?? 0,
-            comments: metric.comments ?? 0,
-            shares: metric.shares ?? 0,
-            saves: metric.saves ?? 0,
-            views: metric.views ?? 0,
-            watch_time: metric.watch_time ?? 0,
-            posts_count: metric.posts_count ?? 0,
-            raw_json: metric.raw_json ?? null
-          })),
-          { onConflict: "tenant_id,platform,social_account_id,date" }
-        );
-      }
-
-      results.push({ id: account.id, platform: account.platform, status: "ok", message: `posts:${posts.length}, days:${dailyMetrics.length}` });
+      results.push({ id: account.id, platform: account.platform,
+        status: collected.failed.length ? "partial" : "ok",
+        message: `days:${collected.rows.length}, unavailable:${collected.failed.length}; account insights only (89-day maximum)` });
     } catch (backfillError: any) {
       results.push({ id: account.id, platform: account.platform, status: "failed", message: backfillError?.message ?? "Unknown error" });
     }

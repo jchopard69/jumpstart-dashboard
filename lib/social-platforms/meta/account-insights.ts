@@ -28,3 +28,11 @@ export async function collectInstagramDays(days:string[],request:AccountRequest)
   await Promise.all(Array.from({length:Math.min(4,days.length)},async()=>{while(cursor<days.length){const day=days[cursor++];try{rows.push(await collectInstagramDay(day,request));}catch(error){failed.push(day);issues.push({day,message:(error instanceof Error?error.message:'Mesure indisponible').replace(/https?:\/\/\S+/g,'[URL]').slice(0,180)});}}}));
   return {rows:rows.sort((a,b)=>a.date.localeCompare(b.date)),failed,issues};
 }
+
+/** Legacy zero-filled/proportionally distributed rows are not authoritative observations. */
+export function verifiedInstagramMetric(value:unknown,raw:unknown,key='views'):number|null {
+ if(!raw||typeof raw!=='object')return null;
+ const source=raw as Record<string,unknown>;
+ if(source._ig_daily_views_version!==IG_DAILY_VERSION||typeof source[key]!=='number')return null;
+ return typeof value==='number'&&Number.isFinite(value)&&value>=0?value:null;
+}

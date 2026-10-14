@@ -68,3 +68,8 @@ test("computeDashboardDataQuality treats absent metric rows as missing", () => {
   assert.equal(quality.platformQuality[0]?.status, "missing");
   assert.deepEqual(quality.platformQuality[0]?.missingMetrics, ["views", "reach", "engagements"]);
 });
+
+test('Instagram stock or publication placeholders do not masquerade as account-view coverage',()=>{
+ const result=computeDashboardDataQuality({range:{start:new Date('2026-08-01'),end:new Date('2026-08-02')},accounts:[{id:'a',platform:'instagram'}],metrics:[{date:'2026-08-01',platform:'instagram',social_account_id:'a',views:100,followers:8000},{date:'2026-08-02',platform:'instagram',social_account_id:'a',views:null,followers:8000,engagements:20,posts_count:3}],perPlatform:[],lastSync:null});
+ assert.equal(result.platformQuality[0].coverage,50);
+});

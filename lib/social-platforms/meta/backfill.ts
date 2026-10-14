@@ -84,7 +84,7 @@ export async function fetchInstagramTotalValueSnapshot(params: {
   while (windowStart <= until) {
     const windowEnd = Math.min(until, windowStart + maxWindow);
     let nextUrl: string | undefined = buildUrl(`${GRAPH_URL}/${externalAccountId}/insights`, {
-      metric: META_CONFIG.instagramTotalValueMetrics.join(","),
+      metric: ["views", "reach", "total_interactions"].join(","),
       period: "day",
       metric_type: "total_value",
       since: windowStart,

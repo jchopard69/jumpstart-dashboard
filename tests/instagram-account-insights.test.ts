@@ -17,3 +17,11 @@ test('routine recovery covers historical days and refreshes the recent week with
  const now=Date.parse('2026-10-14T12:00:00Z');const all=instagramDates(now);assert.equal(all.length,89);assert.ok(all.includes('2026-08-01'));assert.equal(all.at(-1),'2026-10-13');
  const known=Object.fromEntries(all.map(day=>[day,1]));assert.equal(instagramDates(now,known).length,7);
 });
+test('old totals and placeholders cannot become certified account measures',async()=>{
+ const {verifiedInstagramMetric}=await import('../lib/social-platforms/meta/account-insights');
+ assert.equal(verifiedInstagramMetric(5000,null),null);
+ assert.equal(verifiedInstagramMetric(5000,{views:5000}),null);
+ assert.equal(verifiedInstagramMetric(0,{_ig_daily_views_version:1,views:0}),0);
+ assert.equal(verifiedInstagramMetric(250000,{_ig_daily_views_version:1,views:250000}),250000);
+ assert.equal(verifiedInstagramMetric(100,{_ig_daily_views_version:1,views:250000},'reach'),null);
+});

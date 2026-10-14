@@ -50,9 +50,9 @@ test("one populated account cannot hide a missing second account", () => {
     range: resolveDateRange("custom", "2026-05-01", "2026-05-02"),
     accounts: [{ id: "a", platform: "instagram" }, { id: "b", platform: "instagram" }],
     metrics: [
-      { date: "2026-05-01", social_account_id: "a", platform: "instagram", followers: 100 },
-      { date: "2026-05-02", social_account_id: "a", platform: "instagram", followers: 110 },
-      { date: "2026-05-03", social_account_id: "b", platform: "instagram", followers: 100 },
+      { date: "2026-05-01", social_account_id: "a", platform: "instagram", views: 100, followers: 100 },
+      { date: "2026-05-02", social_account_id: "a", platform: "instagram", views: 110, followers: 110 },
+      { date: "2026-05-03", social_account_id: "b", platform: "instagram", views: 100, followers: 100 },
     ],
     perPlatform: [], lastSync: { status: "failed", finished_at: new Date().toISOString() },
   });

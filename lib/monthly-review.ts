@@ -17,8 +17,9 @@ export function metricChange(current: number | null, previous: number | null): M
 }
 export function channelChange(channel: ReviewChannel, metric: ReviewMetric): MetricChange {
   const available = metric !== 'views' && metric !== 'engagements' || channel.available[metric];
+  const completeComparison = channel.platform !== 'instagram' || (metric !== 'views' && metric !== 'engagements') || (channel.coverage === 100 && channel.previousCoverage === 100);
   return metricChange(available && (metric === 'posts_count' || (channel.hasCurrent && channel.measured?.[metric] !== false)) ? channel.totals[metric] : null,
-    available && channel.prevTotals && (metric === 'posts_count' || (channel.hasPrevious && channel.previousMeasured?.[metric] !== false)) ? channel.prevTotals[metric] : null);
+    completeComparison && available && channel.prevTotals && (metric === 'posts_count' || (channel.hasPrevious && channel.previousMeasured?.[metric] !== false)) ? channel.prevTotals[metric] : null);
 }
 export function buildDrivers(channels: ReviewChannel[], metric: ReviewMetric) {
   return channels.map(channel => ({ platform: channel.platform, label: PLATFORM_LABELS[channel.platform], coverage: channel.coverage, previousCoverage: channel.previousCoverage, ...channelChange(channel, metric) }))

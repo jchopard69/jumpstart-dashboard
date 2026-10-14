@@ -1,3 +1,4 @@
+import {verifiedInstagramMetric} from "@/lib/social-platforms/meta/account-insights";
 import { observedNumber, measuredFields } from "./measurement";
 import { readAllRows } from "@/lib/paginated-read";
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
@@ -39,14 +40,14 @@ export async function fetchDashboardData(params: {
 
   let metricsQuery = supabase
     .from("social_daily_metrics")
-    .select("date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform", { count: "exact" })
+    .select("date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform,raw_json", { count: "exact" })
     .eq("tenant_id", tenantId)
     .gte("date", toIsoDate(range.start))
     .lte("date", toIsoDate(range.end));
 
   let prevQuery = supabase
     .from("social_daily_metrics")
-    .select("date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform", { count: "exact" })
+    .select("date,followers,impressions,reach,engagements,views,watch_time,posts_count,social_account_id,platform,raw_json", { count: "exact" })
     .eq("tenant_id", tenantId)
     .gte("date", toIsoDate(prevRange.start))
     .lte("date", toIsoDate(prevRange.end));
@@ -77,8 +78,9 @@ export async function fetchDashboardData(params: {
     views?: number | string | null;
     watch_time?: number | string | null;
     posts_count?: number | string | null;
-  }>(rows?: T[]) => (rows ?? []).map((row) => ({
-    ...row,
+    raw_json?: Record<string,unknown>|null;
+  }>(rows?: T[]) => (rows ?? []).map((row) => {const {raw_json,...safeRow}=row;return ({
+    ...safeRow,
     date: String(row.date ?? ""),
     platform: (row.platform ?? null) as Platform | null,
     social_account_id: row.social_account_id ? String(row.social_account_id) : null,
@@ -86,13 +88,13 @@ export async function fetchDashboardData(params: {
     impressions: observedNumber(row.impressions),
     // Exclude the legacy TikTok views proxy from every aggregate and chart.
     // Keep the stored data and API connector untouched.
-    reach: row.platform === "tiktok" ? null : observedNumber(row.reach),
-    engagements: observedNumber(row.engagements),
+    reach: row.platform === "tiktok" ? null : row.platform === "instagram" ? verifiedInstagramMetric(observedNumber(row.reach),raw_json,'reach') : observedNumber(row.reach),
+    engagements: row.platform === 'instagram' ? verifiedInstagramMetric(observedNumber(row.engagements),raw_json,'total_interactions') : observedNumber(row.engagements),
     // Keep legacy LinkedIn impressions out of every views aggregate.
-    views: row.platform === "linkedin" ? null : observedNumber(row.views),
+    views: row.platform === "linkedin" ? null : row.platform === "instagram" ? verifiedInstagramMetric(observedNumber(row.views),raw_json) : observedNumber(row.views),
     watch_time: observedNumber(row.watch_time),
     posts_count: observedNumber(row.posts_count)
-  })) as Array<T & {
+  });}) as Array<T & {
     followers: number | null;
     impressions: number | null;
     reach: number | null;

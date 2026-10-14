@@ -38,10 +38,8 @@ export async function POST(request:Request) {
   });
   if(!result.rows.length&&result.failed.length)return NextResponse.json({error:result.issues[0]?.message??'Vues non fournies par Meta',failed:result.failed},{status:503});
   for(const row of result.rows) {
-   const {data:old,error:readError}=await db.from('social_daily_metrics').select('raw_json').eq('tenant_id',account.tenant_id).eq('social_account_id',account.id).eq('date',row.date).maybeSingle();
-   if(readError)throw new Error('Lecture historique impossible');
    const payload={tenant_id:account.tenant_id,social_account_id:account.id,platform:'instagram',date:row.date,views:row.views,
-    ...(row.reach!=null?{reach:row.reach}:{}),...(row.engagements!=null?{engagements:row.engagements}:{}),raw_json:{...(old?.raw_json??{}),...row.raw_json}};
+    ...(row.reach!=null?{reach:row.reach}:{}),...(row.engagements!=null?{engagements:row.engagements}:{}),raw_json:row.raw_json};
    const {error}=await db.from('social_daily_metrics').upsert([payload],{onConflict:'tenant_id,platform,social_account_id,date',defaultToNull:false});
    if(error)throw new Error('Enregistrement impossible');
   }

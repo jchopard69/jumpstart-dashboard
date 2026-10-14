@@ -38,25 +38,6 @@ export const META_CONFIG = {
     'instagram_business_account{id,username,profile_picture_url,followers_count}',
   ].join(','),
 
-  // Instagram insights: time-series metrics
-  instagramTimeSeriesMetrics: [
-    'reach',
-  ],
-  // Instagram insights: total_value metrics (require metric_type=total_value)
-  instagramTotalValueMetrics: [
-    'profile_views',
-    'website_clicks',
-    'accounts_engaged',
-    'total_interactions',
-    'likes',
-    'comments',
-    'shares',
-    'saves',
-    'replies',
-    'views',
-    'content_views',
-  ],
-
   // Fields for Facebook page insights
   // See: https://developers.facebook.com/docs/graph-api/reference/page/insights
   // Based on official Meta API documentation (2025)

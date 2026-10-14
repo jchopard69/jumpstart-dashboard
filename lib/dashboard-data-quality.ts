@@ -50,6 +50,8 @@ function getDaysInclusive(range?: { start: Date; end: Date }): number {
 }
 
 function hasMetricSignal(row: MetricLike): boolean {
+  // Instagram coverage must represent authoritative account views, not post-count placeholders.
+  if(row.platform === "instagram")return row.views != null && Number.isFinite(row.views) && row.views >= 0;
   return [row.followers, row.views, row.reach, row.engagements, row.posts_count]
     .some(value => value != null && Number.isFinite(value) && value >= 0);
 }
