@@ -1,3 +1,4 @@
+import { countCalendarDays, toIsoDate } from "@/lib/date";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { DashboardMetric, SyncStatusInfo } from "@/lib/types/dashboard";
@@ -40,8 +41,8 @@ export function SyncStatus({ lastSync, range, metrics = [] }: SyncStatusProps) {
 
   const coverage = (() => {
     if (!range) return null;
-    const totalDays = Math.max(1, Math.ceil((range.end.getTime() - range.start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-    const uniqueDays = new Set(metrics.map((row) => row.date)).size;
+    const totalDays = Math.max(1, countCalendarDays(range));
+    const uniqueDays = new Set(metrics.filter(row => row.date >= toIsoDate(range.start) && row.date <= toIsoDate(range.end)).map(row => row.date)).size;
     const percent = Math.round((uniqueDays / totalDays) * 100);
     return { totalDays, uniqueDays, percent };
   })();
@@ -93,14 +94,14 @@ export function SyncStatus({ lastSync, range, metrics = [] }: SyncStatusProps) {
         {coverage && (
           <div className="mt-4 space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Couverture données</span>
+              <span>Présence de relevés</span>
               <span className="font-medium tabular-nums text-foreground">{coverage.percent}%</span>
             </div>
             <div className="h-1.5 rounded-full bg-muted/30 overflow-hidden">
               <div className="jumpstart-accent-line h-full transition-all duration-700 ease-out" style={{ width: `${Math.min(100, coverage.percent)}%` }} />
             </div>
             <p className="text-[11px] text-muted-foreground tabular-nums">
-              {coverage.uniqueDays} jours couverts sur {coverage.totalDays}
+              {coverage.uniqueDays} jours avec relevés sur {coverage.totalDays}
             </p>
           </div>
         )}
