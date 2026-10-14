@@ -63,6 +63,7 @@ test('the Instagram connector paginates beyond 100 posts and retrieves image vis
     const url=new URL(String(input));
     let body:unknown={data:[]};
     if(url.pathname.endsWith('/test-ig')) body={followers_count:200,media_count:101};
+    else if(url.pathname.endsWith('/test-ig/insights')) body={data:[{name:'views',total_value:{value:1729}}]};
     else if(url.pathname.endsWith('/media')) {
       const page=Number(url.searchParams.get('page')??0);
       const count=page===2?1:50;
@@ -74,11 +75,11 @@ test('the Instagram connector paginates beyond 100 posts and retrieves image vis
     return new Response(JSON.stringify(body),{status:200,headers:{'content-type':'application/json'}});
   };
   try {
-    const result=await instagramConnector.sync({tenantId:'test',socialAccountId:'test',externalAccountId:'test-ig',accessToken:'test-only'});
+    const result=await instagramConnector.sync({tenantId:'test',socialAccountId:'test',externalAccountId:'test-ig',accessToken:'test-only',instagramInsightDates:['2026-08-20']});
     assert.equal(result.posts.length,101);assert.equal(seen.length,101);
     assert.ok(seen.every(metrics=>metrics.includes('views')));
     assert.ok(result.posts.every(p=>p.metrics?.views===4321));
-    assert.ok(result.dailyMetrics.every(row=>(row.views??0)===0),'Lifetime post views must not inflate daily account views');
+    assert.equal(result.dailyMetrics.find(row=>row.date==='2026-08-20')?.views,1729,'Lifetime post views must not inflate daily account views');
   }finally{globalThis.fetch=original;}
 });
 test('the Facebook connector retrieves visibility after post 40 without manufacturing reach',async()=>{

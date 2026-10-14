@@ -1,3 +1,4 @@
+import {instagramDates} from "@/lib/social-platforms/meta/account-insights";
 import { retainedPostExtras } from "@/lib/post-metric-extras";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { mergeMetaPostMetrics } from "./social-platforms/meta/post-insights";
@@ -107,6 +108,15 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
         if (historyError) throw new Error(`Post insight history unavailable: ${historyError.message}`);
         for (const row of history ?? []) postInsightsCheckedAt[row.external_post_id] = Number((row.metrics as Record<string, unknown>)?._visibility_checked_at) || 0;
       }
+      const existingIG = new Map<string,Record<string,unknown>>();
+      if(account.platform==='instagram') {
+        const {data:history,error}=await supabase.from('social_daily_metrics')
+          .select('date,followers,impressions,reach,engagements,likes,comments,shares,saves,views,watch_time,posts_count,raw_json')
+          .eq('tenant_id',tenantId).eq('social_account_id',account.id)
+          .gte('date',new Date(Date.now()-90*86400000).toISOString().slice(0,10));
+        if(error)throw new Error('Historique Instagram indisponible');
+        for(const row of history??[])existingIG.set(row.date,row);
+      }
       const result = await connector.sync({
         tenantId,
         socialAccountId: account.id,
@@ -114,6 +124,7 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
         accessToken,
         refreshToken,
         postInsightsCheckedAt,
+        instagramInsightDates:account.platform==='instagram'?instagramDates(Date.now(),Object.fromEntries([...existingIG].map(([day,row])=>[day,Number((row.raw_json as Record<string,unknown>)?._ig_daily_views_version)||0]))):undefined,
       });
 
       if (account.platform === "linkedin" && result.dailyMetrics.length) {
@@ -203,7 +214,14 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
       }
 
       if (result.dailyMetrics.length) {
-        const metricsPayload = result.dailyMetrics.map((metric) => ({
+        const metricsPayload = result.dailyMetrics.map((metric) => {
+          if(account.platform==='instagram') {
+            const old=existingIG.get(metric.date)??{};
+            return {tenant_id:tenantId,platform:account.platform,social_account_id:account.id,date:metric.date,
+              ...Object.fromEntries(['followers','impressions','reach','engagements','likes','comments','shares','saves','views','watch_time','posts_count'].map(key=>[key,(metric as unknown as Record<string,unknown>)[key]??old[key]??null])),
+              raw_json:metric.raw_json};
+          }
+          return ({
           tenant_id: tenantId,
           platform: account.platform,
           social_account_id: account.id,
@@ -220,7 +238,7 @@ export async function runTenantSync(tenantId: string, platform?: Platform) {
           watch_time: coerceMetric(metric.watch_time),
           posts_count: coerceMetric(metric.posts_count),
           raw_json: null
-        }));
+        });});
         const { error: metricsError } = await supabase.from("social_daily_metrics").upsert(metricsPayload, {
           onConflict: "tenant_id,platform,social_account_id,date"
         });

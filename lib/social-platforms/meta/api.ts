@@ -1,3 +1,4 @@
+import { collectInstagramDays, instagramDates } from './account-insights';
 /**
  * Meta (Facebook + Instagram) API client for fetching analytics
  */
@@ -184,19 +185,10 @@ function mapInsightsToDaily(
 export const instagramConnector: Connector = {
   platform: 'instagram',
 
-  async sync({ externalAccountId, accessToken, postInsightsCheckedAt }) {
+  async sync({ externalAccountId, accessToken, postInsightsCheckedAt, instagramInsightDates }) {
     if (!accessToken) {
       throw new Error('Missing Meta access token for Instagram');
     }
-
-    // Insights range (Meta IG API supports 30-day windows)
-    const end = new Date();
-    end.setUTCHours(23, 59, 59, 999);
-    const start = new Date(end);
-    start.setUTCDate(end.getUTCDate() - 29);
-    start.setUTCHours(0, 0, 0, 0);
-    const since = Math.floor(start.getTime() / 1000);
-    const until = Math.floor(end.getTime() / 1000);
 
     // Fetch account info
     const accountInfoUrl = buildUrl(`${GRAPH_URL}/${externalAccountId}`, {
@@ -211,68 +203,19 @@ export const instagramConnector: Connector = {
       'account_info'
     );
 
-    const fetchInsights = async (
-      metrics: string[],
-      label: string,
-      metricType?: "total_value"
-    ) => {
-      let nextUrl: string | undefined = buildUrl(`${GRAPH_URL}/${externalAccountId}/insights`, {
-        metric: metrics.join(','),
-        period: 'day',
-        metric_type: metricType,
-        since: since,
-        until: until,
-        access_token: accessToken,
+    const accountDays = await collectInstagramDays(instagramInsightDates ?? instagramDates(), async (day, metrics) => {
+      const from = new Date(day+'T00:00:00Z');
+      const url = buildUrl(`${GRAPH_URL}/${externalAccountId}/insights`, {
+        metric:metrics.join(','),period:'day',metric_type:'total_value',
+        since:Math.floor(from.getTime()/1000),until:Math.floor(from.getTime()/1000)+86400,
+        access_token:accessToken,
       });
-      const collected: MetaInsight[] = [];
-
-      while (nextUrl) {
-        const insightsResponse: MetaInsightsResponse = await apiRequest<MetaInsightsResponse>(
-          'instagram',
-          nextUrl,
-          {},
-          label
-        );
-        if (insightsResponse.data?.length) {
-          collected.push(...insightsResponse.data);
-        }
-        nextUrl = insightsResponse.paging?.next;
-      }
-
-      return collected;
-    };
-
-    let insights: MetaInsight[] = [];
-    try {
-      const timeSeries = META_CONFIG.instagramTimeSeriesMetrics.length
-        ? await fetchInsights(META_CONFIG.instagramTimeSeriesMetrics, 'insights_time_series')
-        : [];
-      const totals = META_CONFIG.instagramTotalValueMetrics.length
-        ? await fetchInsights(META_CONFIG.instagramTotalValueMetrics, 'insights_total', 'total_value')
-        : [];
-      insights = [...timeSeries, ...totals];
-    } catch (error) {
-      console.warn('[instagram] Failed to fetch insights:', error);
-    }
-
-    // Build daily metrics
-    const fallbackDate = new Date().toISOString().slice(0, 10);
-    const dailyMetrics = mapInsightsToDaily(insights, {
-      followers: accountInfo.followers_count ?? 0,
-      posts_count: 0, // Will be calculated from posts, not total account media count
-    }, fallbackDate);
-
-    // If no insights data, create a single metric for today
-    if (dailyMetrics.length === 0) {
-      dailyMetrics.push({
-        date: new Date().toISOString().slice(0, 10),
-        followers: accountInfo.followers_count ?? 0,
-        posts_count: accountInfo.media_count ?? 0,
-        impressions: 0,
-        reach: 0,
-        engagements: 0,
-      });
-    }
+      return apiRequest('instagram',url,{timeout:10000},`account_daily_insights_${externalAccountId}`,true);
+    });
+    if(accountDays.failed.length) console.warn(`[instagram] ${accountDays.failed.length} daily observations unavailable; existing data preserved`);
+    if(!accountDays.rows.length && (instagramInsightDates??instagramDates()).length) throw new Error('Vues journalières Instagram indisponibles ; historique conservé.');
+    const dailyMetrics:DailyMetric[] = accountDays.rows.map(row=>({...row,posts_count:0}));
+    dailyMetrics.push({date:new Date().toISOString().slice(0,10),followers:accountInfo.followers_count,raw_json:{_ig_stock_snapshot:true}});
 
     // Fetch recent media with bounded pagination.
     const allMedia: MetaMediaItem[] = [];
@@ -376,11 +319,9 @@ export const instagramConnector: Connector = {
       for (const post of posts) {
         if (!post.posted_at) continue;
         const date = post.posted_at.slice(0, 10);
-        const entry = dailyMap.get(date) ?? { date };
+        const entry = dailyMap.get(date);
+        if (!entry) continue;
         entry.posts_count = (entry.posts_count ?? 0) + 1;
-        entry.engagements =
-          (entry.engagements ?? 0) +
-          ((post.metrics?.likes ?? 0) + (post.metrics?.comments ?? 0));
         entry.followers = entry.followers ?? accountInfo.followers_count ?? 0;
         dailyMap.set(date, entry);
       }

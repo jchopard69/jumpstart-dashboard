@@ -1,3 +1,4 @@
+import {InstagramRepair} from "@/components/admin/instagram-repair";
 import { ContentRepair } from "@/components/admin/content-repair";
 import type { Metadata } from "next";
 import { getSessionProfile, requireAdmin } from "@/lib/auth";
@@ -91,6 +92,7 @@ export default async function AdminClientsPage() {
         </form>
       </section>
 
+      <InstagramRepair/>
       <details className="admin-maintenance"><summary>Maintenance des mesures et des aperçus</summary><ContentRepair userId={profile.id} clients={(tenants ?? []).filter(t=>t.is_active&&!t.is_demo).map(t=>({id:t.id,name:t.name}))} /></details>
 
       <section className="card-surface rounded-2xl p-6 fade-in-up">
